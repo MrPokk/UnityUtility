@@ -1,3 +1,4 @@
+#if UNITY_EDITOR
 using UnityEngine;
 using UnityEditor;
 
@@ -27,7 +28,7 @@ public class ScriptRebuildButton : EditorWindow
     private static void RebuildScripts()
     {
         AssetDatabase.Refresh();
-        Debug.Log("Scripts Rebuilt!");
+        Debug.Log("Scripts Rebuilt");
     }
 
     [MenuItem("Tools/Clear Console")] // Create menu entry to clear console (for convenience)
@@ -38,3 +39,4 @@ public class ScriptRebuildButton : EditorWindow
         clearMethod.Invoke(null, null);
     }
 }
+#endif
