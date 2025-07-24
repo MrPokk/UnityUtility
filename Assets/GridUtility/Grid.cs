@@ -67,7 +67,9 @@ namespace Utility.Grid
                 }
             return false;
         }
-        //Attention: not optimized, as it is not cached between operations.
+        /// <summary>
+        /// Warning: not optimized, as it is not cached between operations.
+        /// </summary>
         public bool AddRandomPos(T value)
         {
             if (Count == MaxCount) return false;

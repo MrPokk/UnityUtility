@@ -9,6 +9,8 @@ namespace Utility.Grid
         public Vector2 SizeSell;
         public Vector2 Offset;
         protected virtual Vector2 PosStart => transform.position;
+
+#if UNITY_EDITOR
         [SerializeField]
         private bool _Draw = true;
         [SerializeField]
@@ -19,8 +21,10 @@ namespace Utility.Grid
         private Color _ColorFont = Color.white;
         [SerializeField]
         private int _SizeFont = 20;
+#endif
         public void Awake()
         {
+            Grid = new Grid<T>(Size);
             Init();
         }
         public virtual void Init() => Grid.Init(Size);
@@ -31,11 +35,36 @@ namespace Utility.Grid
         public Vector2Int WorldToGrid(Vector2 pos)
         {
             pos -= PosStart;
-            return new Vector2Int((int)(pos.x / SizeSell.x + pos.x / Offset.x), (int)(pos.y / SizeSell.y + pos.y / Offset.y));
+            return new Vector2Int(Mathf.FloorToInt(pos.x / (SizeSell.x + Offset.x)), Mathf.FloorToInt(pos.y / (SizeSell.y + Offset.y)));
         }
         public Vector2 GridToWorld(Vector2Int pos)
         {
             return pos * SizeSell + pos * Offset + PosStart;
+        }
+        /// <summary>
+        /// Warning: method uses TryWorldToGrid
+        /// </summary>
+        public bool IsContains(Vector2 pos)
+        {
+            return TryWorldToGrid(pos, out Vector2Int _null);
+        }
+        public bool TryMouseToGrid(out Vector2Int grid)
+        {
+            return TryWorldToGrid(Camera.main.ScreenToWorldPoint(Input.mousePosition), out grid);
+        }
+        public bool TryWorldToGrid(Vector2 pos, out Vector2Int grid)
+        {
+            IsContains(pos);
+            grid = WorldToGrid(pos);
+            if (grid.x < 0 || grid.y < 0 || grid.x >= Grid.Size.x || grid.y >= Grid.Size.y) return false;
+            if (Offset == Vector2.zero) return true;
+            else
+            {
+                pos -= GridToWorld(grid);
+                if (Offset.x > 0 && pos.x > SizeSell.x) return false;
+                if (Offset.y > 0 && pos.y > SizeSell.y) return false;
+            }
+            return true;
         }
 #if UNITY_EDITOR
         public void OnDrawGizmos()
