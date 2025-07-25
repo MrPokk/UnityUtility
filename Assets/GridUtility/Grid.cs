@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using Unity.VisualScripting;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
@@ -37,6 +39,10 @@ namespace Utility.Grid
         public void Clear() => _values.Clear();
         public int Count => _values.Count;
         public Vector2Int Size => _size;
+        public Dictionary<Vector2Int, T> GetDictionary()
+        {
+            return _values.ToDictionary(entry => entry.Key, entry => entry.Value);
+        }
 
         public bool CheckInSize(Vector2Int pos)
         {
@@ -54,8 +60,12 @@ namespace Utility.Grid
         }
         public bool AddNearest(T value)
         {
+            return AddNearest(value, out Vector2Int _null);
+        }
+        public bool AddNearest(T value, out Vector2Int pos)
+        {
+            pos = Vector2Int.zero;
             if (Count == MaxCount) return false;
-            Vector2Int pos = new();
             for (pos.y = 0; pos.y < _size.y; pos.y++)
                 for (pos.x = 0; pos.x < _size.x; pos.x++)
                 {
@@ -70,12 +80,16 @@ namespace Utility.Grid
         /// <summary>
         /// Warning: not optimized, as it is not cached between operations.
         /// </summary>
-        public bool AddRandomPos(T value)
+        public bool AddRandomPos(T value) => AddRandomPos(value, out Vector2Int _null);
+        /// <summary>
+        /// Warning: not optimized, as it is not cached between operations.
+        /// </summary>
+        public bool AddRandomPos(T value, out Vector2Int pos)
         {
+            pos = Vector2Int.zero;
             if (Count == MaxCount) return false;
             int count = 0;
-            Vector2Int[] allPos = new Vector2Int[MaxCount-Count];
-            Vector2Int pos = new();
+            Vector2Int[] allPos = new Vector2Int[MaxCount - Count];
             for (pos.y = 0; pos.y < _size.y; pos.y++)
                 for (pos.x = 0; pos.x < _size.x; pos.x++)
                 {
@@ -86,7 +100,8 @@ namespace Utility.Grid
                     }
                 }
 
-            this[allPos[Random.Range(0, count)]] = value;
+            pos = allPos[Random.Range(0, count)];
+            this[pos] = value;
             return true;
         }
         public bool Set(T value, Vector2Int pos)

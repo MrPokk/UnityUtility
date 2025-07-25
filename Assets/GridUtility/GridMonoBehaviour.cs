@@ -41,6 +41,10 @@ namespace Utility.Grid
         {
             return pos * SizeSell + pos * Offset + PosStart;
         }
+        public Vector2 GridToWorldCentre(Vector2Int pos)
+        {
+            return pos * SizeSell + pos * Offset + PosStart + SizeSell / 2;
+        }
         /// <summary>
         /// Warning: method uses TryWorldToGrid
         /// </summary>
