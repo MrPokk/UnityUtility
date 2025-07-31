@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
@@ -21,7 +20,7 @@ namespace BitterECS.Utility
             var type = typeof(T);
 
             var assembly = Assembly.GetAssembly(type);
-            
+
             return assembly.GetTypes().Where(elementType => !elementType.IsAbstract && typeof(T).IsAssignableFrom(elementType)).ToArray();
         }
     }

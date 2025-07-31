@@ -2,10 +2,7 @@ namespace BitterECS.Core
 {
 
     #region IEcsEntity
-    public interface IEcsComponent
-    {
-        public int Id { get; set; }
-    }
+    public interface IEcsComponent { }
 
     #endregion
 
@@ -17,32 +14,32 @@ namespace BitterECS.Core
     }
     public interface IEcsPreInitSystem : IEcsSystem
     {
-        void PreInit();
+        public void PreInit();
     }
 
     public interface IEcsInitSystem : IEcsSystem
     {
-        void Init();
+        public void Init();
     }
 
     public interface IEcsRunSystem : IEcsSystem
     {
-        void Run();
+        public void Run();
     }
 
     public interface IEcsPostRunSystem : IEcsSystem
     {
-        void PostRun();
+        public void PostRun();
     }
 
     public interface IEcsDestroySystem : IEcsSystem
     {
-        void Destroy();
+        public void Destroy();
     }
 
     public interface IEcsPostDestroySystem : IEcsSystem
     {
-        void PostDestroy();
+        public void PostDestroy();
     }
 
     #endregion

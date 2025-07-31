@@ -7,7 +7,7 @@ namespace BitterECS.Core
 {
     public sealed class EcsSystems : IInitialize, IDisposable
     {
-        private readonly List<IEcsSystem> _systems;
+        private readonly List<IEcsSystem> _systems = new();
         private static readonly Dictionary<Type, List<IEcsSystem>> s_cachedInstanceSystems = new();
 
 
