@@ -21,7 +21,7 @@ namespace BitterECS.Utility
 
             var assembly = Assembly.GetAssembly(type);
 
-            return assembly.GetTypes().Where(elementType => !elementType.IsAbstract && typeof(T).IsAssignableFrom(elementType)).ToArray();
+            return assembly.GetTypes().Where(elementType => type.IsAssignableFrom(elementType) && !elementType.IsAbstract).ToArray();
         }
     }
 }

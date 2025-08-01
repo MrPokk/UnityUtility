@@ -10,7 +10,7 @@ namespace BitterECS.Core
 
     public interface IEcsSystem
     {
-        public virtual Priority PrioritySystem => Priority.Medium;
+        public Priority PrioritySystem => Priority.Medium;
     }
     public interface IEcsPreInitSystem : IEcsSystem
     {
@@ -25,6 +25,11 @@ namespace BitterECS.Core
     public interface IEcsRunSystem : IEcsSystem
     {
         public void Run();
+    }
+
+    public interface IEcsFixedRunSystem : IEcsSystem
+    {
+        public void FixedRun();
     }
 
     public interface IEcsPostRunSystem : IEcsSystem
@@ -42,6 +47,16 @@ namespace BitterECS.Core
         public void PostDestroy();
     }
 
+    interface IEcsIntegrationRoot :
+    IEcsPreInitSystem,
+    IEcsInitSystem,
+    IEcsRunSystem,
+    IEcsFixedRunSystem,
+    IEcsPostRunSystem,
+    IEcsDestroySystem,
+    IEcsPostDestroySystem
+    {}
+
     #endregion
 
     #region Helper
@@ -53,15 +68,14 @@ namespace BitterECS.Core
         public void Init();
     }
 
-    public interface IInitialize<T> where T : IInitializeProperty
+    public interface IInitialize<T> where T : class, IInitializeProperty
     {
         public T Properties { get; set; }
-
         public void Init(T property);
         public T ValidateProperty(T property) { return property; }
     }
 
-    public enum Priority
+    public enum Priority : int
     {
         FIRST_TASK = -10000,
         High = 1,

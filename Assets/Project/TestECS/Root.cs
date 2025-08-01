@@ -6,13 +6,17 @@ public class Root : EcsUnityRoot
     protected override void Bootstrap()
     {
 
+        var entity = EcsWorld.Get<CYKA>().NewEntity<TestEntity>();
+
+
+         var component = entity.Get<TestComponent>();
     }
 }
 
-public class TestSystem : IEcsInitSystem
+public class CYKA : EcsPresenter
 {
-    public void Init()
-    {
-        Debug.Log("TEST SYSTEM");
-    }
+
+
+
+
 }

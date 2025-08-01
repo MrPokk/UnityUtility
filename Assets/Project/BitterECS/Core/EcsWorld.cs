@@ -50,7 +50,6 @@ namespace BitterECS.Core
 
         public void Dispose()
         {
-
             foreach (var presenter in s_ecsPresenters.Keys)
             {
                 var disposable = presenter as IDisposable;
@@ -58,7 +57,6 @@ namespace BitterECS.Core
             }
 
             s_ecsPresenters.Clear();
-
         }
     }
 }

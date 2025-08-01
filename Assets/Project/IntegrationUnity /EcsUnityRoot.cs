@@ -16,15 +16,14 @@ public abstract class EcsUnityRoot : MonoBehaviour, IEcsIntegrationRoot
 
         EcsSystems = new EcsSystems();
         EcsSystems.Init();
-
-        EcsSystems.Run<IEcsPreInitSystem>(system => system.PreInit());
     }
 
     private void Awake()
     {
+        PreInit();
         Bootstrap();
     }
-    
+
     private void Start()
     {
         Init();
@@ -33,6 +32,11 @@ public abstract class EcsUnityRoot : MonoBehaviour, IEcsIntegrationRoot
     private void Update()
     {
         Run();
+    }
+
+    private void FixedUpdate()
+    {
+        FixedRun();
     }
 
     private void LateUpdate()
@@ -44,6 +48,9 @@ public abstract class EcsUnityRoot : MonoBehaviour, IEcsIntegrationRoot
     {
         Destroy();
         PostDestroy();
+
+        EcsWorld.Dispose();
+        EcsSystems.Dispose();   
     }
 
     public void PreInit()
@@ -61,6 +68,11 @@ public abstract class EcsUnityRoot : MonoBehaviour, IEcsIntegrationRoot
         EcsSystems.Run<IEcsRunSystem>(system => system.Run());
     }
 
+    public void FixedRun()
+    {
+        EcsSystems.Run<IEcsFixedRunSystem>(system => system.FixedRun());
+    }
+
     public void PostRun()
     {
         EcsSystems.Run<IEcsPostRunSystem>(system => system.PostRun());
@@ -76,12 +88,3 @@ public abstract class EcsUnityRoot : MonoBehaviour, IEcsIntegrationRoot
         EcsSystems.Run<IEcsPostDestroySystem>(system => system.PostDestroy());
     }
 }
-
-interface IEcsIntegrationRoot :
-IEcsPreInitSystem,
-IEcsInitSystem,
-IEcsRunSystem,
-IEcsPostRunSystem,
-IEcsDestroySystem,
-IEcsPostDestroySystem
-{ }
