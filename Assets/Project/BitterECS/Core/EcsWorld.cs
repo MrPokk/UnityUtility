@@ -21,7 +21,9 @@ namespace BitterECS.Core
         public static T Get<T>() where T : EcsPresenter
         {
             if (s_ecsPresenters.TryGetValue(typeof(T), out var value))
+            {
                 return value as T;
+            }
 
             throw new Exception("Presenter not found");
         }
@@ -31,7 +33,9 @@ namespace BitterECS.Core
             foreach (var presenter in s_ecsPresenters.Values)
             {
                 if (presenter.IsTypeAllowed(entityType))
+                {
                     return presenter;
+                }
             }
             throw new Exception($"No presenter found that can handle type {entityType.Name}");
         }
@@ -50,9 +54,9 @@ namespace BitterECS.Core
 
         public void Dispose()
         {
-            foreach (var presenter in s_ecsPresenters.Keys)
+            foreach (var presenter in s_ecsPresenters)
             {
-                var disposable = presenter as IDisposable;
+                var disposable = presenter.Value as IDisposable;
                 disposable.Dispose();
             }
 

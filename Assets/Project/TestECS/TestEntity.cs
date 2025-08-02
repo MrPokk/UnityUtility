@@ -8,6 +8,14 @@ public class TestEntity : EcsEntity
     }
 }
 
+public class TestEntity2 : TestEntity
+{
+    override public void Registration()
+    {
+        base.Registration();
+    }
+}
+
 
 public struct TestComponent
 {

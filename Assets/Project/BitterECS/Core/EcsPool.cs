@@ -31,7 +31,9 @@ namespace BitterECS.Core
             }
 
             if (_entityToDataIndex[entityId] != -1)
+            {
                 throw new ArgumentException($"Entity {entityId} already has this component");
+            }
 
             int dataIndex;
             if (_freeIndices.Count > 0)
@@ -55,7 +57,7 @@ namespace BitterECS.Core
         private void GrowArrays()
         {
             int newCapacity = _components.Length * GrowthFactor;
-            
+
             Array.Resize(ref _components, newCapacity);
             Array.Resize(ref _dataIndexToEntity, newCapacity);
         }
@@ -63,7 +65,9 @@ namespace BitterECS.Core
         public ref T Get(int entityId)
         {
             if (entityId >= _entityToDataIndex.Length || _entityToDataIndex[entityId] == -1)
+            {
                 throw new KeyNotFoundException($"Entity {entityId} doesn't have this component");
+            }
 
             return ref _components[_entityToDataIndex[entityId]];
         }
@@ -71,7 +75,9 @@ namespace BitterECS.Core
         public void Remove(int entityId)
         {
             if (entityId >= _entityToDataIndex.Length || _entityToDataIndex[entityId] == -1)
+            {
                 return;
+            }
 
             var dataIndex = _entityToDataIndex[entityId];
             _entityToDataIndex[entityId] = -1;
@@ -117,7 +123,9 @@ namespace BitterECS.Core
                 while (++_index < _pool._count)
                 {
                     if (!_pool._freeIndices.Contains(_index))
+                    {
                         return true;
+                    }
                 }
                 return false;
             }

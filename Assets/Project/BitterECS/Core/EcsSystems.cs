@@ -23,11 +23,20 @@ namespace BitterECS.Core
 
         public void Run<T>(Action<T> action) where T : class, IEcsSystem
         {
+            if (action == null)
+            {
+                return;
+            }
+
             var systems = GetSystems<T>();
+            if (systems.Count == 0)
+            {
+                return;
+            }
+
             foreach (var system in systems)
             {
-                if (system != null)
-                    action?.Invoke(system);
+                action(system);
             }
         }
 
@@ -86,7 +95,9 @@ namespace BitterECS.Core
             foreach (var system in _systems)
             {
                 if (system is IDisposable disposable)
+                {
                     disposable.Dispose();
+                }
             }
 
             _systems.Clear();

@@ -9,14 +9,7 @@ public class Root : EcsUnityRoot
         var entity = EcsWorld.Get<CYKA>().NewEntity<TestEntity>();
 
 
-         var component = entity.Get<TestComponent>();
+        ref var component = ref entity.Get<TestComponent>();
+
     }
-}
-
-public class CYKA : EcsPresenter
-{
-
-
-
-
 }

@@ -45,6 +45,7 @@ namespace BitterECS.Core
                 var disposable = item.Value as IDisposable;
                 disposable.Dispose();
             }
+            
             _pools.Clear();
             GC.SuppressFinalize(this);
         }
