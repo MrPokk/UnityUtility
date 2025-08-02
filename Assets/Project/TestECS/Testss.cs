@@ -1,12 +1,12 @@
 using BitterECS.Core;
 using UnityEngine;
 
-public class TestSystem : IEcsDestroySystem
+public class Testss :  IEcsRunSystem
 {
     public Priority PrioritySystem => Priority.Medium;
 
-    public void Destroy()
+    public void Run()
     {
-        Debug.Log("Destroy");
+        
     }
 }
