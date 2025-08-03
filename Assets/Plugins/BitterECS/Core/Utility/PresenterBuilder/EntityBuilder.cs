@@ -6,9 +6,10 @@ namespace BitterECS.Core
     public class EntityBuilder<T> where T : EcsEntity
     {
         private readonly EcsPresenter _presenter;
-        private Action<T> _creationCallback;
-        private Action<T> _initializationCallback;
+        private Action<T> _postInitCallback;
+        private Action<T> _preInitCallback;
         private readonly List<Action<T>> _componentAddCallbacks = new();
+        private readonly Dictionary<Type, List<Action<T, object>>> _componentAddedCallbacks = new();
 
         private ILinkableView _linkableView;
 
@@ -23,15 +24,15 @@ namespace BitterECS.Core
             return this;
         }
 
-        public EntityBuilder<T> WithCallback(Action<T> callback)
+        public EntityBuilder<T> WithPostInitCallback(Action<T> callback)
         {
-            _creationCallback = callback;
+            _postInitCallback = callback;
             return this;
         }
 
-        public EntityBuilder<T> WithInitialization(Action<T> initAction)
+        public EntityBuilder<T> WithPreInitCallback(Action<T> initAction)
         {
-            _initializationCallback = initAction;
+            _preInitCallback = initAction;
             return this;
         }
 
@@ -41,13 +42,28 @@ namespace BitterECS.Core
             {
                 var pool = _presenter.GetPool<C>();
                 pool.Add(entity.Properties.Id, component);
+
+                if (_componentAddedCallbacks.TryGetValue(typeof(C), out var callbacks))
+                {
+                    foreach (var callback in callbacks)
+                    {
+                        callback(entity, component);
+                    }
+                }
             });
             return this;
         }
 
-        public EntityBuilder<T> WithComponent<C>() where C : struct
+        public EntityBuilder<T> WithComponentAddedCallback<C>(Action<T, C> callback) where C : struct
         {
-            return WithComponent<C>(default);
+            if (!_componentAddedCallbacks.TryGetValue(typeof(C), out var callbacks))
+            {
+                callbacks = new List<Action<T, object>>();
+                _componentAddedCallbacks.Add(typeof(C), callbacks);
+            }
+
+            callbacks.Add((entity, component) => callback(entity, (C)component));
+            return this;
         }
 
         public ILinkableEntity CreateToLinkable()
@@ -58,15 +74,12 @@ namespace BitterECS.Core
         public T Create()
         {
             var entity = _presenter.CreateEntity<T>();
-
-            _initializationCallback?.Invoke(entity);
+            _preInitCallback?.Invoke(entity);
 
             foreach (var callback in _componentAddCallbacks)
             {
                 callback(entity);
             }
-
-            _creationCallback?.Invoke(entity);
 
             ref var viewComponent = ref entity.Get<ViewComponent>();
 
@@ -78,6 +91,8 @@ namespace BitterECS.Core
             {
                 EcsLinker.Link(entity, _linkableView);
             }
+
+            _postInitCallback?.Invoke(entity);
 
             return entity;
         }

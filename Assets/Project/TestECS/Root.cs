@@ -8,12 +8,8 @@ public class Root : EcsUnityRoot
     {
         var globalPresenter = EcsWorld.Get<GlobalPresenter>();
 
-        var entities = globalPresenter.Filter().Include<ViewComponent>().Collect();
-
-        foreach (var entitys in entities)
-        {
-            Debug.Log(entitys);
-        }
+        globalPresenter.AddEntity<TestEntity>().WithLink(EcsUnityViewDatabase.Get<VIEWEntity>()).Create();
+        globalPresenter.AddEntity<TestEntity>().WithLink(EcsUnityViewDatabase.Get<VIEWEntity>()).Create();
     }
 }
 
