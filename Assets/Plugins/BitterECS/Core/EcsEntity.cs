@@ -2,7 +2,7 @@ using System;
 
 namespace BitterECS.Core
 {
-    public abstract class EcsEntity : IInitialize<EcsEntityProperty>, IDisposable
+    public abstract class EcsEntity : ILinkableEntity
     {
         public EcsEntityProperty Properties { get; set; }
 
@@ -28,24 +28,15 @@ namespace BitterECS.Core
             Properties.Presenter.GetPool<T>().Remove(Properties.Id);
         }
 
+        public bool Has<T>() where T : struct
+        {
+            return Properties.Presenter.GetPool<T>().Has(Properties.Id);
+        }
+
         public void Dispose()
         {
-            Properties.Presenter.Dispose();
             Properties = null;
             GC.SuppressFinalize(this);
-        }
-    }
-
-
-    public class EcsEntityProperty : IInitializeProperty
-    {
-        public readonly EcsPresenter Presenter;
-        public readonly int Id = -1;
-
-        public EcsEntityProperty(EcsPresenter presenter, int id)
-        {
-            Presenter = presenter;
-            Id = id;
         }
     }
 }

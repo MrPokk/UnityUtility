@@ -1,22 +1,52 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Diagnostics;
 
 namespace BitterECS.Core
 {
     public abstract class EcsPresenter : IDisposable
     {
-        private readonly Dictionary<Type, object> _pools = new();
         private int _nextEntityId = 1;
+        private readonly List<EcsEntity> _entities = new();
 
+        private readonly Dictionary<Type, object> _pools = new();
         private readonly HashSet<Type> _allowedEntityTypes = new();
 
-        public T NewEntity<T>() where T : EcsEntity
+        public IReadOnlyCollection<EcsEntity> GetAll() => _entities.AsReadOnly();
+
+        protected void AddLimitedType<T>() where T : EcsEntity => _allowedEntityTypes.Add(typeof(T));
+
+        public EntityBuilder<T> AddEntity<T>() where T : EcsEntity
+        {
+            return new EntityBuilder<T>(this);
+        }
+
+        public EntityDestroyer<T> RemoveEntity<T>(T entity) where T : EcsEntity
+        {
+            return new EntityDestroyer<T>(this, entity);
+        }
+
+        internal T CreateEntity<T>() where T : EcsEntity
         {
             var entity = Activator.CreateInstance<T>();
             entity.Init(new(this, _nextEntityId++));
             entity.Registration();
+            _entities.Add(entity);
             return entity;
+        }
+
+        internal void DestroyEntity<T>(T entity) where T : EcsEntity
+        {
+            if (_entities.Remove(entity))
+            {
+                entity.Dispose();
+            }
+        }
+
+        public EcsFilter Filter()
+        {
+            return new EcsFilter(this);
         }
 
         public EcsPool<T> GetPool<T>() where T : struct
@@ -29,8 +59,6 @@ namespace BitterECS.Core
             return (EcsPool<T>)pool;
         }
 
-        protected void AddLimitedType<T>() where T : EcsEntity => _allowedEntityTypes.Add(typeof(T));
-
         public bool IsTypeAllowed(Type type)
         {
             return _allowedEntityTypes.Count == 0
@@ -40,13 +68,21 @@ namespace BitterECS.Core
 
         public void Dispose()
         {
-            foreach (var item in _pools)
+            foreach (var entity in _entities)
             {
-                var disposable = item.Value as IDisposable;
-                disposable.Dispose();
+                entity.Dispose();
             }
-            
+            _entities.Clear();
+
+            foreach (var pool in _pools.Values)
+            {
+                if (pool is IDisposable disposablePool)
+                {
+                    disposablePool.Dispose();
+                }
+            }
             _pools.Clear();
+            _allowedEntityTypes.Clear();
             GC.SuppressFinalize(this);
         }
     }

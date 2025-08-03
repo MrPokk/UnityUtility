@@ -72,6 +72,8 @@ namespace BitterECS.Core
             return ref _components[_entityToDataIndex[entityId]];
         }
 
+        public bool Has(int entityId) => entityId < _entityToDataIndex.Length && _entityToDataIndex[entityId] != -1;
+
         public void Remove(int entityId)
         {
             if (entityId >= _entityToDataIndex.Length || _entityToDataIndex[entityId] == -1)
@@ -92,15 +94,6 @@ namespace BitterECS.Core
 
             _count--;
             _freeIndices.Push(dataIndex);
-        }
-
-        public void Dispose()
-        {
-            _components = null;
-            _entityToDataIndex = null;
-            _dataIndexToEntity = null;
-            _freeIndices = null;
-            GC.SuppressFinalize(this);
         }
 
         public Enumerator GetEnumerator() => new Enumerator(this);
@@ -129,6 +122,16 @@ namespace BitterECS.Core
                 }
                 return false;
             }
+        }
+
+        public void Dispose()
+        {
+            _components = null;
+            _entityToDataIndex = null;
+            _dataIndexToEntity = null;
+            _freeIndices?.Clear();
+            _freeIndices = null;
+            GC.SuppressFinalize(this);
         }
     }
 }

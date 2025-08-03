@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using BitterECS.Utility;
-using UnityEngine;
 
 namespace BitterECS.Core
 {
@@ -84,18 +82,19 @@ namespace BitterECS.Core
             s_cachedInstanceSystems.Clear();
         }
 
+
         public void Dispose()
         {
             foreach (var system in _systems)
             {
-                if (system is IDisposable disposable)
+                if (system is IDisposable disposableSystem)
                 {
-                    disposable.Dispose();
+                    disposableSystem.Dispose();
                 }
             }
-
             _systems.Clear();
             s_cachedInstanceSystems.Clear();
+            GC.SuppressFinalize(this);
         }
     }
 }

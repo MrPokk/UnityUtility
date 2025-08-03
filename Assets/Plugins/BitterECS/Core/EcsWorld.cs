@@ -54,13 +54,12 @@ namespace BitterECS.Core
 
         public void Dispose()
         {
-            foreach (var presenter in s_ecsPresenters)
+            foreach (var presenter in s_ecsPresenters.Values)
             {
-                var disposable = presenter.Value as IDisposable;
-                disposable.Dispose();
+                presenter.Dispose();
             }
-
             s_ecsPresenters.Clear();
+            GC.SuppressFinalize(this);
         }
     }
 }

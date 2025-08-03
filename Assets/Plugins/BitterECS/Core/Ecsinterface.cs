@@ -1,11 +1,7 @@
+using System;
+
 namespace BitterECS.Core
 {
-
-    #region IEcsEntity
-    public interface IEcsComponent { }
-
-    #endregion
-
     #region IEcsSystems
 
     public interface IEcsSystem
@@ -62,6 +58,20 @@ namespace BitterECS.Core
 
     #region Helper
 
+    public interface ILinkableEntity : IInitialize<EcsEntityProperty>, IDisposable
+    {
+        public ILinkableView View => EcsLinker.GetView(this);
+        bool Has<T>() where T : struct;
+        void Add<T>(in T component) where T : struct;
+        void Remove<T>() where T : struct;
+        ref T Get<T>() where T : struct;
+    }
+
+    public interface ILinkableView : IInitialize<EcsViewProperty>, IDisposable
+    {
+        public ILinkableEntity Entity => EcsLinker.GetEntity(this);
+    }
+
     public interface IInitializeProperty { }
 
     public interface IInitialize
@@ -83,6 +93,33 @@ namespace BitterECS.Core
         Medium = 2,
         Low = 3,
         LAST_TASK = 10000,
+    }
+
+    public struct EntityProperties
+    {
+        public EcsPresenter Presenter;
+    }
+
+    public class EcsViewProperty : IInitializeProperty
+    {
+        public readonly EcsPresenter Presenter;
+
+        public EcsViewProperty(EcsPresenter presenter)
+        {
+            Presenter = presenter;
+        }
+    }
+
+    public class EcsEntityProperty : IInitializeProperty
+    {
+        public readonly EcsPresenter Presenter;
+        public readonly int Id = -1;
+
+        public EcsEntityProperty(EcsPresenter presenter, int id)
+        {
+            Presenter = presenter;
+            Id = id;
+        }
     }
 
     #endregion
