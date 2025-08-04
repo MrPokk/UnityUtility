@@ -9,7 +9,7 @@ namespace BitterECS.Core
         private readonly T _entity;
         private Action<T> _preDestroyCallback;
         private Action<T> _postDestroyCallback;
-        private readonly List<Action<T>> _componentRemoveCallbacks = new();
+        private readonly List<Action<T>> _componentRemoveCallbacks = new(EcsConfig.EntityCallbackFactor);
 
         internal EntityDestroyer(EcsPresenter presenter, T entity)
         {

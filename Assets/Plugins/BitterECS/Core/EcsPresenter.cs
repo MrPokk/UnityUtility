@@ -1,16 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Diagnostics;
 
 namespace BitterECS.Core
 {
     public abstract class EcsPresenter : IDisposable
     {
         private int _nextEntityId = 1;
-        private readonly List<EcsEntity> _entities = new();
-
-        private readonly Dictionary<Type, object> _pools = new();
+        private readonly List<EcsEntity> _entities = new(EcsConfig.InitialEntitiesCapacity);
+        private readonly Dictionary<Type, object> _pools = new(EcsConfig.InitialPoolCapacity);
         private readonly HashSet<Type> _allowedEntityTypes = new();
 
         public IReadOnlyCollection<EcsEntity> GetAll() => _entities.AsReadOnly();

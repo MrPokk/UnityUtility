@@ -8,9 +8,8 @@ namespace BitterECS.Core
         private readonly EcsPresenter _presenter;
         private Action<T> _postInitCallback;
         private Action<T> _preInitCallback;
-        private readonly List<Action<T>> _componentAddCallbacks = new();
-        private readonly Dictionary<Type, List<Action<T, object>>> _componentAddedCallbacks = new();
-
+        private readonly List<Action<T>> _componentAddCallbacks = new(EcsConfig.EntityCallbackFactor);
+        private readonly Dictionary<Type, List<Action<T, object>>> _componentAddedCallbacks = new(EcsConfig.EntityCallbackFactor);
         private ILinkableView _linkableView;
 
         internal EntityBuilder(EcsPresenter presenter)
@@ -81,13 +80,7 @@ namespace BitterECS.Core
                 callback(entity);
             }
 
-            ref var viewComponent = ref entity.Get<ViewComponent>();
-
-            if (viewComponent.current != null)
-            {
-                EcsLinker.Link(entity, viewComponent.current);
-            }
-            else if (_linkableView != null)
+            if (_linkableView != null)
             {
                 EcsLinker.Link(entity, _linkableView);
             }

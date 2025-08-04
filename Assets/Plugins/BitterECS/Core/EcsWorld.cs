@@ -6,12 +6,7 @@ namespace BitterECS.Core
 {
     public sealed class EcsWorld : IInitialize, IDisposable
     {
-        private readonly static Dictionary<Type, EcsPresenter> s_ecsPresenters;
-
-        static EcsWorld()
-        {
-            s_ecsPresenters = new Dictionary<Type, EcsPresenter>();
-        }
+        private readonly static Dictionary<Type, EcsPresenter> s_ecsPresenters = new(EcsConfig.InitialPresentersCapacity);
 
         public void Init()
         {

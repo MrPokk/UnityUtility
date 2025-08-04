@@ -5,8 +5,7 @@ namespace BitterECS.Core
 {
     public static class EcsLinker
     {
-        private static readonly Dictionary<ILinkableEntity, ILinkableView> s_linkedEntities = new();
-
+        private static readonly Dictionary<ILinkableEntity, ILinkableView> s_linkedEntities = new(EcsConfig.InitialLinkedEntitiesCapacity);
         public static void Link(ILinkableEntity entity, ILinkableView view)
         {
             if (entity == null || view == null)

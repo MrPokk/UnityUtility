@@ -58,7 +58,7 @@ namespace BitterECS.Core.Integration
             }
         }
 
-        public static EcsUnityView Get(Type viewType)
+        public static EcsUnityView GetPrefab(Type viewType)
         {
             EnsureInitialized();
 
@@ -68,16 +68,18 @@ namespace BitterECS.Core.Integration
             if (!prefab)
                 throw new ArgumentNullException($"ECS View prefab is null. Check path: Resources/EcsViews");
 
+            return prefab;
+        }
+
+        public static T GetPrefab<T>() where T : EcsUnityView => (T)GetPrefab(typeof(T));
+
+        public static EcsUnityView GetInstance(Type viewType)
+        {
+            var prefab = GetPrefab(viewType);
             var newInstance = UnityEngine.Object.Instantiate(prefab);
             return newInstance;
         }
 
-        public static T Get<T>() where T : EcsUnityView => (T)Get(typeof(T));
-
-        public static ICollection<EcsUnityView> GetAllPrefabs()
-        {
-            EnsureInitialized();
-            return s_viewPrefabs.Values;
-        }
+        public static T GetInstance<T>() where T : EcsUnityView => (T)GetInstance(typeof(T));
     }
 }

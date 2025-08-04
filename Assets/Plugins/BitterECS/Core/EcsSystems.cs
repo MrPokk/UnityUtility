@@ -6,14 +6,8 @@ namespace BitterECS.Core
 {
     public sealed class EcsSystems : IInitialize, IDisposable
     {
-        private readonly List<IEcsSystem> _systems;
-        private static readonly Dictionary<Type, IEcsSystem[]> s_cachedInstanceSystems = new();
-
-
-        public EcsSystems(int maxSystems = 64)
-        {
-            _systems = new(maxSystems);
-        }
+        private readonly List<IEcsSystem> _systems = new(EcsConfig.InitialSystemsCapacity);
+        private static readonly Dictionary<Type, IEcsSystem[]> s_cachedInstanceSystems = new(EcsConfig.InitialSystemsCapacity);
 
         public void Init()
         {
@@ -22,11 +16,6 @@ namespace BitterECS.Core
 
         public void Run<T>(Action<T> action) where T : class, IEcsSystem
         {
-            if (action == null)
-            {
-                return;
-            }
-
             var systems = GetSystems<T>();
             foreach (var system in systems)
             {
