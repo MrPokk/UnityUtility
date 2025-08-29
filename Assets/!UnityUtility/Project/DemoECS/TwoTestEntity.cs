@@ -1,6 +1,8 @@
+
+using System;
 using BitterECS.Core;
 
-public class TestEntity : EcsEntity
+public class TwoTestEntity : EcsEntity
 {
     protected override void Registration()
     {

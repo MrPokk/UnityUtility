@@ -64,7 +64,7 @@ namespace BitterECS.Core
 
     public interface ILinkableProvider : IInitialize<EcsProviderProperty>, IDisposable
     {
-        public EcsEntity Entity => Properties?.Presenter?.GetEntity(this);
+        public EcsEntity Entity => Properties?.Presenter?.Get(this);
     }
 
     public interface IInitializeProperty { }

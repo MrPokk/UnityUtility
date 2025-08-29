@@ -13,8 +13,8 @@ namespace BitterECS.Core
         public EcsFilter(EcsPresenter presenter)
         {
             _presenter = presenter;
-            _includeConditions = new List<Func<EcsEntity, bool>>(EcsConfig.FilterConditionFactor);
-            _excludeConditions = new List<Func<EcsEntity, bool>>(EcsConfig.FilterConditionFactor);
+            _includeConditions = new(EcsConfig.FilterConditionInclude);
+            _excludeConditions = new(EcsConfig.FilterConditionExclude);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -57,7 +57,7 @@ namespace BitterECS.Core
                 _started = false;
             }
 
-            public EcsEntity Current => _current;
+            public readonly EcsEntity Current => _current;
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public bool MoveNext()
@@ -90,7 +90,7 @@ namespace BitterECS.Core
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            private bool MatchesAllConditions(EcsEntity entity)
+            private readonly bool MatchesAllConditions(EcsEntity entity)
             {
                 if (_includeConditions != null)
                 {
@@ -114,7 +114,7 @@ namespace BitterECS.Core
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public FilterEnumerator GetEnumerator() => this;
+            public readonly FilterEnumerator GetEnumerator() => this;
         }
     }
 }

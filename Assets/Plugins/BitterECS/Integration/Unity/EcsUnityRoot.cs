@@ -17,6 +17,7 @@ namespace BitterECS.Integration
         {
             s_ecsWorld = new EcsWorld();
             s_ecsSystems = new EcsSystems();
+
         }
 
         private void Awake()
@@ -50,8 +51,8 @@ namespace BitterECS.Integration
             Destroy();
             PostDestroy();
 
-            s_ecsWorld.Dispose();
-            s_ecsSystems.Dispose();
+            s_ecsWorld?.Dispose();
+            s_ecsSystems?.Dispose();
         }
 
         public virtual void PreInit()

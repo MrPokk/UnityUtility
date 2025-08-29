@@ -54,19 +54,8 @@ namespace BitterECS.Core
         {
             _preDestroyCallback?.Invoke(_entity);
             _componentRemoveOps.Execute(_entity);
-            CleanupProvider();
             _presenter.DestroyEntity(_entity);
             _postDestroyCallback?.Invoke(_entity);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private readonly void CleanupProvider()
-        {
-            if (_entity.Has<ProviderComponent>())
-            {
-                _entity.Get<ProviderComponent>().current?.Dispose();
-                _presenter.Unlink(_entity);
-            }
         }
 
         private struct ComponentRemoveOperations

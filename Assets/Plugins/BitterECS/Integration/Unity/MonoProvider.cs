@@ -1,65 +1,81 @@
 using System;
-using System.Collections.Generic;
 using System.Reflection;
 using BitterECS.Core;
 using UnityEngine;
 
 namespace BitterECS.Integration
 {
-    public abstract class MonoProvider<T> : MonoBehaviour, ILinkableProvider where T : EcsEntity
+    public class MonoProvider : MonoBehaviour, ILinkableProvider
     {
-        public EcsProviderProperty Properties { get; private set; }
-        private ILinkableProvider _linkableProvider;
-        private List<ComponentProvider> _ComponentProviders;
-        private void Awake()
-        {
-            _ComponentProviders = new(GetComponents<ComponentProvider>());
-            _linkableProvider = GetComponent<ILinkableProvider>();
-            var entity = EcsWorld.GetToEntityType(typeof(T))
-                .AddTo<T>()
-                .WithLink(_linkableProvider)
-                .Create();
+        [SerializeField]
+        public SerializableType entityType;
 
-            ApplyComponentProviders(entity);
+        public Type EntityType => entityType.Type;
+        public EcsProviderProperty Properties { get; protected set; }
+
+        private ILinkableProvider _linkableProvider;
+        private ComponentProvider[] _componentProviders;
+        private static readonly MethodInfo s_applyComponentMethod = typeof(MonoProvider).GetMethod(
+            nameof(ApplyComponent), BindingFlags.NonPublic | BindingFlags.Instance);
+
+        protected virtual void Awake()
+        {
+            if (EntityType == null || !typeof(EcsEntity).IsAssignableFrom(EntityType))
+            {
+                throw new Exception("Invalid entity type: " + EntityType?.Name ?? "null");
+            }
+
+            _componentProviders = GetComponents<ComponentProvider>();
+            _linkableProvider = this;
+            EcsWorld.GetToEntityType(EntityType)
+            .AddTo()
+            .WithPreInitCallback(ApplyComponentProviders)
+            .WithLink(_linkableProvider)
+            .Create(EntityType);
+
         }
 
-        private void ApplyComponentProviders(T entity)
+        protected void ApplyComponentProviders(EcsEntity entity)
         {
-            foreach (var wrapper in _ComponentProviders)
+            foreach (var wrapper in _componentProviders)
             {
                 var componentType = wrapper.ObjectComponent.GetType();
-                var method = typeof(MonoProvider<T>).GetMethod(nameof(ApplyComponent),
-                    BindingFlags.NonPublic | BindingFlags.Instance)
-                    .MakeGenericMethod(componentType);
-
-                method.Invoke(this, new object[] { entity, wrapper });
+                var method = s_applyComponentMethod.MakeGenericMethod(componentType);
+                method?.Invoke(this, new object[] { entity, wrapper });
             }
         }
 
-        private void ApplyComponent<TComponent>(T entity, ComponentProvider wrapper) where TComponent : struct
+        protected void ApplyComponent<TComponent>(EcsEntity entity, ComponentProvider wrapper) where TComponent : struct
         {
-            var ComponentProvider = wrapper as ComponentProvider<TComponent>;
-            if (ComponentProvider == null)
+            if (wrapper is not ComponentProvider<TComponent> typedWrapper)
+            {
                 return;
+            }
 
-            var component = ComponentProvider.Component;
+            var component = typedWrapper.Component;
             if (entity.Has<TComponent>())
+            {
                 entity.Set((ref TComponent comp) => comp = component);
+            }
             else
+            {
                 entity.Add(component);
+            }
         }
 
-        public void Init(EcsProviderProperty property)
-        {
-            Properties = property;
-        }
-
+        public void Init(EcsProviderProperty property) => Properties = property;
         public void Dispose()
         {
-            if (Properties != null && Properties.Presenter != null && _linkableProvider != null)
-                Properties.Presenter.DestroyEntity(_linkableProvider.Entity);
-            Properties = null;
-            GC.SuppressFinalize(this);
+            SystemDestroy.Add(gameObject);
+        }
+    }
+
+    public class MonoProvider<T> : MonoProvider where T : EcsEntity
+    {
+        protected override void Awake()
+        {
+            entityType = new SerializableType(typeof(T));
+            base.Awake();
         }
     }
 }

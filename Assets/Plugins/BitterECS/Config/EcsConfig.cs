@@ -7,7 +7,8 @@ namespace BitterECS.Core
         public const ushort PoolGrowthFactor = 2;
 
         // Filter settings
-        public const ushort FilterConditionFactor = 6;
+        public const ushort FilterConditionInclude = 6;
+        public const ushort FilterConditionExclude = 2;
 
         // EntityBuilder and EntityDestroyer settings
         public const ushort EntityCallbackFactor = 4;
