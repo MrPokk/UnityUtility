@@ -5,7 +5,6 @@ namespace BitterCMS.Component
 {
     public class ColliderComponent : IEntityComponent
     {
-        public ViewCollision OtherCollision;
+        public ProviderCollision OtherCollision;
     }
 }
-    

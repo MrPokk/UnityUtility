@@ -26,14 +26,14 @@ namespace BitterCMS.UnityIntegration.Editor
         [MenuItem("CMS/CMS CENTER")]
         public static void ShowWindow()
         {
-           GetWindow<CMSEditor>("CMS Center").Focus();
+            GetWindow<CMSEditor>("CMS Center").Focus();
         }
 
         private void OnProjectChange()
         {
             UpdateDatabaseInEditor(true);
         }
-        
+
         private void OnEnable()
         {
             UpdateDatabaseInEditor(true);
@@ -66,7 +66,7 @@ namespace BitterCMS.UnityIntegration.Editor
         {
             if (!hasFocus)
                 return;
-            
+
             EditorGUILayout.BeginVertical();
             {
                 DrawHeader();

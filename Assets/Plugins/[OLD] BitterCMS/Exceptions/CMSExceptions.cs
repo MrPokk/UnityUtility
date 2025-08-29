@@ -4,23 +4,23 @@ using System.IO;
 
 namespace BitterCMS.CMSSystem.Exceptions
 {
-    public class ViewDatabaseInitializationException : InvalidOperationException
+    public class ProviderDatabaseInitializationException : InvalidOperationException
     {
-        public ViewDatabaseInitializationException(string message, Exception inner)
+        public ProviderDatabaseInitializationException(string message, Exception inner)
             : base(message, inner)
         { }
     }
 
-    public class ViewNotFoundException : KeyNotFoundException
+    public class ProviderNotFoundException : KeyNotFoundException
     {
-        public ViewNotFoundException(string message) : base(message) { }
+        public ProviderNotFoundException(string message) : base(message) { }
     }
 
-    public class InvalidViewException : ArgumentNullException
+    public class InvalidProviderException : ArgumentNullException
     {
-        public InvalidViewException(string message) : base(message) { }
+        public InvalidProviderException(string message) : base(message) { }
     }
-    
+
     public class EntityDatabaseInitializationException : InvalidOperationException
     {
         public EntityDatabaseInitializationException(string message, Exception inner)
@@ -32,7 +32,7 @@ namespace BitterCMS.CMSSystem.Exceptions
     {
         public EntityNotFoundException(string message) : base(message) { }
     }
-    
+
     public class ComponentDatabaseInitializationException : InvalidOperationException
     {
         public ComponentDatabaseInitializationException(string message, Exception inner)

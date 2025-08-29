@@ -14,14 +14,14 @@ namespace BitterCMS.UnityIntegration.Editor
     {
         private EditorWindow _parentWindow;
         private readonly static InspectorInfo Info = new InspectorInfo();
-        private bool _showXmlView;
+        private bool _showXmlProvider;
 
         private static GUIStyle TextStyleComponent => new GUIStyle(GUI.skin.label)
         {
             fontStyle = FontStyle.Bold,
             fontSize = 12,
         };
-        
+
         private static GUIStyle TextStyleHeader => new GUIStyle(GUI.skin.label)
         {
             fontStyle = FontStyle.Bold,
@@ -53,9 +53,9 @@ namespace BitterCMS.UnityIntegration.Editor
 
             if (Info.SelectedXmlAsset)
             {
-                PanelViewToggle();
+                PanelProviderToggle();
 
-                if (_showXmlView)
+                if (_showXmlProvider)
                     PanelXmlEditor();
                 else
                     PanelObjectEditor();
@@ -64,16 +64,16 @@ namespace BitterCMS.UnityIntegration.Editor
             }
             else
                 EditorGUILayout.HelpBox("Select an XML file to edit", MessageType.Info);
-            
+
         }
 
-        private void PanelViewToggle()
+        private void PanelProviderToggle()
         {
             EditorGUILayout.BeginHorizontal();
             {
                 GUILayout.FlexibleSpace();
-                _showXmlView = GUILayout.Toggle(_showXmlView, "XML View", "Button", GUILayout.Width(100));
-                _showXmlView = !GUILayout.Toggle(!_showXmlView, "Object View", "Button", GUILayout.Width(100));
+                _showXmlProvider = GUILayout.Toggle(_showXmlProvider, "XML Provider", "Button", GUILayout.Width(100));
+                _showXmlProvider = !GUILayout.Toggle(!_showXmlProvider, "Object Provider", "Button", GUILayout.Width(100));
                 GUILayout.FlexibleSpace();
             }
             EditorGUILayout.EndHorizontal();
@@ -86,7 +86,7 @@ namespace BitterCMS.UnityIntegration.Editor
                 ShowErrorMessage();
                 return;
             }
-            
+
             EditorGUILayout.LabelField("Entity Properties", TextStyleHeader);
             EditorGUILayout.BeginVertical(GUI.skin.box);
             {

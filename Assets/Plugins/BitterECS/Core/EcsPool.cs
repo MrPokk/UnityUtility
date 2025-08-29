@@ -9,13 +9,14 @@ namespace BitterECS.Core
         private int[] _entityToDataIndex;
         private int[] _dataIndexToEntity;
         private int _count;
-        private Stack<int> _freeIndices = new(EcsConfig.InitialPoolCapacity);
+        private Stack<int> _freeIndices;
 
         public EcsPool()
         {
             _components = new T[EcsConfig.InitialPoolCapacity];
             _entityToDataIndex = new int[EcsConfig.InitialPoolCapacity];
             _dataIndexToEntity = new int[EcsConfig.InitialPoolCapacity];
+            _freeIndices = new Stack<int>();
             Array.Fill(_entityToDataIndex, -1);
         }
 
@@ -23,7 +24,7 @@ namespace BitterECS.Core
         {
             if (entityId >= _entityToDataIndex.Length)
             {
-                Array.Resize(ref _entityToDataIndex, Math.Max(entityId + 1, _entityToDataIndex.Length *  EcsConfig.PoolGrowthFactor));
+                Array.Resize(ref _entityToDataIndex, Math.Max(entityId + 1, _entityToDataIndex.Length * EcsConfig.PoolGrowthFactor));
             }
 
             if (_entityToDataIndex[entityId] != -1)
@@ -124,7 +125,6 @@ namespace BitterECS.Core
             _components = null;
             _entityToDataIndex = null;
             _dataIndexToEntity = null;
-            _freeIndices?.Clear();
             _freeIndices = null;
             GC.SuppressFinalize(this);
         }

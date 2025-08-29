@@ -11,7 +11,7 @@ namespace BitterCMS.UnityIntegration.Editor
 {
     public class CMSDatabaseEditor : CMSEditorTabCore
     {
-        private bool _showViewsSection = true;
+        private bool _showProvidersSection = true;
         private bool _showEntitiesSection = true;
         private string _searchString = "";
         private int _sortOption = 0;
@@ -20,9 +20,9 @@ namespace BitterCMS.UnityIntegration.Editor
         {
             DrawSearchAndSortOptions();
 
-            _showViewsSection = EditorGUILayout.Foldout(_showViewsSection, "Views");
-            if (_showViewsSection)
-                DrawView();
+            _showProvidersSection = EditorGUILayout.Foldout(_showProvidersSection, "Providers");
+            if (_showProvidersSection)
+                DrawProvider();
 
             EditorGUILayout.Space(10);
 
@@ -38,11 +38,11 @@ namespace BitterCMS.UnityIntegration.Editor
             {
                 fontStyle = string.IsNullOrEmpty(_searchString) ? FontStyle.Italic : FontStyle.Normal
             };
-            
+
             EditorGUILayout.BeginHorizontal();
             {
 
-                _searchString = EditorGUILayout.TextField(searchContent, _searchString, 
+                _searchString = EditorGUILayout.TextField(searchContent, _searchString,
                     textFieldStyle, GUILayout.ExpandWidth(true));
 
                 if (string.IsNullOrEmpty(_searchString))
@@ -62,33 +62,33 @@ namespace BitterCMS.UnityIntegration.Editor
 
             EditorGUILayout.Space(5);
         }
-        
-        private void DrawView()
-        {
-            var allView = ViewDatabase.GetAll();
 
-            var filteredViews = allView.Where(v => v &&
+        private void DrawProvider()
+        {
+            var allProvider = ProviderDatabase.GetAll();
+
+            var filteredProviders = allProvider.Where(v => v &&
                                                    v.GetType().Name.ToLower().Contains(_searchString.ToLower())).ToList();
 
-            EditorGUILayout.LabelField($"Loaded Views ({filteredViews.Count})", EditorStyles.boldLabel);
-            if (!filteredViews.Any())
+            EditorGUILayout.LabelField($"Loaded Providers ({filteredProviders.Count})", EditorStyles.boldLabel);
+            if (!filteredProviders.Any())
             {
-                EditorGUILayout.HelpBox("No views found matching search criteria", MessageType.Info);
+                EditorGUILayout.HelpBox("No Providers found matching search criteria", MessageType.Info);
                 return;
             }
 
-            var sortedViews = _sortOption == 0
-                ? filteredViews.OrderBy(v => v.GetType().Name)
-                : filteredViews.OrderByDescending(v => v.GetType().Name);
+            var sortedProviders = _sortOption == 0
+                ? filteredProviders.OrderBy(v => v.GetType().Name)
+                : filteredProviders.OrderByDescending(v => v.GetType().Name);
 
-            foreach (var view in sortedViews)
+            foreach (var Provider in sortedProviders)
             {
-                if (!view)
+                if (!Provider)
                     continue;
 
                 EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-                EditorGUILayout.LabelField(view.GetType().Name, EditorStyles.boldLabel);
-                EditorGUILayout.ObjectField(view.gameObject, typeof(GameObject), false);
+                EditorGUILayout.LabelField(Provider.GetType().Name, EditorStyles.boldLabel);
+                EditorGUILayout.ObjectField(Provider.gameObject, typeof(GameObject), false);
                 EditorGUILayout.EndVertical();
                 EditorGUILayout.Space(5);
             }
@@ -118,7 +118,7 @@ namespace BitterCMS.UnityIntegration.Editor
             {
                 EditorGUILayout.BeginVertical(EditorStyles.helpBox);
                 EditorGUILayout.LabelField(entity.Key.Name, EditorStyles.boldLabel);
-                
+
                 if (GUILayout.Button("Create", GUILayout.Height(20)))
                 {
                     EntityDatabase.SaveEntity(entity.Key);

@@ -56,5 +56,8 @@
         "temp/": true,
         "Temp/": true
     },
-    "dotnet.defaultSolution": "UnityUtility.sln"
+    "dotnet.defaultSolution": "UnityUtility.sln",
+    "cSpell.words": [
+        "Tescomonent"
+    ]
 }

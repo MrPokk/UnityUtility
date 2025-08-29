@@ -25,7 +25,7 @@ namespace BitterCMS.CMSSystem
         [XmlIgnore]
         [field: NonSerialized]
         public CMSPresenterCore.CMSPresenterProperty Properties { get; set; }
-        
+
         /// <summary>
         /// Gets the number of components attached to this entity
         /// </summary>
@@ -36,40 +36,40 @@ namespace BitterCMS.CMSSystem
         /// </summary>
         public void Init(CMSPresenterCore.CMSPresenterProperty args) => Properties ??= args;
 
-        #region [View Operations]
+        #region [Provider Operations]
 
         /// <summary>
-        /// Attempts to get the associated view
+        /// Attempts to get the associated Provider
         /// </summary>
-        public bool TryGetView(out CMSViewCore view)
+        public bool TryGetProvider(out CMSProviderCore Provider)
         {
-            if (TryGetComponent<ViewComponent>(out var viewComponent) &&
-                viewComponent?.Properties != null)
+            if (TryGetComponent<ProviderComponent>(out var ProviderComponent) &&
+                ProviderComponent?.Properties != null)
             {
-                view = viewComponent.Properties.Current;
-                return view;
+                Provider = ProviderComponent.Properties.Current;
+                return Provider;
             }
 
-            view = null;
+            Provider = null;
             return false;
         }
 
         /// <summary>
-        /// Gets the associated view or null if not found
+        /// Gets the associated Provider or null if not found
         /// </summary>
-        public CMSViewCore GetView() => GetComponent<ViewComponent>()?.Properties?.Current;
+        public CMSProviderCore GetProvider() => GetComponent<ProviderComponent>()?.Properties?.Current;
 
         /// <summary>
-        /// Gets the associated view of specified type or null if not found
+        /// Gets the associated Provider of specified type or null if not found
         /// </summary>
-        public T GetView<T>() where T : CMSViewCore => GetView() as T;
+        public T GetProvider<T>() where T : CMSProviderCore => GetProvider() as T;
 
         /// <summary>
-        /// Gets a Unity component from the associated view
+        /// Gets a Unity component from the associated Provider
         /// </summary>
         public T GetUnityComponent<T>() where T : UnityEngine.Component
         {
-            return GetView()?.GetComponent<T>();
+            return GetProvider()?.GetComponent<T>();
         }
 
         #endregion
@@ -118,8 +118,8 @@ namespace BitterCMS.CMSSystem
         {
             return _components.TryGetValue(typeof(T), out var component) ? (T)component : null;
         }
-        
-        
+
+
         /// <summary>
         /// Gets a value from component using selector function or returns default value if component doesn't exist
         /// </summary>
@@ -129,8 +129,8 @@ namespace BitterCMS.CMSSystem
         /// <param name="defaultValue">Value to return if component not found</param>
         /// <returns>Selected value or default</returns>
         public TResult SetComponentValue<TComponent, TResult>(
-            Func<TComponent, TResult> selector, 
-            TResult defaultValue = default) 
+            Func<TComponent, TResult> selector,
+            TResult defaultValue = default)
             where TComponent : class, IEntityComponent
         {
             return TryGetComponent<TComponent>(out var component) ? selector(component) : defaultValue;

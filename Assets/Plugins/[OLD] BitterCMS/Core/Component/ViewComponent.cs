@@ -4,30 +4,30 @@ using System;
 
 namespace BitterCMS.Component
 {
-    public class ViewComponent : IEntityComponent, IInitializable<ViewComponent.ViewProperty>
+    public class ProviderComponent : IEntityComponent, IInitializable<ProviderComponent.ProviderProperty>
     {
-        public ViewProperty Properties { get; set; }
+        public ProviderProperty Properties { get; set; }
 
-        public void Init(ViewProperty property)
+        public void Init(ProviderProperty property)
         {
             if (property == null)
                 return;
 
-            var viewBase = ViewDatabase.Get(property.ViewType);
-            Properties = new ViewProperty(viewBase);
+            var ProviderBase = ProviderDatabase.Get(property.ProviderType);
+            Properties = new ProviderProperty(ProviderBase);
         }
-        
-        public class ViewProperty : InitializableProperty
-        {
-            public Type ViewType { get; private set; }
-            [NonSerialized] private CMSViewCore _current;  
-            public CMSViewCore Current { get => _current ??= ViewDatabase.Get(ViewType); set => _current = value; }
-            public CMSViewCore Original => ViewDatabase.Get(ViewType);
 
-            public ViewProperty(CMSViewCore variableView)
+        public class ProviderProperty : InitializableProperty
+        {
+            public Type ProviderType { get; private set; }
+            [NonSerialized] private CMSProviderCore _current;
+            public CMSProviderCore Current { get => _current ??= ProviderDatabase.Get(ProviderType); set => _current = value; }
+            public CMSProviderCore Original => ProviderDatabase.Get(ProviderType);
+
+            public ProviderProperty(CMSProviderCore variableProvider)
             {
-                ViewType = variableView.ID; 
-                _current = variableView;
+                ProviderType = variableProvider.ID;
+                _current = variableProvider;
             }
         }
     }

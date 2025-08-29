@@ -1,24 +1,22 @@
+using BitterECS.Core;
 using UnityEngine;
 
-namespace BitterECS.Core.Integration
+namespace BitterECS.Integration
 {
     public abstract class EcsUnityRoot : MonoBehaviour, IEcsIntegrationRoot
     {
-        public static EcsWorld EcsWorld { get; private set; }
-        public static EcsSystems EcsSystems { get; private set; }
+        private static EcsWorld s_ecsWorld;
+        private static EcsSystems s_ecsSystems;
 
         public Priority PrioritySystem => Priority.FIRST_TASK;
 
-        protected abstract void Bootstrap();
+        protected virtual void Bootstrap() { }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Integration()
         {
-            EcsWorld = new EcsWorld();
-            EcsWorld.Init();
-
-            EcsSystems = new EcsSystems();
-            EcsSystems.Init();
+            s_ecsWorld = new EcsWorld();
+            s_ecsSystems = new EcsSystems();
         }
 
         private void Awake()
@@ -52,41 +50,41 @@ namespace BitterECS.Core.Integration
             Destroy();
             PostDestroy();
 
-            EcsWorld.Dispose();
-            EcsSystems.Dispose();
+            s_ecsWorld.Dispose();
+            s_ecsSystems.Dispose();
         }
 
-        public void PreInit()
+        public virtual void PreInit()
         {
             EcsSystems.Run<IEcsPreInitSystem>(system => system.PreInit());
         }
 
-        public void Init()
+        public virtual void Init()
         {
             EcsSystems.Run<IEcsInitSystem>(system => system.Init());
         }
 
-        public void Run()
+        public virtual void Run()
         {
             EcsSystems.Run<IEcsRunSystem>(system => system.Run());
         }
 
-        public void FixedRun()
+        public virtual void FixedRun()
         {
             EcsSystems.Run<IEcsFixedRunSystem>(system => system.FixedRun());
         }
 
-        public void PostRun()
+        public virtual void PostRun()
         {
             EcsSystems.Run<IEcsPostRunSystem>(system => system.PostRun());
         }
 
-        public void Destroy()
+        public virtual void Destroy()
         {
             EcsSystems.Run<IEcsDestroySystem>(system => system.Destroy());
         }
 
-        public void PostDestroy()
+        public virtual void PostDestroy()
         {
             EcsSystems.Run<IEcsPostDestroySystem>(system => system.PostDestroy());
         }

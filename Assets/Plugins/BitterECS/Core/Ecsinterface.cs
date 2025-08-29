@@ -9,37 +9,40 @@ namespace BitterECS.Core
         public Priority PrioritySystem { get; }
     }
 
-    public interface IEcsPreInitSystem : IEcsSystem
+    public interface IEcsAutoImplement : IEcsSystem
+    { }
+
+    public interface IEcsPreInitSystem : IEcsAutoImplement
     {
         public void PreInit();
     }
 
-    public interface IEcsInitSystem : IEcsSystem
+    public interface IEcsInitSystem : IEcsAutoImplement
     {
         public void Init();
     }
 
-    public interface IEcsRunSystem : IEcsSystem
+    public interface IEcsRunSystem : IEcsAutoImplement
     {
         public void Run();
     }
 
-    public interface IEcsFixedRunSystem : IEcsSystem
+    public interface IEcsFixedRunSystem : IEcsAutoImplement
     {
         public void FixedRun();
     }
 
-    public interface IEcsPostRunSystem : IEcsSystem
+    public interface IEcsPostRunSystem : IEcsAutoImplement
     {
         public void PostRun();
     }
 
-    public interface IEcsDestroySystem : IEcsSystem
+    public interface IEcsDestroySystem : IEcsAutoImplement
     {
         public void Destroy();
     }
 
-    public interface IEcsPostDestroySystem : IEcsSystem
+    public interface IEcsPostDestroySystem : IEcsAutoImplement
     {
         public void PostDestroy();
     }
@@ -58,30 +61,17 @@ namespace BitterECS.Core
 
     #region Helper
 
-    public interface ILinkableEntity : IInitialize<EcsEntityProperty>, IDisposable
-    {
-        public ILinkableView View => EcsLinker.GetView(this);
-        bool Has<T>() where T : struct;
-        void Add<T>(in T component) where T : struct;
-        void Remove<T>() where T : struct;
-        ref T Get<T>() where T : struct;
-    }
 
-    public interface ILinkableView : IInitialize<EcsViewProperty>, IDisposable
+    public interface ILinkableProvider : IInitialize<EcsProviderProperty>, IDisposable
     {
-        public ILinkableEntity Entity => EcsLinker.GetEntity(this);
+        public EcsEntity Entity => Properties?.Presenter?.GetEntity(this);
     }
 
     public interface IInitializeProperty { }
 
-    public interface IInitialize
+    public interface IInitialize<T> where T : IInitializeProperty
     {
-        public void Init();
-    }
-
-    public interface IInitialize<T> where T : class, IInitializeProperty
-    {
-        public T Properties { get; set; }
+        public T Properties { get; }
         public void Init(T property);
         public T ValidateProperty(T property) { return property; }
     }
@@ -95,27 +85,22 @@ namespace BitterECS.Core
         LAST_TASK = 10000,
     }
 
-    public struct EntityProperties
+    public record EcsProviderProperty : IInitializeProperty
     {
-        public EcsPresenter Presenter;
-    }
+        public EcsPresenter Presenter { get; }
 
-    public class EcsViewProperty : IInitializeProperty
-    {
-        public readonly EcsPresenter Presenter;
-
-        public EcsViewProperty(EcsPresenter presenter)
+        public EcsProviderProperty(EcsPresenter presenter)
         {
             Presenter = presenter;
         }
     }
 
-    public class EcsEntityProperty : IInitializeProperty
+    public record EcsEntityProperty : IInitializeProperty
     {
-        public readonly EcsPresenter Presenter;
-        public readonly int Id = -1;
+        public EcsPresenter Presenter { get; }
+        public ushort Id { get; }
 
-        public EcsEntityProperty(EcsPresenter presenter, int id)
+        public EcsEntityProperty(EcsPresenter presenter, ushort id = 0)
         {
             Presenter = presenter;
             Id = id;

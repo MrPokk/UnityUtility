@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace BitterCMS.CMSSystem
 {
-    public abstract class CMSViewCore : MonoBehaviour, IInitializable<CMSPresenterCore.CMSPresenterProperty>
+    public abstract class CMSProviderCore : MonoBehaviour, IInitializable<CMSPresenterCore.CMSPresenterProperty>
     {
         public Type ID => GetType();
         public CMSPresenterCore.CMSPresenterProperty Properties { get; set; }
@@ -18,7 +18,7 @@ namespace BitterCMS.CMSSystem
 
         public CMSEntityCore GetModel()
         {
-            return _model ??= Properties?.PresenterCore?.GetEntityByView(this);
+            return _model ??= Properties?.PresenterCore?.GetEntityByProvider(this);
         }
 
         public T GetModel<T>() where T : CMSEntityCore

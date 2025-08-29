@@ -5,57 +5,57 @@ using UnityEngine;
 namespace BitterCMS.UnityIntegration
 {
     [RequireComponent(typeof(Collider2D), typeof(Rigidbody2D))]
-    public abstract class ViewCollision : CMSViewCore
+    public abstract class ProviderCollision : CMSProviderCore
     {
         private void OnCollisionEnter2D(Collision2D other)
         {
-            var viewCollision = other.collider.gameObject.GetComponent<ViewCollision>();
-            if (!viewCollision)
+            var ProviderCollision = other.collider.gameObject.GetComponent<ProviderCollision>();
+            if (!ProviderCollision)
                 return;
 
-            GetModel().GetComponent<ColliderComponent>().OtherCollision = viewCollision;
+            GetModel().GetComponent<ColliderComponent>().OtherCollision = ProviderCollision;
             foreach (var interaction in InteractionCache<IColliderInteraction>.AllInteraction)
             {
-                interaction.EnterCollider(GetComponent<ViewCollision>(), viewCollision);
+                interaction.EnterCollider(GetComponent<ProviderCollision>(), ProviderCollision);
             }
         }
 
         private void OnTriggerEnter2D(Collider2D other)
         {
-            var viewCollision = other.gameObject.GetComponent<ViewCollision>();
-            if (!viewCollision)
+            var ProviderCollision = other.gameObject.GetComponent<ProviderCollision>();
+            if (!ProviderCollision)
                 return;
 
-            GetModel().GetComponent<ColliderComponent>().OtherCollision = viewCollision;
+            GetModel().GetComponent<ColliderComponent>().OtherCollision = ProviderCollision;
             foreach (var interaction in InteractionCache<IColliderInteraction>.AllInteraction)
             {
-                interaction.EnterCollider(GetComponent<ViewCollision>(), viewCollision);
+                interaction.EnterCollider(GetComponent<ProviderCollision>(), ProviderCollision);
             }
         }
 
         private void OnTriggerExit2D(Collider2D other)
         {
-            var viewCollision = other.gameObject.GetComponent<ViewCollision>();
-            if (!viewCollision)
+            var ProviderCollision = other.gameObject.GetComponent<ProviderCollision>();
+            if (!ProviderCollision)
                 return;
 
             GetModel().GetComponent<ColliderComponent>().OtherCollision = null;
             foreach (var interaction in InteractionCache<IColliderInteraction>.AllInteraction)
             {
-                interaction.ExitCollider(GetComponent<ViewCollision>(), viewCollision);
+                interaction.ExitCollider(GetComponent<ProviderCollision>(), ProviderCollision);
             }
         }
 
         private void OnCollisionExit2D(Collision2D other)
         {
-            var viewCollision = other.collider.gameObject.GetComponent<ViewCollision>();
-            if (!viewCollision)
+            var ProviderCollision = other.collider.gameObject.GetComponent<ProviderCollision>();
+            if (!ProviderCollision)
                 return;
 
             GetModel().GetComponent<ColliderComponent>().OtherCollision = null;
             foreach (var interaction in InteractionCache<IColliderInteraction>.AllInteraction)
             {
-                interaction.ExitCollider(GetComponent<ViewCollision>(), viewCollision);
+                interaction.ExitCollider(GetComponent<ProviderCollision>(), ProviderCollision);
             }
         }
     }

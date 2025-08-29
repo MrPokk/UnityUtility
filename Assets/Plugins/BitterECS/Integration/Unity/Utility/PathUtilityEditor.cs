@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
-namespace BitterECS.Utility
+namespace BitterECS.Utility.Integration
 {
     public class PathProjectEditor : EditorWindow
     {

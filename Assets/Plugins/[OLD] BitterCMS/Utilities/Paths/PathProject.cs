@@ -6,6 +6,6 @@ namespace BitterCMS.Utility
         public const string SETTING = "Settings/";
         private const string CMS_DATA = "CMS/";
         public const string CMS_ENTITIES = CMS_DATA + "Entities/";
-        public const string CMS_VIEWS = PREFABS + "Views/";
+        public const string CMS_ProviderS = PREFABS + "Providers/";
     }
 }

@@ -12,8 +12,8 @@ namespace BitterCMS.CMSSystem
 {
     public abstract class CMSPresenterCore : InteractionCore, IEnterInLateUpdate
     {
-        private readonly Dictionary<CMSEntityCore, CMSViewCore> _entitiesWithViews = new Dictionary<CMSEntityCore, CMSViewCore>();
-        private readonly List<CMSEntityCore> _entitiesWithoutViews = new List<CMSEntityCore>();
+        private readonly Dictionary<CMSEntityCore, CMSProviderCore> _entitiesWithProviders = new Dictionary<CMSEntityCore, CMSProviderCore>();
+        private readonly List<CMSEntityCore> _entitiesWithoutProviders = new List<CMSEntityCore>();
         private readonly HashSet<Type> _allowedEntityTypes = new HashSet<Type>();
 
         private readonly static HashSet<CMSEntityCore> AllDestroy = new HashSet<CMSEntityCore>();
@@ -146,23 +146,23 @@ namespace BitterCMS.CMSSystem
 
             newEntityCore.Init(new CMSPresenterProperty(this));
 
-            if (!newEntityCore.TryGetComponent<ViewComponent>(out var view))
+            if (!newEntityCore.TryGetComponent<ProviderComponent>(out var Provider))
             {
-                #if DEBUG || UNITY_EDITOR
-                Debug.LogWarning($"Not found ViewComponent in {newEntityCore}");
-                #endif
-                _entitiesWithoutViews.Add(newEntityCore);
+#if DEBUG || UNITY_EDITOR
+                Debug.LogWarning($"Not found ProviderComponent in {newEntityCore}");
+#endif
+                _entitiesWithoutProviders.Add(newEntityCore);
                 return newEntityCore;
             }
 
-            var newView = LinkingMonobehaviour(newEntityCore, view, info.Position, info.Rotation, info.Parent);
+            var newProvider = LinkingMonobehaviour(newEntityCore, Provider, info.Position, info.Rotation, info.Parent);
 
-            if (newView)
-                _entitiesWithViews.Add(newEntityCore, newView);
+            if (newProvider)
+                _entitiesWithProviders.Add(newEntityCore, newProvider);
             else
-                _entitiesWithoutViews.Add(newEntityCore);
-            
-            newView?.Init(new CMSPresenterProperty(this));
+                _entitiesWithoutProviders.Add(newEntityCore);
+
+            newProvider?.Init(new CMSPresenterProperty(this));
 
             return newEntityCore;
         }
@@ -171,23 +171,23 @@ namespace BitterCMS.CMSSystem
         {
             cmsEntityCore.Init(new CMSPresenterProperty(this));
 
-            if (!cmsEntityCore.TryGetComponent<ViewComponent>(out var view))
+            if (!cmsEntityCore.TryGetComponent<ProviderComponent>(out var Provider))
             {
-                #if DEBUG || UNITY_EDITOR
-                Debug.LogWarning($"Not found ViewComponent in {cmsEntityCore}");
-                #endif
-                _entitiesWithoutViews.Add(cmsEntityCore);
+#if DEBUG || UNITY_EDITOR
+                Debug.LogWarning($"Not found ProviderComponent in {cmsEntityCore}");
+#endif
+                _entitiesWithoutProviders.Add(cmsEntityCore);
                 return cmsEntityCore;
             }
 
-            var newView = LinkingMonobehaviour(cmsEntityCore, view, info.Position, info.Rotation, info.Parent);
+            var newProvider = LinkingMonobehaviour(cmsEntityCore, Provider, info.Position, info.Rotation, info.Parent);
 
-            if (newView)
-                _entitiesWithViews.Add(cmsEntityCore, newView);
+            if (newProvider)
+                _entitiesWithProviders.Add(cmsEntityCore, newProvider);
             else
-                _entitiesWithoutViews.Add(cmsEntityCore);
-            
-            newView?.Init(new CMSPresenterProperty(this));
+                _entitiesWithoutProviders.Add(cmsEntityCore);
+
+            newProvider?.Init(new CMSPresenterProperty(this));
 
             return cmsEntityCore;
         }
@@ -196,19 +196,19 @@ namespace BitterCMS.CMSSystem
 
         #region [Entity Management]
 
-        private CMSViewCore LinkingMonobehaviour(
-            CMSEntityCore entityCore, ViewComponent view,
+        private CMSProviderCore LinkingMonobehaviour(
+            CMSEntityCore entityCore, ProviderComponent Provider,
             Vector3 position, Quaternion rotation, Transform parent
         )
         {
-            if (!view?.Properties.Original || entityCore == null)
+            if (!Provider?.Properties.Original || entityCore == null)
                 return null;
 
-            var newView = Object.Instantiate(view.Properties.Original, position, rotation, parent);
-            newView.name = $"{entityCore.ID.Name} [NEW]";
+            var newProvider = Object.Instantiate(Provider.Properties.Original, position, rotation, parent);
+            newProvider.name = $"{entityCore.ID.Name} [NEW]";
 
-            view.Properties.Current = newView;
-            return newView;
+            Provider.Properties.Current = newProvider;
+            return newProvider;
         }
 
         #endregion
@@ -225,7 +225,8 @@ namespace BitterCMS.CMSSystem
         {
             var allEntity = GetAllEntities();
 
-            return allEntity.Where(entity => {
+            return allEntity.Where(entity =>
+            {
                 var hasRequired = requiredComponents == null ||
                                   requiredComponents.All(entity.HasComponent);
 
@@ -244,9 +245,9 @@ namespace BitterCMS.CMSSystem
             var allEntity = GetAllEntities();
 
             return (from entity in allEntity
-                let hasAllComponents = typeComponent.All(entity.HasComponent)
-                where hasAllComponents
-                select entity).ToArray();
+                    let hasAllComponents = typeComponent.All(entity.HasComponent)
+                    where hasAllComponents
+                    select entity).ToArray();
         }
 
         /// <summary>
@@ -270,19 +271,19 @@ namespace BitterCMS.CMSSystem
         }
 
         /// <summary>
-        /// Gets entity of specific type by its view 
+        /// Gets entity of specific type by its Provider 
         /// </summary>
-        public T GetEntityByView<T>(CMSViewCore viewCore) where T : CMSEntityCore => GetEntityByView(viewCore) as T;
+        public T GetEntityByProvider<T>(CMSProviderCore ProviderCore) where T : CMSEntityCore => GetEntityByProvider(ProviderCore) as T;
 
         /// <summary>
-        /// Gets entity by its view 
+        /// Gets entity by its Provider 
         /// </summary>
-        public CMSEntityCore GetEntityByView(CMSViewCore viewCore) => !viewCore ? null : _entitiesWithViews.FirstOrDefault(pair => pair.Value == viewCore).Key;
+        public CMSEntityCore GetEntityByProvider(CMSProviderCore ProviderCore) => !ProviderCore ? null : _entitiesWithProviders.FirstOrDefault(pair => pair.Value == ProviderCore).Key;
 
         /// <summary>
-        /// Gets view by its entity
+        /// Gets Provider by its entity
         /// </summary>
-        public CMSViewCore GetViewByEntity(CMSEntityCore entityCore) => entityCore == null ? null : _entitiesWithViews.GetValueOrDefault(entityCore);
+        public CMSProviderCore GetProviderByEntity(CMSEntityCore entityCore) => entityCore == null ? null : _entitiesWithProviders.GetValueOrDefault(entityCore);
 
         /// <summary>
         /// Gets entity of specific type by its type
@@ -298,30 +299,30 @@ namespace BitterCMS.CMSSystem
         }
 
         /// <summary>
-        /// Gets all entities with their view associations
+        /// Gets all entities with their Provider associations
         /// </summary>
-        public IReadOnlyDictionary<CMSEntityCore, CMSViewCore> GetEntitiesWithViews() => _entitiesWithViews;
+        public IReadOnlyDictionary<CMSEntityCore, CMSProviderCore> GetEntitiesWithProviders() => _entitiesWithProviders;
 
         /// <summary>
-        /// Gets all entities without views
+        /// Gets all entities without Providers
         /// </summary>
-        public IReadOnlyCollection<CMSEntityCore> GetEntitiesWithoutViews() => _entitiesWithoutViews;
+        public IReadOnlyCollection<CMSEntityCore> GetEntitiesWithoutProviders() => _entitiesWithoutProviders;
 
         /// <summary>
-        /// Gets all entities (both with and without views)
+        /// Gets all entities (both with and without Providers)
         /// </summary>
         public IReadOnlyCollection<CMSEntityCore> GetAllEntities()
         {
-            var allEntities = new List<CMSEntityCore>(_entitiesWithViews.Count + _entitiesWithoutViews.Count);
-            allEntities.AddRange(_entitiesWithViews.Keys);
-            allEntities.AddRange(_entitiesWithoutViews);
+            var allEntities = new List<CMSEntityCore>(_entitiesWithProviders.Count + _entitiesWithoutProviders.Count);
+            allEntities.AddRange(_entitiesWithProviders.Keys);
+            allEntities.AddRange(_entitiesWithoutProviders);
             return allEntities;
         }
 
         /// <summary>
-        /// Gets all view instances of loaded entities
+        /// Gets all Provider instances of loaded entities
         /// </summary>
-        public IReadOnlyCollection<CMSViewCore> GetViewEntities() => _entitiesWithViews.Values;
+        public IReadOnlyCollection<CMSProviderCore> GetProviderEntities() => _entitiesWithProviders.Values;
 
         #endregion
 
@@ -343,14 +344,14 @@ namespace BitterCMS.CMSSystem
                 if (entityPresenter == null)
                     continue;
 
-                if (entityPresenter._entitiesWithViews.TryGetValue(entityToDestroy, out var view))
+                if (entityPresenter._entitiesWithProviders.TryGetValue(entityToDestroy, out var Provider))
                 {
-                    if (view && view.gameObject)
-                        Object.Destroy(view.gameObject);
-                    entityPresenter._entitiesWithViews.Remove(entityToDestroy);
+                    if (Provider && Provider.gameObject)
+                        Object.Destroy(Provider.gameObject);
+                    entityPresenter._entitiesWithProviders.Remove(entityToDestroy);
                 }
-                else if (entityPresenter._entitiesWithoutViews.Contains(entityToDestroy))
-                    entityPresenter._entitiesWithoutViews.Remove(entityToDestroy);
+                else if (entityPresenter._entitiesWithoutProviders.Contains(entityToDestroy))
+                    entityPresenter._entitiesWithoutProviders.Remove(entityToDestroy);
             }
         }
 
@@ -364,14 +365,14 @@ namespace BitterCMS.CMSSystem
         {
             CoroutineUtility.StopAll();
 
-            foreach (var view in _entitiesWithViews.Values)
+            foreach (var Provider in _entitiesWithProviders.Values)
             {
-                if (view != null && view.gameObject != null)
-                    Object.Destroy(view.gameObject);
+                if (Provider != null && Provider.gameObject != null)
+                    Object.Destroy(Provider.gameObject);
             }
 
-            _entitiesWithViews.Clear();
-            _entitiesWithoutViews.Clear();
+            _entitiesWithProviders.Clear();
+            _entitiesWithoutProviders.Clear();
         }
 
         #endregion 
@@ -382,8 +383,8 @@ namespace BitterCMS.CMSSystem
 
         public bool IsTypeAllowed(Type type)
         {
-            return _allowedEntityTypes.Count == 0 
-                ? typeof(CMSEntityCore).IsAssignableFrom(type) 
+            return _allowedEntityTypes.Count == 0
+                ? typeof(CMSEntityCore).IsAssignableFrom(type)
                 : _allowedEntityTypes.Any(allowedType => allowedType.IsAssignableFrom(type));
         }
 
