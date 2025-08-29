@@ -5,24 +5,28 @@ using UnityEngine;
 
 public sealed class CoroutineUtility : MonoBehaviour
 {
-    private static CoroutineUtility _instance;
+    private static CoroutineUtility s_instance;
     public static CoroutineUtility Instance
     {
         get
         {
-            if (_instance == null)
+            if (s_instance == null)
             {
                 var instanceFind = FindFirstObjectByType<CoroutineUtility>();
                 if (instanceFind == null)
-                    _instance = new GameObject("[CoroutineUtility]").AddComponent<CoroutineUtility>();
+                {
+                    s_instance = new GameObject("[CoroutineUtility]").AddComponent<CoroutineUtility>();
+                }
                 else
-                    _instance = instanceFind;
+                {
+                    s_instance = instanceFind;
+                }
             }
-            return _instance;
+            return s_instance;
         }
     }
 
-    private readonly Dictionary<int, ActiveCoroutine> _activeCoroutines = new Dictionary<int, ActiveCoroutine>();
+    private readonly Dictionary<int, ActiveCoroutine> _activeCoroutines = new();
     private int _nextCoroutineId = 1;
 
     private event Action<int> OnCoroutineStopped;
@@ -41,7 +45,10 @@ public sealed class CoroutineUtility : MonoBehaviour
 
     public static void Stop(CoroutineHandle handle)
     {
-        if (!handle.IsValid) return;
+        if (!handle.IsValid)
+        {
+            return;
+        }
         Instance.StopCoroutineInternal(handle);
     }
 
@@ -52,13 +59,19 @@ public sealed class CoroutineUtility : MonoBehaviour
 
     public static void SubscribeToStop(Action<CoroutineHandle> callback)
     {
-        if (callback == null) return;
+        if (callback == null)
+        {
+            return;
+        }
         Instance.OnCoroutineStopped += (id) => callback(new CoroutineHandle(id));
     }
 
     public static void SubscribeToAllStop(Action callback)
     {
-        if (callback == null) return;
+        if (callback == null)
+        {
+            return;
+        }
         Instance.OnAllCoroutinesStopped += callback;
     }
 
@@ -66,7 +79,7 @@ public sealed class CoroutineUtility : MonoBehaviour
 
     private CoroutineHandle StartNewCoroutine(IEnumerator coroutine)
     {
-        int id = _nextCoroutineId++;
+        var id = _nextCoroutineId++;
         var handle = new CoroutineHandle(id);
 
         var unityCoroutine = StartCoroutine(RunCoroutineWrapper(id, coroutine));
@@ -83,20 +96,26 @@ public sealed class CoroutineUtility : MonoBehaviour
         {
             OnCoroutineStopped?.Invoke(id);
             if (_activeCoroutines.Count == 0)
+            {
                 OnAllCoroutinesStopped?.Invoke();
+            }
         }
     }
 
     private void StopCoroutineInternal(CoroutineHandle handle)
     {
         if (!_activeCoroutines.Remove(handle.Id, out var activeCoroutine))
+        {
             return;
+        }
 
         StopCoroutine(activeCoroutine.UnityCoroutine);
         OnCoroutineStopped?.Invoke(handle.Id);
 
         if (_activeCoroutines.Count == 0)
+        {
             OnAllCoroutinesStopped?.Invoke();
+        }
     }
 
     private void StopAllCoroutinesInternal()
@@ -127,7 +146,7 @@ public sealed class CoroutineUtility : MonoBehaviour
 
 public readonly struct CoroutineHandle : IEquatable<CoroutineHandle>
 {
-    public static readonly CoroutineHandle Invalid = new CoroutineHandle(-1);
+    public static readonly CoroutineHandle Invalid = new(-1);
 
     public readonly int Id;
     public bool IsValid => Id != -1;

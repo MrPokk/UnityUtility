@@ -77,8 +77,8 @@ namespace BitterECS.Core
 
                 _operations[_count++] = new ComponentRemoveOperation
                 {
-                    ComponentType = componentType,
-                    Presenter = presenter
+                    componentType = componentType,
+                    presenter = presenter
                 };
             }
 
@@ -101,8 +101,8 @@ namespace BitterECS.Core
             {
                 var method = typeof(ComponentRemoveOperations).GetMethod(nameof(RemoveComponentInternal),
                     BindingFlags.NonPublic | BindingFlags.Static);
-                var generic = method.MakeGenericMethod(op.ComponentType);
-                generic.Invoke(null, new object[] { entity, op.Presenter });
+                var generic = method.MakeGenericMethod(op.componentType);
+                generic.Invoke(null, new object[] { entity, op.presenter });
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -117,8 +117,8 @@ namespace BitterECS.Core
 
             private struct ComponentRemoveOperation
             {
-                public Type ComponentType;
-                public EcsPresenter Presenter;
+                public Type componentType;
+                public EcsPresenter presenter;
             }
         }
     }

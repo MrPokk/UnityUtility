@@ -7,11 +7,11 @@ namespace BitterECS.Integration
     public class ComponentProvider<T> : ComponentProvider where T : struct
     {
         [SerializeField]
-        protected T component;
+        protected T _component;
 
-        public ref T Component => ref component;
+        public ref T Component => ref _component;
 
-        public override object ObjectComponent { get => component; }
+        public override object ObjectComponent { get => _component; }
     }
 
     [RequireComponent(typeof(MonoProvider)), Serializable]

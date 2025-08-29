@@ -34,7 +34,7 @@ namespace BitterECS.Core
         {
             if (entityId >= _entityToDataIndex.Length)
             {
-                int newSize = _entityToDataIndex.Length == 0
+                var newSize = _entityToDataIndex.Length == 0
                     ? Math.Max(entityId + 1, _initialCapacity)
                     : Math.Max(entityId + 1, _entityToDataIndex.Length * EcsConfig.PoolGrowthFactor);
 
@@ -61,7 +61,7 @@ namespace BitterECS.Core
             {
                 if (_count >= _components.Length)
                 {
-                    int newCapacity = _components.Length == 0
+                    var newCapacity = _components.Length == 0
                         ? _initialCapacity
                         : _components.Length * EcsConfig.PoolGrowthFactor;
 
@@ -116,14 +116,14 @@ namespace BitterECS.Core
                 return;
             }
 
-            int dataIndex = _entityToDataIndex[entityId];
+            var dataIndex = _entityToDataIndex[entityId];
             _entityToDataIndex[entityId] = -1;
 
             if (dataIndex < _count - 1)
             {
                 _components[dataIndex] = _components[_count - 1];
 
-                int movedEntityId = _dataIndexToEntity[_count - 1];
+                var movedEntityId = _dataIndexToEntity[_count - 1];
                 _entityToDataIndex[movedEntityId] = dataIndex;
                 _dataIndexToEntity[dataIndex] = movedEntityId;
             }

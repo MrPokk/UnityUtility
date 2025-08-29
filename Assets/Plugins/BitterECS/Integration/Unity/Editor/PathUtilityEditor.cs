@@ -13,10 +13,10 @@ namespace BitterECS.Utility.Integration
         [Serializable]
         class PathNode
         {
-            public string Path;
-            [NonSerialized] public List<PathNode> Children = new();
-            public bool Expanded;
-            public PathNode(string path) => Path = path;
+            public string path;
+            [NonSerialized] public List<PathNode> children = new();
+            public bool expanded;
+            public PathNode(string path) => this.path = path;
         }
 
         [SerializeField] PathNode _rootNode;
@@ -74,7 +74,7 @@ namespace BitterECS.Utility.Integration
             foreach (var group in groups.OrderBy(g => g.Key))
             {
                 var node = new PathNode(group.Key);
-                parent.Children.Add(node);
+                parent.children.Add(node);
 
                 var subPaths = group
                     .Where(parts => parts.Length > 1)
@@ -113,19 +113,19 @@ namespace BitterECS.Utility.Integration
             EditorGUILayout.BeginHorizontal();
             GUILayout.Space(indent * 15);
 
-            var icon = node.Expanded ? _folderOpenedIcon : _folderIcon;
-            var content = new GUIContent(node.Path, icon);
+            var icon = node.expanded ? _folderOpenedIcon : _folderIcon;
+            var content = new GUIContent(node.path, icon);
 
-            if (node.Children.Count > 0)
-                node.Expanded = EditorGUILayout.Foldout(node.Expanded, content);
+            if (node.children.Count > 0)
+                node.expanded = EditorGUILayout.Foldout(node.expanded, content);
             else
                 EditorGUILayout.LabelField(content);
 
             EditorGUILayout.EndHorizontal();
 
-            if (!node.Expanded || node.Children.Count == 0) return;
+            if (!node.expanded || node.children.Count == 0) return;
 
-            foreach (var child in node.Children)
+            foreach (var child in node.children)
                 DrawNode(child, indent + 1);
         }
     }

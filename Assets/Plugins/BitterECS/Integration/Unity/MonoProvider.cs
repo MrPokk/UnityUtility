@@ -25,6 +25,8 @@ namespace BitterECS.Integration
                 throw new Exception("Invalid entity type: " + EntityType?.Name ?? "null");
             }
 
+            Debug.Log(EntityType);
+
             _componentProviders = GetComponents<ComponentProvider>();
             _linkableProvider = this;
             EcsWorld.GetToEntityType(EntityType)
@@ -33,6 +35,7 @@ namespace BitterECS.Integration
             .WithLink(_linkableProvider)
             .Create(EntityType);
 
+            var count = EcsWorld.GetToEntityType(EntityType).EntityCount;
         }
 
         protected void ApplyComponentProviders(EcsEntity entity)
@@ -64,9 +67,18 @@ namespace BitterECS.Integration
         }
 
         public void Init(EcsProviderProperty property) => Properties = property;
+
+        protected virtual void OnDestroy()
+        {
+            Properties?.Presenter.Remove(_linkableProvider.Entity);
+        }
+
         public void Dispose()
         {
-            SystemDestroy.Add(gameObject);
+            Properties = null;
+            Destroy(gameObject);
+
+            GC.SuppressFinalize(this);
         }
     }
 

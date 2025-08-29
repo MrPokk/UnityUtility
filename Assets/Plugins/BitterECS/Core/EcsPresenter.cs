@@ -8,7 +8,7 @@ namespace BitterECS.Core
     public abstract class EcsPresenter : IDisposable
     {
         private EcsEntity[] _entities;
-        private int _entitiesCount;
+        private ushort _entitiesCount;
         private readonly Stack<ushort> _freeEntityIds;
         private readonly Dictionary<Type, object> _pools;
         private readonly HashSet<Type> _allowedTypes;
@@ -38,15 +38,21 @@ namespace BitterECS.Core
         public bool IsTypeAllowed(Type type)
         {
             if (_allowedTypes.Count == 0)
+            {
                 return true;
+            }
 
             if (_allowedTypes.Contains(type))
+            {
                 return true;
+            }
 
             foreach (var allowedType in _allowedTypes)
             {
                 if (allowedType.IsAssignableFrom(type))
+                {
                     return true;
+                }
             }
 
             return false;
@@ -99,7 +105,9 @@ namespace BitterECS.Core
         private EcsEntity InitEntity(EcsEntity entity)
         {
             if (!IsTypeAllowed(entity.GetType()))
+            {
                 throw new InvalidOperationException($"Can't create entity of type {entity.GetType().Name}");
+            }
 
             var entityId = GetNextEntityId();
             entity.Init(new EcsEntityProperty(this, entityId));
@@ -120,13 +128,20 @@ namespace BitterECS.Core
         private ushort GetNextEntityId()
         {
             if (_freeEntityIds.Count > 0)
+            {
                 return _freeEntityIds.Pop();
+            }
 
-            return (ushort)_entitiesCount++;
+            return _entitiesCount++;
         }
 
         internal void DestroyEntity(EcsEntity entity)
         {
+            if (entity == null)
+            {
+                throw new ArgumentNullException(nameof(entity));
+            }
+
             var entityId = entity.Properties.Id;
             if (entityId >= _entities.Length || _entities[entityId] != entity)
             {
@@ -178,33 +193,21 @@ namespace BitterECS.Core
             if (entity == null || provider == null)
                 return;
 
-            if (!entity.Has<ProviderComponent>())
-            {
-                entity.Add(new ProviderComponent(provider));
-            }
-            else
-            {
-                ref var providerComponent = ref entity.Get<ProviderComponent>();
-                providerComponent.current = provider;
-            }
-
             provider.Init(new EcsProviderProperty(this));
             _linkedEntities[entity] = provider;
         }
 
         public void Unlink(EcsEntity entity)
         {
-            if (entity == null)
-                return;
-
-            if (entity.Has<ProviderComponent>())
+            if (entity == null || !_linkedEntities.ContainsKey(entity))
             {
-                ref var provider = ref entity.Get<ProviderComponent>().current;
-                provider?.Dispose();
-
-                entity.Remove<ProviderComponent>();
+                return;
             }
-            _linkedEntities.Remove(entity);
+
+            if (_linkedEntities.Remove(entity, out var provider))
+            {
+                provider?.Dispose();
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -222,39 +225,15 @@ namespace BitterECS.Core
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public EcsEntity Get(ILinkableProvider provider)
         {
-            foreach (var kvp in _linkedEntities)
+            foreach (var kvp in _linkedEntities.Where(kvp => kvp.Value == provider))
             {
-                if (kvp.Value == provider)
-                    return kvp.Key;
+                return kvp.Key;
             }
+
             return null;
         }
 
-        public IEnumerable<EcsEntity> GetAll()
-        {
-            for (int i = 0; i < _entities.Length; i++)
-            {
-                var entity = _entities[i];
-                if (entity != null)
-                    yield return entity;
-            }
-        }
-
-        public void EnsureCapacity(int capacity)
-        {
-            if (capacity > _entities.Length)
-            {
-                Array.Resize(ref _entities, capacity);
-            }
-        }
-
-        public void TrimExcess()
-        {
-            if (_entitiesCount < _entities.Length * 0.7)
-            {
-                Array.Resize(ref _entities, _entitiesCount);
-            }
-        }
+        public EcsEntity[] GetAll() => _entities.Where(x => x != null).ToArray();
 
         public void Dispose()
         {
@@ -274,7 +253,6 @@ namespace BitterECS.Core
             _pools.Clear();
             _allowedTypes.Clear();
             _linkedEntities.Clear();
-
             GC.SuppressFinalize(this);
         }
     }

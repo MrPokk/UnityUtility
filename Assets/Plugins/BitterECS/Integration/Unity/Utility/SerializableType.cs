@@ -63,5 +63,5 @@ public class SerializableType : ISerializationCallbackReceiver
     }
 
     public static implicit operator Type(SerializableType serializableType) => serializableType?.Type;
-    public static implicit operator SerializableType(Type type) => new SerializableType(type);
+    public static implicit operator SerializableType(Type type) => new(type);
 }

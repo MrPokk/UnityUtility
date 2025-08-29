@@ -17,9 +17,11 @@ namespace BitterECS.Utility
                 var allPath = GetAllPaths();
                 foreach (var path in allPath)
                 {
-                    var finalPath = GetFullPath(path);   
+                    var finalPath = GetFullPath(path);
                     if (!Directory.Exists(finalPath))
+                    {
                         Directory.CreateDirectory(finalPath);
+                    }
                 }
             }
             catch (Exception ex)
@@ -31,7 +33,9 @@ namespace BitterECS.Utility
         private static string[] GetAllPaths()
         {
             if (IsCacheValid())
+            {
                 return s_cachedPaths;
+            }
 
             s_cachedPaths = GetValidPathsFromFields();
             s_cachedFieldCount = s_cachedPaths.Length;
@@ -60,8 +64,10 @@ namespace BitterECS.Utility
             var allBasePath = GetAllPaths();
 
             if (!allBasePath.Contains(pathBase))
+            {
                 throw new ArgumentException($"ERROR: Path not base: {pathBase}");
-            
+            }
+
             var fullPath = Path.Combine(
                 PathProject.DataPath,
                 $"!{PathProject.ProductName}",

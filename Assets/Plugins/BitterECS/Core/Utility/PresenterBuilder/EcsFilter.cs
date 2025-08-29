@@ -1,60 +1,80 @@
 using System;
-using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
 namespace BitterECS.Core
 {
-    public readonly struct EcsFilter
+    public ref struct EcsFilter
     {
         private readonly EcsPresenter _presenter;
-        private readonly List<Func<EcsEntity, bool>> _includeConditions;
-        private readonly List<Func<EcsEntity, bool>> _excludeConditions;
+        private readonly ICondition[] _includeConditions;
+        private readonly ICondition[] _excludeConditions;
+        private int _includeCount;
+        private int _excludeCount;
 
         public EcsFilter(EcsPresenter presenter)
         {
             _presenter = presenter;
-            _includeConditions = new(EcsConfig.FilterConditionInclude);
-            _excludeConditions = new(EcsConfig.FilterConditionExclude);
+            _includeConditions = new ICondition[EcsConfig.FilterConditionInclude];
+            _excludeConditions = new ICondition[EcsConfig.FilterConditionExclude];
+            _includeCount = 0;
+            _excludeCount = 0;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public EcsFilter Include<T>() where T : struct
         {
-            _includeConditions.Add(entity => entity.Has<T>());
+            AddCondition(_includeConditions, new HasComponentCondition<T>(), ref _includeCount);
             return this;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public EcsFilter Exclude<T>() where T : struct
         {
-            _excludeConditions.Add(entity => !entity.Has<T>());
+            AddCondition(_excludeConditions, new NotHasComponentCondition<T>(), ref _excludeCount);
             return this;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public EcsFilter Where<T>(Func<T, bool> predicate) where T : struct
+        {
+            AddCondition(_includeConditions, new ComponentPredicateCondition<T>(predicate), ref _includeCount);
+            return this;
+        }
+
+        private void AddCondition(ICondition[] conditions, ICondition newCondition, ref int count)
+        {
+            if (count >= conditions.Length)
+                throw new IndexOutOfRangeException($"Maximum number of conditions ({conditions.Length}) exceeded");
+
+            conditions[count] = newCondition;
+            count++;
         }
 
         public FilterEnumerator Collect()
         {
-            return new FilterEnumerator(_presenter, _includeConditions, _excludeConditions);
+            return new FilterEnumerator(_presenter.GetAll(), _includeConditions, _excludeConditions, _includeCount, _excludeCount);
         }
 
-        public struct FilterEnumerator
+        public ref struct FilterEnumerator
         {
-            private readonly List<Func<EcsEntity, bool>> _includeConditions;
-            private readonly List<Func<EcsEntity, bool>> _excludeConditions;
-            private IEnumerator<EcsEntity> _entityEnumerator;
+            private readonly EcsEntity[] _entities;
+            private readonly ICondition[] _includeConditions;
+            private readonly ICondition[] _excludeConditions;
+            private readonly int _includeCount;
+            private readonly int _excludeCount;
+            private int _index;
             private EcsEntity _current;
-            private bool _started;
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            internal FilterEnumerator(
-                EcsPresenter presenter,
-                List<Func<EcsEntity, bool>> includeConditions,
-                List<Func<EcsEntity, bool>> excludeConditions)
+            internal FilterEnumerator(EcsEntity[] entities, ICondition[] includeConditions, ICondition[] excludeConditions, int includeCount, int excludeCount)
             {
+                _entities = entities;
                 _includeConditions = includeConditions;
                 _excludeConditions = excludeConditions;
-                _entityEnumerator = presenter.GetAll().GetEnumerator();
+                _includeCount = includeCount;
+                _excludeCount = excludeCount;
+                _index = -1;
                 _current = default;
-                _started = false;
             }
 
             public readonly EcsEntity Current => _current;
@@ -62,24 +82,9 @@ namespace BitterECS.Core
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public bool MoveNext()
             {
-                if (!_started)
+                while (++_index < _entities.Length)
                 {
-                    _started = true;
-                    return MoveToNextValid();
-                }
-
-                if (!_entityEnumerator.MoveNext())
-                    return false;
-
-                return MoveToNextValid();
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            private bool MoveToNextValid()
-            {
-                while (_entityEnumerator.MoveNext())
-                {
-                    var entity = _entityEnumerator.Current;
+                    var entity = _entities[_index];
                     if (MatchesAllConditions(entity))
                     {
                         _current = entity;
@@ -92,21 +97,19 @@ namespace BitterECS.Core
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private readonly bool MatchesAllConditions(EcsEntity entity)
             {
-                if (_includeConditions != null)
+                for (int i = 0; i < _includeCount; i++)
                 {
-                    foreach (var condition in _includeConditions)
+                    if (!_includeConditions[i].Check(entity))
                     {
-                        if (!condition(entity))
-                            return false;
+                        return false;
                     }
                 }
 
-                if (_excludeConditions != null)
+                for (int i = 0; i < _excludeCount; i++)
                 {
-                    foreach (var condition in _excludeConditions)
+                    if (!_excludeConditions[i].Check(entity))
                     {
-                        if (!condition(entity))
-                            return false;
+                        return false;
                     }
                 }
 
@@ -115,6 +118,39 @@ namespace BitterECS.Core
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public readonly FilterEnumerator GetEnumerator() => this;
+        }
+    }
+
+    public interface ICondition
+    {
+        bool Check(EcsEntity entity);
+    }
+
+    public readonly struct HasComponentCondition<T> : ICondition where T : struct
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Check(EcsEntity entity) => entity.Has<T>();
+    }
+
+    public readonly struct NotHasComponentCondition<T> : ICondition where T : struct
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Check(EcsEntity entity) => !entity.Has<T>();
+    }
+
+    public readonly struct ComponentPredicateCondition<T> : ICondition where T : struct
+    {
+        private readonly Func<T, bool> _predicate;
+
+        public ComponentPredicateCondition(Func<T, bool> predicate)
+        {
+            _predicate = predicate;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Check(EcsEntity entity)
+        {
+            return entity.Has<T>() && _predicate(entity.Get<T>());
         }
     }
 }

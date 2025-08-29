@@ -116,10 +116,10 @@ namespace BitterECS.Core
 
                 _operations[_count++] = new ComponentAddOperation
                 {
-                    ComponentType = componentType,
-                    Component = component,
-                    Presenter = presenter,
-                    Callbacks = callbacks
+                    componentType = componentType,
+                    component = component,
+                    presenter = presenter,
+                    callbacks = callbacks
                 };
             }
 
@@ -142,8 +142,8 @@ namespace BitterECS.Core
             {
                 var method = typeof(ComponentAddOperations).GetMethod(nameof(AddComponentInternal),
                     BindingFlags.NonPublic | BindingFlags.Static);
-                var generic = method.MakeGenericMethod(op.ComponentType);
-                generic.Invoke(null, new object[] { entity, op.Component, op.Presenter, op.Callbacks });
+                var generic = method.MakeGenericMethod(op.componentType);
+                generic.Invoke(null, new object[] { entity, op.component, op.presenter, op.callbacks });
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -156,10 +156,10 @@ namespace BitterECS.Core
 
             private struct ComponentAddOperation
             {
-                public Type ComponentType;
-                public object Component;
-                public EcsPresenter Presenter;
-                public ComponentAddedCallbacks Callbacks;
+                public Type componentType;
+                public object component;
+                public EcsPresenter presenter;
+                public ComponentAddedCallbacks callbacks;
             }
         }
 
@@ -170,10 +170,7 @@ namespace BitterECS.Core
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Add(Type componentType, Action<EcsEntity, object> callback)
             {
-                if (_callbacks == null)
-                {
-                    _callbacks = new Dictionary<Type, List<Action<EcsEntity, object>>>(EcsConfig.EntityCallbackFactor);
-                }
+                _callbacks ??= new Dictionary<Type, List<Action<EcsEntity, object>>>(EcsConfig.EntityCallbackFactor);
 
                 if (!_callbacks.TryGetValue(componentType, out var list))
                 {
@@ -188,7 +185,9 @@ namespace BitterECS.Core
             public void Invoke<C>(EcsEntity entity, C component) where C : struct
             {
                 if (_callbacks == null || !_callbacks.TryGetValue(typeof(C), out var list))
+                {
                     return;
+                }
 
                 for (int i = 0; i < list.Count; i++)
                 {

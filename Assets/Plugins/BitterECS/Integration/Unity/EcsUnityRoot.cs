@@ -17,13 +17,13 @@ namespace BitterECS.Integration
         {
             s_ecsWorld = new EcsWorld();
             s_ecsSystems = new EcsSystems();
-
         }
 
         private void Awake()
         {
             PreInit();
             Bootstrap();
+
         }
 
         private void Start()

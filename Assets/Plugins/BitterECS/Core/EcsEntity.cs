@@ -6,6 +6,8 @@ namespace BitterECS.Core
     {
         public EcsEntityProperty Properties { get; private set; }
 
+        public ILinkableProvider Provider => Properties?.Presenter?.GetProvider(this);
+
         void IInitialize<EcsEntityProperty>.Init(EcsEntityProperty property) => Init(property);
 
         internal void Init(EcsEntityProperty property) => Properties = property;
@@ -41,7 +43,7 @@ namespace BitterECS.Core
 
         public void Dispose()
         {
-            Properties.Presenter.Remove(this);
+            Properties?.Presenter.Remove(this);
             Properties = null;
             GC.SuppressFinalize(this);
         }
