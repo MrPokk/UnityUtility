@@ -4,25 +4,18 @@ using UnityEngine;
 
 public class Root : EcsUnityRoot
 {
+    [SerializeField]
+    private GridConfig _gridConfig;
     protected override void Bootstrap()
     {
-        var entities = EcsWorld.Get<EcsPresenterTest>();
 
-        entities.Add<TestEntity>();
+    }
 
-        var ecsEntities = entities.Filter()
-       .Include<TestComponent>()
-       .Collect();
+    protected override void PostBootstrap()
+    {
+        EcsWorld.Get<EcsPresenterTest>().g
 
-        Debug.Log(entities.EntityCount);
 
-        foreach (var entity in ecsEntities)
-        {
-            var monoBehaviour = (MonoBehaviour)entity.Provider;
-            if (monoBehaviour != null)
-                Destroy(monoBehaviour.gameObject);
-        }
 
-        Debug.Log(entities.EntityCount);
     }
 }

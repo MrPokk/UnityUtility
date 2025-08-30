@@ -11,6 +11,7 @@ namespace BitterECS.Integration
         public Priority PrioritySystem => Priority.FIRST_TASK;
 
         protected virtual void Bootstrap() { }
+        protected virtual void PostBootstrap() { }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Integration()
@@ -29,6 +30,7 @@ namespace BitterECS.Integration
         private void Start()
         {
             Init();
+            PostBootstrap();
         }
 
         private void Update()

@@ -5,8 +5,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using BitterECS.Extra;
 
-namespace BitterECS.Utility.Integration
+namespace BitterECS.Integration.Editor
 {
     public class PathProjectEditor : EditorWindow
     {
@@ -23,7 +24,10 @@ namespace BitterECS.Utility.Integration
         static Texture2D _folderIcon, _folderOpenedIcon;
 
         [MenuItem("Tools/BitterECS/Path Project Settings")]
-        static void ShowWindow() => GetWindow<PathProjectEditor>("Path Project Settings").minSize = new Vector2(300, 400);
+        static void ShowWindow()
+        {
+            GetWindow<PathProjectEditor>("Path Project Settings").minSize = new Vector2(300, 400);
+        }
 
         void OnEnable()
         {

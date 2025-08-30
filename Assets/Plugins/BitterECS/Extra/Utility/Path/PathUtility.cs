@@ -3,7 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 
-namespace BitterECS.Utility
+namespace BitterECS.Extra
 {
     public static class PathUtility
     {

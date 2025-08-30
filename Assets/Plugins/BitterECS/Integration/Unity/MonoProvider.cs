@@ -25,8 +25,6 @@ namespace BitterECS.Integration
                 throw new Exception("Invalid entity type: " + EntityType?.Name ?? "null");
             }
 
-            Debug.Log(EntityType);
-
             _componentProviders = GetComponents<ComponentProvider>();
             _linkableProvider = this;
             EcsWorld.GetToEntityType(EntityType)
