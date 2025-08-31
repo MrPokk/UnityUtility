@@ -9,3 +9,11 @@ public class EcsPresenterTest : EcsPresenter
 
     }
 }
+
+public class EcsPredasdassenterTest : EcsPresenter
+{
+    protected override void Registration()
+    {
+
+    }
+}

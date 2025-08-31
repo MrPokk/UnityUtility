@@ -1,7 +1,6 @@
 #if UNITY_EDITOR
 using UnityEditor;
 using System;
-using System.Linq;
 using BitterECS.Core;
 using BitterECS.Utility;
 
@@ -11,58 +10,75 @@ namespace BitterECS.Integration.Editor
     public class MonoProviderEditor : UnityEditor.Editor
     {
         private MonoProvider _provider;
-        private SerializedProperty _entityTypeProperty;
-
         private string[] _typeNames;
         private Type[] _types;
         private int _selectedIndex = -1;
 
         private void OnEnable()
         {
-            _types = ReflectionUtility.FindAllImplement<EcsEntity>();
-            _typeNames = _types.Select(t => t.FullName).ToArray();
-
             _provider = (MonoProvider)target;
-            _entityTypeProperty = serializedObject.FindProperty("entityType");
 
-            if (_provider.entityType != null && _provider.entityType.Type != null)
+            _types = ReflectionUtility.FindAllImplement<EcsPresenter>();
+            _typeNames = new string[_types.Length + 1];
+            _typeNames[0] = "None";
+            for (var i = 0; i < _types.Length; i++)
             {
-                _selectedIndex = Array.IndexOf(_types, _provider.entityType.Type);
+                _typeNames[i + 1] = _types[i].FullName;
             }
 
-            if (_selectedIndex == -1 && _types.Length > 0)
-            {
-                _selectedIndex = 0;
-            }
+            UpdateSelectedIndexFromProvider();
         }
 
         public override void OnInspectorGUI()
         {
-            serializedObject.Update();
-
             EditorGUILayout.Space();
-
             EditorGUI.BeginChangeCheck();
-            _selectedIndex = EditorGUILayout.Popup("Entity Type", _selectedIndex, _typeNames);
 
-            if (EditorGUI.EndChangeCheck() && _selectedIndex >= 0 && _selectedIndex < _types.Length)
+            var newSelectedIndex = EditorGUILayout.Popup("Entity Type", _selectedIndex, _typeNames);
+
+            if (EditorGUI.EndChangeCheck())
             {
-                var selectedType = _types[_selectedIndex];
+                _selectedIndex = newSelectedIndex;
 
-                _entityTypeProperty.FindPropertyRelative("_typeName").stringValue = selectedType.FullName;
-                _entityTypeProperty.FindPropertyRelative("_assemblyName").stringValue = selectedType.Assembly.FullName;
-
-                _provider.entityType.Type = selectedType;
-
-                EditorUtility.SetDirty(target);
+                if (_selectedIndex == 0)
+                {
+                    Select(null);
+                }
+                else
+                {
+                    var selectIndex = _selectedIndex - 1;
+                    Select(_types[selectIndex]);
+                }
             }
 
-            EditorGUILayout.LabelField("Current Type", _provider.EntityType?.FullName ?? "None");
-
+            EditorGUILayout.LabelField("Current:", _provider.PresenterType?.FullName ?? "None");
             EditorGUILayout.Space();
-            EditorGUILayout.HelpBox("Select an EcsEntity type that this provider will create", MessageType.Info);
+        }
 
-            serializedObject.ApplyModifiedProperties();
+        private void UpdateSelectedIndexFromProvider()
+        {
+            if (_provider.PresenterType == null)
+            {
+                _selectedIndex = 0;
+                return;
+            }
+
+            for (var i = 0; i < _types.Length; i++)
+            {
+                if (_types[i] == _provider.PresenterType)
+                {
+                    _selectedIndex = i + 1;
+                    return;
+                }
+            }
+
+            _selectedIndex = 0;
+        }
+
+        private void Select(Type type)
+        {
+            _provider.presenterType = type;
+            EditorUtility.SetDirty(_provider);
         }
     }
 }

@@ -1,5 +1,4 @@
 using System;
-using System.Reflection;
 using BitterECS.Core;
 using UnityEngine;
 
@@ -8,68 +7,55 @@ namespace BitterECS.Integration
     public class MonoProvider : MonoBehaviour, ILinkableProvider
     {
         [SerializeField]
-        public SerializableType entityType;
+        public SerializableType presenterType;
+        public Type PresenterType => presenterType.Type;
 
-        public Type EntityType => entityType.Type;
         public EcsProviderProperty Properties { get; protected set; }
+        public EcsPresenter Presenter => Properties.Presenter;
+        public EcsEntity Entity => Properties.Presenter.Get(Properties.Id);
+        public ushort Id => Properties.Id;
 
         private ILinkableProvider _linkableProvider;
-        private ComponentProvider[] _componentProviders;
-        private static readonly MethodInfo s_applyComponentMethod = typeof(MonoProvider).GetMethod(
-            nameof(ApplyComponent), BindingFlags.NonPublic | BindingFlags.Instance);
+        private ITypedComponentProvider[] _componentProviders;
 
         protected virtual void Awake()
         {
-            if (EntityType == null || !typeof(EcsEntity).IsAssignableFrom(EntityType))
+            if (PresenterType == null)
             {
-                throw new Exception("Invalid entity type: " + EntityType?.Name ?? "null");
+                throw new Exception($"Invalid entity type: null from {gameObject.name}");
             }
 
-            _componentProviders = GetComponents<ComponentProvider>();
+            _componentProviders = GetComponents<ITypedComponentProvider>();
             _linkableProvider = this;
-            EcsWorld.GetToEntityType(EntityType)
-            .AddTo()
-            .WithPreInitCallback(ApplyComponentProviders)
+            EcsWorld.Get(PresenterType)
+            .AddTo<EcsEntity>()
+            .WithPreInitCallback(ApplyComponent)
             .WithLink(_linkableProvider)
-            .Create(EntityType);
+            .WithForce()
+            .Create();
 
-            var count = EcsWorld.GetToEntityType(EntityType).EntityCount;
+            var count = EcsWorld.GetToEntityType(PresenterType).EntityCount;
         }
 
-        protected void ApplyComponentProviders(EcsEntity entity)
+        protected void ApplyComponent(EcsEntity entity)
         {
-            foreach (var wrapper in _componentProviders)
+            foreach (var provider in _componentProviders)
             {
-                var componentType = wrapper.ObjectComponent.GetType();
-                var method = s_applyComponentMethod.MakeGenericMethod(componentType);
-                method?.Invoke(this, new object[] { entity, wrapper });
+                provider.Apply(entity);
             }
         }
 
-        protected void ApplyComponent<TComponent>(EcsEntity entity, ComponentProvider wrapper) where TComponent : struct
+        protected void SyncComponent(EcsEntity entity)
         {
-            if (wrapper is not ComponentProvider<TComponent> typedWrapper)
+            foreach (var provider in _componentProviders)
             {
-                return;
-            }
-
-            var component = typedWrapper.Component;
-            if (entity.Has<TComponent>())
-            {
-                entity.Set((ref TComponent comp) => comp = component);
-            }
-            else
-            {
-                entity.Add(component);
+                provider.Sync(entity);
             }
         }
 
         public void Init(EcsProviderProperty property) => Properties = property;
 
-        protected virtual void OnDestroy()
-        {
-            Properties?.Presenter.Remove(_linkableProvider.Entity);
-        }
+        protected virtual void OnDestroy() => Properties?.Presenter.Remove(_linkableProvider.Entity);
 
         public void Dispose()
         {
@@ -84,7 +70,7 @@ namespace BitterECS.Integration
     {
         protected override void Awake()
         {
-            entityType = new SerializableType(typeof(T));
+            presenterType = new SerializableType(typeof(T));
             base.Awake();
         }
     }

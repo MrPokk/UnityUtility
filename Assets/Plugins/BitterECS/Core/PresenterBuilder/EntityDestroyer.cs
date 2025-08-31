@@ -1,6 +1,5 @@
 using System;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 
 namespace BitterECS.Core
 {
@@ -12,7 +11,6 @@ namespace BitterECS.Core
         private Action<EcsEntity> _postDestroyCallback;
         private ComponentRemoveOperations _componentRemoveOps;
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal EntityDestroyer(EcsPresenter presenter, EcsEntity entity)
         {
             _presenter = presenter;
@@ -22,34 +20,29 @@ namespace BitterECS.Core
             _componentRemoveOps = default;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public EntityDestroyer WithPreDestroyCallback(Action<EcsEntity> callback)
         {
             _preDestroyCallback = callback;
             return this;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public EntityDestroyer WithPostDestroyCallback(Action<EcsEntity> callback)
         {
             _postDestroyCallback = callback;
             return this;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public EntityDestroyer RemoveComponent(Type componentType)
         {
             _componentRemoveOps.Add(componentType, _presenter);
             return this;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public EntityDestroyer RemoveComponent<C>() where C : struct
         {
             return RemoveComponent(typeof(C));
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Destroy()
         {
             _preDestroyCallback?.Invoke(_entity);
@@ -63,7 +56,6 @@ namespace BitterECS.Core
             private ComponentRemoveOperation[] _operations;
             private int _count;
 
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Add(Type componentType, EcsPresenter presenter)
             {
                 if (_operations == null)
@@ -82,7 +74,6 @@ namespace BitterECS.Core
                 };
             }
 
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Add<C>(EcsPresenter presenter) where C : struct
             {
                 Add(typeof(C), presenter);
@@ -96,7 +87,6 @@ namespace BitterECS.Core
                 }
             }
 
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private static void ExecuteOperation(ref ComponentRemoveOperation op, EcsEntity entity)
             {
                 var method = typeof(ComponentRemoveOperations).GetMethod(nameof(RemoveComponentInternal),
@@ -105,7 +95,6 @@ namespace BitterECS.Core
                 generic.Invoke(null, new object[] { entity, op.presenter });
             }
 
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private static void RemoveComponentInternal<C>(EcsEntity entity, EcsPresenter presenter) where C : struct
             {
                 var pool = presenter.GetPool<C>();
@@ -127,34 +116,29 @@ namespace BitterECS.Core
     {
         private EntityDestroyer _destroyer;
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal EntityDestroyer(EcsPresenter presenter, T entity)
         {
             _destroyer = new EntityDestroyer(presenter, entity);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public EntityDestroyer<T> WithPreDestroyCallback(Action<T> callback)
         {
             _destroyer.WithPreDestroyCallback(e => callback((T)e));
             return this;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public EntityDestroyer<T> WithPostDestroyCallback(Action<T> callback)
         {
             _destroyer.WithPostDestroyCallback(e => callback((T)e));
             return this;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public EntityDestroyer<T> RemoveComponent<C>() where C : struct
         {
             _destroyer.RemoveComponent<C>();
             return this;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Destroy()
         {
             _destroyer.Destroy();

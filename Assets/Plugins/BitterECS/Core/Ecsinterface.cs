@@ -88,10 +88,12 @@ namespace BitterECS.Core
     public record EcsProviderProperty : IInitializeProperty
     {
         public EcsPresenter Presenter { get; }
+        public ushort Id { get; }
 
-        public EcsProviderProperty(EcsPresenter presenter)
+        public EcsProviderProperty(EcsPresenter presenter, ushort id)
         {
             Presenter = presenter;
+            Id = id;
         }
     }
 

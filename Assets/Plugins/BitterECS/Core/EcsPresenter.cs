@@ -31,10 +31,8 @@ namespace BitterECS.Core
 
         protected abstract void Registration();
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected void AddLimitedType<T>() where T : EcsEntity => _allowedTypes.Add(typeof(T));
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsTypeAllowed(Type type)
         {
             if (_allowedTypes.Count == 0)
@@ -49,7 +47,7 @@ namespace BitterECS.Core
 
             foreach (var allowedType in _allowedTypes)
             {
-                if (allowedType.IsAssignableFrom(type))
+                if (type.IsSubclassOf(allowedType))
                 {
                     return true;
                 }
@@ -58,10 +56,8 @@ namespace BitterECS.Core
             return false;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsTypeAllowed<T>() where T : EcsEntity => IsTypeAllowed(typeof(T));
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public EcsEntity Get(ushort id) => _entities[id];
 
         public EcsFilter Filter() => new(this);
@@ -72,39 +68,32 @@ namespace BitterECS.Core
         public EntityDestroyer RemoveTo(EcsEntity entity) => new(this, entity);
         public EntityDestroyer<T> RemoveTo<T>(T entity) where T : EcsEntity => new(this, entity);
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Add(EcsEntity entity) => Create(entity);
+        public void Add(EcsEntity entity, bool force = false) => Create(entity, force);
+        public EcsEntity Add(Type type, bool force = false) => Create(type, force);
+        public EcsEntity Add<T>(bool force = false) where T : EcsEntity => Create<T>(force);
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EcsEntity Add(Type type) => Create(type);
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EcsEntity Add<T>() where T : EcsEntity => Create<T>();
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Remove(EcsEntity entity) => DestroyEntity(entity);
 
-        internal void Create(EcsEntity entity)
+        internal void Create(EcsEntity entity, bool force = false)
         {
-            InitEntity(entity);
+            InitEntity(entity, force);
         }
 
-        internal EcsEntity Create(Type type)
+        internal EcsEntity Create(Type type, bool force = false)
         {
             var entity = (EcsEntity)Activator.CreateInstance(type);
-            return InitEntity(entity);
+            return InitEntity(entity, force);
         }
 
-        internal T Create<T>() where T : EcsEntity
+        internal T Create<T>(bool force = false) where T : EcsEntity
         {
             var entity = Activator.CreateInstance<T>();
-            return (T)InitEntity(entity);
+            return (T)InitEntity(entity, force);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private EcsEntity InitEntity(EcsEntity entity)
+        private EcsEntity InitEntity(EcsEntity entity, bool force = false)
         {
-            if (!IsTypeAllowed(entity.GetType()))
+            if (!IsTypeAllowed(entity.GetType()) && !force)
             {
                 throw new InvalidOperationException($"Can't create entity of type {entity.GetType().Name}");
             }
@@ -124,7 +113,6 @@ namespace BitterECS.Core
             return entity;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private ushort GetNextEntityId()
         {
             if (_freeEntityIds.Count > 0)
@@ -154,7 +142,6 @@ namespace BitterECS.Core
             _freeEntityIds.Push(entityId);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void RemoveAllComponents(ushort entityId)
         {
             foreach (var pool in _pools.Values)
@@ -175,7 +162,6 @@ namespace BitterECS.Core
             return (EcsPool<T>)pool;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryGetPool<T>(out EcsPool<T> pool) where T : struct
         {
             pool = null;
@@ -193,7 +179,7 @@ namespace BitterECS.Core
             if (entity == null || provider == null)
                 return;
 
-            provider.Init(new EcsProviderProperty(this));
+            provider.Init(new EcsProviderProperty(this, entity.Properties.Id));
             _linkedEntities[entity] = provider;
         }
 
@@ -210,19 +196,16 @@ namespace BitterECS.Core
             }
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ILinkableProvider GetProvider(EcsEntity entity)
         {
             return entity != null && _linkedEntities.TryGetValue(entity, out var provider) ? provider : null;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public T GetProvider<T>(EcsEntity entity) where T : class, ILinkableProvider
         {
             return GetProvider(entity) as T;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public EcsEntity Get(ILinkableProvider provider)
         {
             foreach (var kvp in _linkedEntities.Where(kvp => kvp.Value == provider))

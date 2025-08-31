@@ -2,7 +2,7 @@ using System;
 
 namespace BitterECS.Core
 {
-    public abstract class EcsEntity : IInitialize<EcsEntityProperty>, IDisposable
+    public class EcsEntity : IInitialize<EcsEntityProperty>, IDisposable
     {
         public EcsEntityProperty Properties { get; private set; }
 
@@ -12,7 +12,7 @@ namespace BitterECS.Core
 
         internal void Init(EcsEntityProperty property) => Properties = property;
 
-        protected internal abstract void Registration();
+        protected internal virtual void Registration() { }
 
         public void Add<T>(in T component) where T : struct
         {

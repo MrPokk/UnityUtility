@@ -68,6 +68,11 @@ namespace BitterECS.Core
             throw new Exception($"No presenter found that can handle type: {typeof(T)} count: {s_ecsPresenters.Count}");
         }
 
+        public static IEnumerable<EcsPresenter> GetAll()
+        {
+            return s_ecsPresenters.Values;
+        }
+
         public void Dispose()
         {
             foreach (var presenter in s_ecsPresenters.Values) presenter.Dispose();
