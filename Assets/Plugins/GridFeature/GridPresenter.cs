@@ -19,15 +19,22 @@ public class GridPresenter<T>
     {
         var positionOrigin = _grid.PositionOrigin;
         var totalCellSize = new Vector2(_grid.CellSize, _grid.CellSize) + _grid.CellOffset;
-        return new Vector3(index.x * totalCellSize.x, index.y * totalCellSize.y, 0) + positionOrigin;
+
+        var localPosition = new Vector3(index.x * totalCellSize.x, index.y * totalCellSize.y, 0);
+
+        return _grid.Rotation * localPosition + positionOrigin;
     }
 
     public Vector2Int GetGridIndex(Vector3 worldPosition)
     {
         var positionOrigin = _grid.PositionOrigin;
         var totalCellSize = new Vector2(_grid.CellSize, _grid.CellSize) + _grid.CellOffset;
-        var x = Mathf.FloorToInt((worldPosition.x - positionOrigin.x) / totalCellSize.x);
-        var y = Mathf.FloorToInt((worldPosition.y - positionOrigin.y) / totalCellSize.y);
+
+        var localPosition = Quaternion.Inverse(_grid.Rotation) * (worldPosition - positionOrigin);
+
+        var x = Mathf.FloorToInt(localPosition.x / totalCellSize.x);
+        var y = Mathf.FloorToInt(localPosition.y / totalCellSize.y);
+
         return new Vector2Int(x, y);
     }
 
@@ -39,6 +46,11 @@ public class GridPresenter<T>
     public T[,] GetArray()
     {
         return _grid.Array;
+    }
+
+    public GridNode[,] GetGridNodes()
+    {
+        return _grid.GridNodes;
     }
 
     public bool TryGetPositionInGrid(Vector2Int indexNode, out Vector3 positionValue)
@@ -108,7 +120,7 @@ public class GridPresenter<T>
 
     public Vector3 ConvertingPosition(Vector2Int index)
     {
-        return GetWorldPosition(index) + new Vector3(_grid.CellSize, _grid.CellSize, 0) * 0.5f;
+        return GetWorldPosition(index) + _grid.Rotation * new Vector3(_grid.CellSize, _grid.CellSize, 0) * 0.5f;
     }
 
     public Vector2Int ConvertingPosition(Vector3 worldPose)
@@ -210,6 +222,30 @@ public class GridPresenter<T>
         {
             var cellIndex = new Vector2Int(x, rowIndex);
             var cellValue = _grid.Array[x, rowIndex];
+
+            if (isEmptyCondition == null || isEmptyCondition(cellValue))
+            {
+                emptyCells.Add(cellIndex);
+            }
+        }
+
+        return emptyCells;
+    }
+
+    public List<Vector2Int> GetEmptyCellsInColumn(int columnIndex, Func<T, bool> isEmptyCondition = null)
+    {
+        var emptyCells = new List<Vector2Int>();
+
+        if (columnIndex < 0 || columnIndex >= _grid.Size.x)
+        {
+            Debug.LogWarning($"Column index {columnIndex} is out of grid bounds (0-{_grid.Size.x - 1})");
+            return emptyCells;
+        }
+
+        for (int y = 0; y < _grid.Size.y; y++)
+        {
+            var cellIndex = new Vector2Int(columnIndex, y);
+            var cellValue = _grid.Array[columnIndex, y];
 
             if (isEmptyCondition == null || isEmptyCondition(cellValue))
             {

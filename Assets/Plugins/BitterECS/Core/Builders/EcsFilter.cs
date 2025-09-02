@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 
 namespace BitterECS.Core
 {
-    public ref struct EcsFilter
+    public struct EcsFilter
     {
         private readonly EcsPresenter _presenter;
         private readonly ICondition[] _includeConditions;

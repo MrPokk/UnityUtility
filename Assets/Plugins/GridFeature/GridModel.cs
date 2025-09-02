@@ -8,6 +8,7 @@ public class GridModel<T>
     public T[,] Array { get; private set; }
     public GridNode[,] GridNodes { get; private set; }
     public Vector3 PositionOrigin { get; private set; }
+    public Quaternion Rotation { get; private set; }
 
     public GridModel(GridConfig gridConfig)
     {
@@ -15,6 +16,7 @@ public class GridModel<T>
         CellSize = gridConfig.cellSize;
         CellOffset = gridConfig.cellOffset;
         PositionOrigin = gridConfig.position;
+        Rotation = gridConfig.RotationQuaternion;
 
         Array = new T[Size.x, Size.y];
         GridNodes = new GridNode[Size.x, Size.y];

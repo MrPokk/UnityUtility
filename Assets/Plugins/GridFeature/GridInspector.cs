@@ -25,12 +25,6 @@ public partial class GridInspector : MonoBehaviour
     {
         if (gridConfig == null) return;
 
-        if (transform.hasChanged)
-        {
-            gridConfig.position = transform.position;
-            EditorUtility.SetDirty(gridConfig);
-        }
-
         Gizmos.color = _gridColor;
         var size = gridConfig.size;
         var cellSize = gridConfig.cellSize;
@@ -38,7 +32,7 @@ public partial class GridInspector : MonoBehaviour
         var totalCellSize = new Vector2(cellSize, cellSize) + cellOffset;
 
         var origin = gridConfig.position;
-        var rotation = transform.rotation;
+        var rotation = gridConfig.RotationQuaternion;
 
         var style = new GUIStyle();
         style.normal.textColor = _fontColor;
@@ -76,14 +70,11 @@ public partial class GridInspector : MonoBehaviour
         }
     }
 
-    private void OnValidate()
+    public void RefreshGrid()
     {
-        if (gridConfig != null)
-        {
-            gridConfig.position = transform.position;
-            EditorUtility.SetDirty(gridConfig);
-        }
+#if UNITY_EDITOR
+        SceneView.RepaintAll();
+#endif
     }
-
 #endif
 }

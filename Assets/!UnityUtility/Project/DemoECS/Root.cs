@@ -1,22 +1,18 @@
+using System.Collections.Generic;
+using BitterECS.Core;
 using BitterECS.Integration;
 using UnityEngine;
 
 public class Root : EcsUnityRoot
 {
     [SerializeField]
-    private GridConfig _gridConfig;
-
-    [SerializeField]
-    private MonoProvider _monoProvider;
+    private List<GridConfig> _gridConfigs = new();
 
     protected override void Bootstrap()
     {
-
-    }
-
-    protected override void PostBootstrap()
-    {
-        Debug.Log($"Component value: {_monoProvider.Entity.Get<TestComponent>().value}");
-        Debug.Log($"Entity value: {_monoProvider.Presenter.EntityCount}");
+        foreach (var gridConfig in _gridConfigs)
+        {
+            new GridPresenter<int>(gridConfig);
+        }
     }
 }
