@@ -41,6 +41,7 @@ namespace BitterECS.Core
             return this;
         }
 
+
         private void AddCondition(ICondition[] conditions, ICondition newCondition, ref int count)
         {
             if (count >= conditions.Length)
@@ -123,6 +124,7 @@ namespace BitterECS.Core
 
     public interface ICondition
     {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         bool Check(EcsEntity entity);
     }
 

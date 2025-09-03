@@ -1,29 +1,31 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.CompilerServices;
 
 namespace BitterECS.Core
 {
-    public abstract class EcsPresenter : IDisposable
+    public abstract partial class EcsPresenter : IDisposable
     {
         private EcsEntity[] _entities;
         private ushort _entitiesCount;
         private readonly Stack<ushort> _freeEntityIds;
+        private readonly Dictionary<Type, Func<object>> _poolFactories;
         private readonly Dictionary<Type, object> _pools;
         private readonly HashSet<Type> _allowedTypes;
         private readonly Dictionary<EcsEntity, ILinkableProvider> _linkedEntities;
 
         public int EntityCount => _entitiesCount - _freeEntityIds.Count;
         public int Capacity => _entities.Length;
+        public IReadOnlyDictionary<Type, object> Pools => _pools;
 
         protected EcsPresenter()
         {
             _entities = new EcsEntity[EcsConfig.InitialEntitiesCapacity];
             _freeEntityIds = new Stack<ushort>(EcsConfig.InitialEntitiesCapacity);
-            _pools = new Dictionary<Type, object>(EcsConfig.InitialPoolCapacity);
-            _allowedTypes = new HashSet<Type>();
             _linkedEntities = new Dictionary<EcsEntity, ILinkableProvider>(EcsConfig.InitialLinkedEntitiesCapacity);
+            _pools = new Dictionary<Type, object>(EcsConfig.InitialPoolCapacity);
+            _poolFactories = new Dictionary<Type, Func<object>>();
+            _allowedTypes = new HashSet<Type>();
             _entitiesCount = 0;
 
             Registration();
@@ -32,80 +34,36 @@ namespace BitterECS.Core
         protected abstract void Registration();
 
         protected void AddLimitedType<T>() where T : EcsEntity => _allowedTypes.Add(typeof(T));
-
         public bool IsTypeAllowed(Type type)
         {
-            if (_allowedTypes.Count == 0)
-            {
-                return true;
-            }
+            if (_allowedTypes.Count == 0) return true;
+            if (_allowedTypes.Contains(type)) return true;
 
-            if (_allowedTypes.Contains(type))
-            {
-                return true;
-            }
-
-            foreach (var allowedType in _allowedTypes)
-            {
-                if (type.IsSubclassOf(allowedType))
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            return _allowedTypes.Any(allowedType => type.IsSubclassOf(allowedType));
         }
-
         public bool IsTypeAllowed<T>() where T : EcsEntity => IsTypeAllowed(typeof(T));
-
-        public EcsEntity Get(ushort id) => _entities[id];
-
-        public EcsFilter Filter() => new(this);
-
-        public EntityBuilder AddTo() => new(this);
-        public EntityBuilder<T> AddTo<T>() where T : EcsEntity => new(this);
-
-        public EntityDestroyer RemoveTo(EcsEntity entity) => new(this, entity);
-        public EntityDestroyer<T> RemoveTo<T>(T entity) where T : EcsEntity => new(this, entity);
 
         public void Add(EcsEntity entity, bool force = false) => Create(entity, force);
         public EcsEntity Add(Type type, bool force = false) => Create(type, force);
         public EcsEntity Add<T>(bool force = false) where T : EcsEntity => Create<T>(force);
 
-        public void Remove(EcsEntity entity) => DestroyEntity(entity);
+        public EntityBuilder AddTo() => new(this);
+        public EntityBuilder<T> AddTo<T>() where T : EcsEntity => new(this);
 
-        internal void Create(EcsEntity entity, bool force = false)
-        {
-            InitEntity(entity, force);
-        }
-
-        internal EcsEntity Create(Type type, bool force = false)
-        {
-            var entity = (EcsEntity)Activator.CreateInstance(type);
-            return InitEntity(entity, force);
-        }
-
-        internal T Create<T>(bool force = false) where T : EcsEntity
-        {
-            var entity = Activator.CreateInstance<T>();
-            return (T)InitEntity(entity, force);
-        }
+        internal void Create(EcsEntity entity, bool force = false) => InitEntity(entity, force);
+        internal EcsEntity Create(Type type, bool force = false) => InitEntity((EcsEntity)Activator.CreateInstance(type), force);
+        internal T Create<T>(bool force = false) where T : EcsEntity => (T)InitEntity(Activator.CreateInstance<T>(), force);
 
         private EcsEntity InitEntity(EcsEntity entity, bool force = false)
         {
             if (!IsTypeAllowed(entity.GetType()) && !force)
-            {
                 throw new InvalidOperationException($"Can't create entity of type {entity.GetType().Name}");
-            }
 
             var entityId = GetNextEntityId();
             entity.Init(new EcsEntityProperty(this, entityId));
 
             if (entityId >= _entities.Length)
-            {
-                var newSize = _entities.Length * EcsConfig.PoolGrowthFactor;
-                Array.Resize(ref _entities, newSize);
-            }
+                Array.Resize(ref _entities, _entities.Length * EcsConfig.PoolGrowthFactor);
 
             _entities[entityId] = entity;
             entity.Registration();
@@ -113,28 +71,19 @@ namespace BitterECS.Core
             return entity;
         }
 
-        private ushort GetNextEntityId()
-        {
-            if (_freeEntityIds.Count > 0)
-            {
-                return _freeEntityIds.Pop();
-            }
+        private ushort GetNextEntityId() => _freeEntityIds.Count > 0 ? _freeEntityIds.Pop() : _entitiesCount++;
 
-            return _entitiesCount++;
-        }
+        public void Remove(EcsEntity entity) => DestroyEntity(entity);
+        public EntityDestroyer RemoveTo(EcsEntity entity) => new(this, entity);
+        public EntityDestroyer<T> RemoveTo<T>(T entity) where T : EcsEntity => new(this, entity);
 
         internal void DestroyEntity(EcsEntity entity)
         {
-            if (entity == null)
-            {
-                throw new ArgumentNullException(nameof(entity));
-            }
+            if (entity == null) throw new ArgumentNullException(nameof(entity));
 
             var entityId = entity.Properties.Id;
             if (entityId >= _entities.Length || _entities[entityId] != entity)
-            {
                 return;
-            }
 
             Unlink(entity);
             RemoveAllComponents(entityId);
@@ -145,28 +94,27 @@ namespace BitterECS.Core
         private void RemoveAllComponents(ushort entityId)
         {
             foreach (var pool in _pools.Values)
-            {
                 ((IPoolDestroy)pool).Remove(entityId);
-            }
         }
+
+        public void RegisterPoolFactory<T>(Func<EcsPool<T>> factory) where T : struct => _poolFactories[typeof(T)] = factory;
+        public void RegisterCustomPool<T>(EcsPool<T> poolInstance) where T : struct => _pools[typeof(T)] = poolInstance;
 
         public EcsPool<T> GetPool<T>() where T : struct
         {
             var poolType = typeof(T);
-            if (!_pools.TryGetValue(poolType, out object pool))
+            if (!_pools.TryGetValue(poolType, out var pool))
             {
-                pool = new EcsPool<T>();
+                pool = CreatePool<T>();
                 _pools[poolType] = pool;
             }
-
             return (EcsPool<T>)pool;
         }
 
         public bool TryGetPool<T>(out EcsPool<T> pool) where T : struct
         {
             pool = null;
-
-            if (_pools.TryGetValue(typeof(T), out object poolObj))
+            if (_pools.TryGetValue(typeof(T), out var poolObj))
             {
                 pool = (EcsPool<T>)poolObj;
                 return true;
@@ -174,10 +122,17 @@ namespace BitterECS.Core
             return false;
         }
 
+        internal object CreatePool<T>() where T : struct
+        {
+            var poolType = typeof(T);
+            return _poolFactories.TryGetValue(poolType, out var factory)
+                ? factory()
+                : new EcsPool<T>();
+        }
+
         public void Link(EcsEntity entity, ILinkableProvider provider)
         {
-            if (entity == null || provider == null)
-                return;
+            if (entity == null || provider == null) return;
 
             provider.Init(new EcsProviderProperty(this, entity.Properties.Id));
             _linkedEntities[entity] = provider;
@@ -185,38 +140,24 @@ namespace BitterECS.Core
 
         public void Unlink(EcsEntity entity)
         {
-            if (entity == null || !_linkedEntities.ContainsKey(entity))
-            {
-                return;
-            }
+            if (entity == null || !_linkedEntities.ContainsKey(entity)) return;
 
             if (_linkedEntities.Remove(entity, out var provider))
-            {
                 provider?.Dispose();
-            }
         }
 
-        public ILinkableProvider GetProvider(EcsEntity entity)
-        {
-            return entity != null && _linkedEntities.TryGetValue(entity, out var provider) ? provider : null;
-        }
+        public ILinkableProvider GetProvider(EcsEntity entity) =>
+            entity != null && _linkedEntities.TryGetValue(entity, out var provider) ? provider : null;
 
-        public T GetProvider<T>(EcsEntity entity) where T : class, ILinkableProvider
-        {
-            return GetProvider(entity) as T;
-        }
+        public T GetProvider<T>(EcsEntity entity) where T : class, ILinkableProvider =>
+            GetProvider(entity) as T;
 
-        public EcsEntity Get(ILinkableProvider provider)
-        {
-            foreach (var kvp in _linkedEntities.Where(kvp => kvp.Value == provider))
-            {
-                return kvp.Key;
-            }
+        public EcsEntity Get(ILinkableProvider provider) =>
+            _linkedEntities.FirstOrDefault(kvp => kvp.Value == provider).Key;
 
-            return null;
-        }
-
+        public EcsEntity Get(ushort id) => _entities[id];
         public EcsEntity[] GetAll() => _entities.Where(x => x != null).ToArray();
+        public EcsFilter Filter() => new(this);
 
         public void Dispose()
         {
@@ -236,30 +177,8 @@ namespace BitterECS.Core
             _pools.Clear();
             _allowedTypes.Clear();
             _linkedEntities.Clear();
+
             GC.SuppressFinalize(this);
-        }
-    }
-
-    public static class EcsPresenterExtensions
-    {
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void CreateEntities<T>(this EcsPresenter presenter, int count)
-            where T : EcsEntity
-        {
-            for (int i = 0; i < count; i++)
-            {
-                presenter.Create<T>();
-            }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void DestroyAllEntities(this EcsPresenter presenter)
-        {
-            var entities = presenter.GetAll().ToArray();
-            foreach (var entity in entities)
-            {
-                presenter.DestroyEntity(entity);
-            }
         }
     }
 }

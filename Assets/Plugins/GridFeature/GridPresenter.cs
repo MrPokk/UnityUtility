@@ -147,6 +147,26 @@ public class GridPresenter<T>
         FillArea(pointA, pointB, default);
     }
 
+    public IReadOnlyCollection<Vector2Int> GetNeighbors(Vector2Int index, Vector2Int[] neighbors, Func<T, bool> filterCondition = null)
+    {
+        var result = new List<Vector2Int>();
+        for (int i = 0; i < neighbors.Length; i++)
+        {
+            var direction = index + neighbors[i];
+            if (TryGetValue(direction, out var value) && (filterCondition == null || filterCondition(value)))
+            {
+                result.Add(direction);
+            }
+        }
+
+        return result;
+    }
+
+    public Vector2Int? GetRandomPoint(IList<Vector2Int> excludePoints)
+    {
+        return excludePoints.Count > 0 ? excludePoints[UnityEngine.Random.Range(0, excludePoints.Count)] : null;
+    }
+
     public Dictionary<Vector2Int, T> GetRectangularArea(Vector2Int pointA, Vector2Int pointB, Func<T, bool> filterCondition = null)
     {
         var minX = Mathf.Min(pointA.x, pointB.x);
@@ -223,7 +243,10 @@ public class GridPresenter<T>
             var cellIndex = new Vector2Int(x, rowIndex);
             var cellValue = _grid.Array[x, rowIndex];
 
-            if (isEmptyCondition == null || isEmptyCondition(cellValue))
+            bool isDefaultValue = EqualityComparer<T>.Default.Equals(cellValue, default(T));
+
+            if ((isEmptyCondition == null && isDefaultValue) ||
+                (isEmptyCondition != null && isEmptyCondition(cellValue)))
             {
                 emptyCells.Add(cellIndex);
             }
@@ -247,12 +270,69 @@ public class GridPresenter<T>
             var cellIndex = new Vector2Int(columnIndex, y);
             var cellValue = _grid.Array[columnIndex, y];
 
-            if (isEmptyCondition == null || isEmptyCondition(cellValue))
+            bool isDefaultValue = EqualityComparer<T>.Default.Equals(cellValue, default(T));
+
+            if ((isEmptyCondition == null && isDefaultValue) ||
+                (isEmptyCondition != null && isEmptyCondition(cellValue)))
             {
                 emptyCells.Add(cellIndex);
             }
         }
 
         return emptyCells;
+    }
+
+    public List<Vector2Int> GetNonEmptyCellsInRow(int rowIndex, Func<T, bool> isNonEmptyCondition = null)
+    {
+        var nonEmptyCells = new List<Vector2Int>();
+
+        if (rowIndex < 0 || rowIndex >= _grid.Size.y)
+        {
+            Debug.LogWarning($"Row index {rowIndex} is out of grid bounds (0-{_grid.Size.y - 1})");
+            return nonEmptyCells;
+        }
+
+        for (int x = 0; x < _grid.Size.x; x++)
+        {
+            var cellIndex = new Vector2Int(x, rowIndex);
+            var cellValue = _grid.Array[x, rowIndex];
+
+            bool isDefaultValue = EqualityComparer<T>.Default.Equals(cellValue, default);
+
+            if ((isNonEmptyCondition == null && !isDefaultValue) ||
+                (isNonEmptyCondition != null && isNonEmptyCondition(cellValue)))
+            {
+                nonEmptyCells.Add(cellIndex);
+            }
+        }
+
+        return nonEmptyCells;
+    }
+
+    public List<Vector2Int> GetNonEmptyCellsInColumn(int columnIndex, Func<T, bool> isNonEmptyCondition = null)
+    {
+        var nonEmptyCells = new List<Vector2Int>();
+
+        if (columnIndex < 0 || columnIndex >= _grid.Size.x)
+        {
+            Debug.LogWarning($"Column index {columnIndex} is out of grid bounds (0-{_grid.Size.x - 1})");
+            return nonEmptyCells;
+        }
+
+        for (int y = 0; y < _grid.Size.y; y++)
+        {
+            var cellIndex = new Vector2Int(columnIndex, y);
+            var cellValue = _grid.Array[columnIndex, y];
+
+            bool isDefaultValue = EqualityComparer<T>.Default.Equals(cellValue, default);
+
+            if ((isNonEmptyCondition == null && !isDefaultValue) ||
+                (isNonEmptyCondition != null && isNonEmptyCondition(cellValue)))
+            {
+                nonEmptyCells.Add(cellIndex);
+            }
+        }
+
+        return nonEmptyCells;
     }
 }

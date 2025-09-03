@@ -10,7 +10,7 @@ namespace BitterECS.Core
         void Remove(int entityId);
     }
 
-    public sealed class EcsPool<T> : IDisposable, IPoolDestroy where T : struct
+    public class EcsPool<T> : IDisposable, IPoolDestroy where T : struct
     {
         private T[] _components;
         private int[] _entityToDataIndex;
@@ -29,7 +29,6 @@ namespace BitterECS.Core
             _count = 0;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add(int entityId, in T component)
         {
             if (entityId >= _entityToDataIndex.Length)
@@ -108,7 +107,6 @@ namespace BitterECS.Core
             return false;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Remove(int entityId)
         {
             if (entityId >= _entityToDataIndex.Length || _entityToDataIndex[entityId] == -1)
@@ -140,7 +138,8 @@ namespace BitterECS.Core
 
         public int Capacity => _components.Length;
 
-        public Enumerator GetEnumerator() => new Enumerator(this);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Enumerator GetEnumerator() => new(this);
 
         public struct Enumerator
         {
@@ -219,7 +218,8 @@ namespace BitterECS.Core
             }
         }
 
-        public ReadOnlySpan<T> AsSpan() => new ReadOnlySpan<T>(_components, 0, _count);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ReadOnlySpan<T> AsSpan() => new(_components, 0, _count);
 
         public IEnumerable<int> GetEntityIds()
         {

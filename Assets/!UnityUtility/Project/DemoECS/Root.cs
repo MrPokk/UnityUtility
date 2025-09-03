@@ -10,9 +10,23 @@ public class Root : EcsUnityRoot
 
     protected override void Bootstrap()
     {
-        foreach (var gridConfig in _gridConfigs)
+        var countInitial = 100000;
+
+        var world = EcsWorld.Get<EcsPresenterTest>();
+        for (int i = 0; i < countInitial; i++)
         {
-            new GridPresenter<int>(gridConfig);
+            world.AddTo<EcsEntity>().WithComponent<TestComponent>(new()).WithForce().Create();
+        }
+        for (int i = 0; i < countInitial; i++)
+        {
+            var entities = world
+               .Filter()
+               .Include<TestComponent>()
+               .Collect();
+            foreach (var entity in entities)
+            {
+                ref var component = ref entity.Get<TestComponent>();
+            }
         }
     }
 }
