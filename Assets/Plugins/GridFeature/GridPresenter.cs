@@ -5,14 +5,26 @@ using UnityEngine;
 
 public class GridPresenter<T>
 {
-    private readonly GridModel<T> _grid;
-    private readonly GridView _gridView;
+    protected GridModel<T> _grid;
+    protected GridView _gridView;
 
     public GridPresenter(GridConfig gridConfig)
     {
         _grid = new GridModel<T>(gridConfig);
         _gridView = new GameObject("GridView").AddComponent<GridView>();
         _gridView.Instantiate(gridConfig);
+    }
+
+    public void CreateSearchNodes()
+    {
+        var size = _grid.Size;
+        for (int x = 0; x < size.x; x++)
+        {
+            for (int y = 0; y < size.y; y++)
+            {
+                _grid.GridNodes[x, y] = new GridNode();
+            }
+        }
     }
 
     public Vector3 GetWorldPosition(Vector2Int index)
@@ -57,7 +69,7 @@ public class GridPresenter<T>
     {
         if (IsWithinGrid(indexNode))
         {
-            positionValue = GetWorldPosition(indexNode) + new Vector3(_grid.CellSize, _grid.CellSize, 0) * 0.5f;
+            positionValue = GetWorldPosition(indexNode);
             return true;
         }
 
@@ -71,15 +83,22 @@ public class GridPresenter<T>
         return IsWithinGrid(positionValue);
     }
 
-    public void SetValueInGrid(Vector2Int index, T value)
+    public void SetValueInGrid(Vector2Int index, T value) => _grid.Array[index.x, index.y] = value;
+
+    public bool TrySetValue(Vector3 index, T value)
     {
-        if (IsWithinGrid(index))
-        {
-            _grid.Array[index.x, index.y] = value;
-        }
+        return TrySetValue(GetGridIndex(index), value);
     }
 
-    public T GetNodeByIndex(Vector2Int index)
+    public bool TrySetValue(Vector2Int index, T value)
+    {
+        if (!IsWithinGrid(index)) return false;
+
+        TrySetValue(index, value);
+        return true;
+    }
+
+    public T GetByIndex(Vector2Int index)
     {
         return _grid.Array[index.x, index.y];
     }
@@ -110,14 +129,6 @@ public class GridPresenter<T>
         return FindAll(predicate).FirstOrDefault();
     }
 
-    public bool TrySetValue(Vector2Int index, T value)
-    {
-        if (!IsWithinGrid(index)) return false;
-
-        SetValueInGrid(index, value);
-        return true;
-    }
-
     public Vector3 ConvertingPosition(Vector2Int index)
     {
         return GetWorldPosition(index) + _grid.Rotation * new Vector3(_grid.CellSize, _grid.CellSize, 0) * 0.5f;
@@ -138,7 +149,7 @@ public class GridPresenter<T>
         var area = GetRectangularArea(pointA, pointB);
         foreach (var index in area.Keys)
         {
-            SetValueInGrid(index, value);
+            TrySetValue(index, value);
         }
     }
 
@@ -147,9 +158,9 @@ public class GridPresenter<T>
         FillArea(pointA, pointB, default);
     }
 
-    public IReadOnlyCollection<Vector2Int> GetNeighbors(Vector2Int index, Vector2Int[] neighbors, Func<T, bool> filterCondition = null)
+    public HashSet<Vector2Int> GetNeighbors(Vector2Int index, Vector2Int[] neighbors, Func<T, bool> filterCondition = null)
     {
-        var result = new List<Vector2Int>();
+        var result = new HashSet<Vector2Int>();
         for (int i = 0; i < neighbors.Length; i++)
         {
             var direction = index + neighbors[i];
@@ -162,9 +173,12 @@ public class GridPresenter<T>
         return result;
     }
 
-    public Vector2Int? GetRandomPoint(IList<Vector2Int> excludePoints)
+    public HashSet<Vector2Int> GetSquaredNeighbors(Vector2Int index, Func<T, bool> filterCondition = null) => GetNeighbors(index,
+    GridModel<T>.Directions, filterCondition);
+
+    public Vector2Int? GetRandomPoint(IList<Vector2Int> includePoints)
     {
-        return excludePoints.Count > 0 ? excludePoints[UnityEngine.Random.Range(0, excludePoints.Count)] : null;
+        return includePoints.Count > 0 ? includePoints[UnityEngine.Random.Range(0, includePoints.Count)] : null;
     }
 
     public Dictionary<Vector2Int, T> GetRectangularArea(Vector2Int pointA, Vector2Int pointB, Func<T, bool> filterCondition = null)
@@ -179,29 +193,27 @@ public class GridPresenter<T>
         minY = Mathf.Max(minY, 0);
         maxY = Mathf.Min(maxY, _grid.Size.y - 1);
 
-        var areaData = new Dictionary<Vector2Int, T>(maxX * maxY);
+        var cells = new Dictionary<Vector2Int, T>(maxX * maxY);
 
         for (int x = minX; x <= maxX; x++)
         {
             for (int y = minY; y <= maxY; y++)
             {
                 var currentIndex = new Vector2Int(x, y);
-                var value = _grid.Array[x, y];
+                var cellValue = _grid.Array[x, y];
 
-                if (filterCondition == null || filterCondition(value))
+                if (filterCondition == null || filterCondition(cellValue))
                 {
-                    areaData[currentIndex] = value;
+                    cells[currentIndex] = cellValue;
                 }
             }
         }
 
-        return areaData;
+        return cells;
     }
 
-    public List<Vector2Int> GetEmptyCellsInLine(Vector2Int start, Vector2Int end, Func<T, bool> isEmptyCondition = null)
+    public Dictionary<Vector2Int, T> GetCellsInLine(Vector2Int start, Vector2Int end, Func<T, bool> isEmptyCondition = null)
     {
-        var emptyCells = new List<Vector2Int>();
-
         var dx = end.x - start.x;
         var dy = end.y - start.y;
         var steps = Mathf.Max(Mathf.Abs(dx), Mathf.Abs(dy));
@@ -212,127 +224,181 @@ public class GridPresenter<T>
         float x = start.x;
         float y = start.y;
 
+        var cells = new Dictionary<Vector2Int, T>(dx + dy);
+
         for (int i = 0; i <= steps; i++)
         {
             var gridPoint = new Vector2Int(Mathf.RoundToInt(x), Mathf.RoundToInt(y));
+            var cellValue = _grid.Array[gridPoint.x, gridPoint.y];
 
-            if (IsWithinGrid(gridPoint) && (isEmptyCondition == null || isEmptyCondition(_grid.Array[gridPoint.x, gridPoint.y])))
+            if (IsWithinGrid(gridPoint) && (isEmptyCondition == null || isEmptyCondition(cellValue)))
             {
-                emptyCells.Add(gridPoint);
+                cells[gridPoint] = cellValue;
             }
 
             x += xIncrement;
             y += yIncrement;
         }
 
-        return emptyCells;
+        return cells;
     }
 
-    public List<Vector2Int> GetEmptyCellsInRow(int rowIndex, Func<T, bool> isEmptyCondition = null)
+    public Dictionary<Vector2Int, T> GetCellsInRow(int rowIndex, Func<T, bool> filterCondition = null)
     {
-        var emptyCells = new List<Vector2Int>();
-
         if (rowIndex < 0 || rowIndex >= _grid.Size.y)
         {
             Debug.LogWarning($"Row index {rowIndex} is out of grid bounds (0-{_grid.Size.y - 1})");
-            return emptyCells;
+            return null;
         }
 
-        for (int x = 0; x < _grid.Size.x; x++)
-        {
-            var cellIndex = new Vector2Int(x, rowIndex);
-            var cellValue = _grid.Array[x, rowIndex];
+        var cells = GetRectangularArea(
+            new Vector2Int(0, rowIndex),
+            new Vector2Int(_grid.Size.x - 1, rowIndex),
+            filterCondition
+        );
 
-            bool isDefaultValue = EqualityComparer<T>.Default.Equals(cellValue, default(T));
-
-            if ((isEmptyCondition == null && isDefaultValue) ||
-                (isEmptyCondition != null && isEmptyCondition(cellValue)))
-            {
-                emptyCells.Add(cellIndex);
-            }
-        }
-
-        return emptyCells;
+        return cells;
     }
 
-    public List<Vector2Int> GetEmptyCellsInColumn(int columnIndex, Func<T, bool> isEmptyCondition = null)
+    public Dictionary<Vector2Int, T> GetCellsInColumn(int columnIndex, Func<T, bool> filterCondition = null)
     {
-        var emptyCells = new List<Vector2Int>();
-
         if (columnIndex < 0 || columnIndex >= _grid.Size.x)
         {
             Debug.LogWarning($"Column index {columnIndex} is out of grid bounds (0-{_grid.Size.x - 1})");
-            return emptyCells;
+            return null;
         }
 
-        for (int y = 0; y < _grid.Size.y; y++)
-        {
-            var cellIndex = new Vector2Int(columnIndex, y);
-            var cellValue = _grid.Array[columnIndex, y];
+        var cells = GetRectangularArea(
+            new Vector2Int(columnIndex, 0),
+            new Vector2Int(columnIndex, _grid.Size.y - 1),
+            filterCondition
+        );
 
-            bool isDefaultValue = EqualityComparer<T>.Default.Equals(cellValue, default(T));
-
-            if ((isEmptyCondition == null && isDefaultValue) ||
-                (isEmptyCondition != null && isEmptyCondition(cellValue)))
-            {
-                emptyCells.Add(cellIndex);
-            }
-        }
-
-        return emptyCells;
+        return cells;
     }
 
-    public List<Vector2Int> GetNonEmptyCellsInRow(int rowIndex, Func<T, bool> isNonEmptyCondition = null)
+    public Vector2Int? FindNearestExpanding(Vector2Int startIndex, Func<T, bool> predicate, int maxRadius = 0)
     {
-        var nonEmptyCells = new List<Vector2Int>();
+        if (predicate == null)
+            throw new ArgumentNullException(nameof(predicate));
 
-        if (rowIndex < 0 || rowIndex >= _grid.Size.y)
+        if (!IsWithinGrid(startIndex))
+            return null;
+
+        if (TryGetValue(startIndex, out var startValue) && predicate(startValue))
+            return startIndex;
+
+        for (int radius = 1; radius <= (maxRadius > 0 ? maxRadius : Mathf.Max(_grid.Size.x, _grid.Size.y)); radius++)
         {
-            Debug.LogWarning($"Row index {rowIndex} is out of grid bounds (0-{_grid.Size.y - 1})");
-            return nonEmptyCells;
+            var foundPoint = SearchInRing(startIndex, radius, predicate);
+            if (foundPoint.HasValue)
+                return foundPoint;
+
+            if (maxRadius > 0 && radius >= maxRadius)
+                break;
         }
 
-        for (int x = 0; x < _grid.Size.x; x++)
-        {
-            var cellIndex = new Vector2Int(x, rowIndex);
-            var cellValue = _grid.Array[x, rowIndex];
-
-            bool isDefaultValue = EqualityComparer<T>.Default.Equals(cellValue, default);
-
-            if ((isNonEmptyCondition == null && !isDefaultValue) ||
-                (isNonEmptyCondition != null && isNonEmptyCondition(cellValue)))
-            {
-                nonEmptyCells.Add(cellIndex);
-            }
-        }
-
-        return nonEmptyCells;
+        return null;
     }
 
-    public List<Vector2Int> GetNonEmptyCellsInColumn(int columnIndex, Func<T, bool> isNonEmptyCondition = null)
+    public Vector2Int? FindNearestExpanding(Vector3 worldPosition, Func<T, bool> predicate, int maxRadius = 0)
     {
-        var nonEmptyCells = new List<Vector2Int>();
+        var startIndex = GetGridIndex(worldPosition);
+        return FindNearestExpanding(startIndex, predicate, maxRadius);
+    }
 
-        if (columnIndex < 0 || columnIndex >= _grid.Size.x)
+    public HashSet<Vector2Int> FindAllExpanding(Vector2Int startIndex, Func<T, bool> predicate, int maxRadius = 0)
+    {
+        var results = new HashSet<Vector2Int>();
+
+        if (predicate == null)
+            throw new ArgumentNullException(nameof(predicate));
+
+        if (!IsWithinGrid(startIndex))
+            return results;
+
+        var searchRadius = maxRadius > 0 ? maxRadius : Mathf.Max(_grid.Size.x, _grid.Size.y);
+
+        for (int radius = 0; radius <= searchRadius; radius++)
         {
-            Debug.LogWarning($"Column index {columnIndex} is out of grid bounds (0-{_grid.Size.x - 1})");
-            return nonEmptyCells;
+            SearchInRadius(startIndex, radius, predicate, results);
+
+            if (maxRadius > 0 && radius >= maxRadius)
+                break;
         }
 
-        for (int y = 0; y < _grid.Size.y; y++)
+        return results;
+    }
+
+    public Vector2Int? FindNearestWithWorldDistance(Vector3 worldPosition, Func<T, bool> predicate, int maxSearchRadius = 10)
+    {
+        var startIndex = GetGridIndex(worldPosition);
+        var candidates = FindAllExpanding(startIndex, predicate, maxSearchRadius);
+
+        if (candidates.Count == 0)
+            return null;
+
+        Vector2Int? nearest = null;
+        var minDistance = float.MaxValue;
+
+        foreach (var candidate in candidates)
         {
-            var cellIndex = new Vector2Int(columnIndex, y);
-            var cellValue = _grid.Array[columnIndex, y];
+            var candidateWorldPos = GetWorldPosition(candidate);
+            var distance = Vector3.Distance(worldPosition, candidateWorldPos);
 
-            bool isDefaultValue = EqualityComparer<T>.Default.Equals(cellValue, default);
-
-            if ((isNonEmptyCondition == null && !isDefaultValue) ||
-                (isNonEmptyCondition != null && isNonEmptyCondition(cellValue)))
+            if (distance < minDistance)
             {
-                nonEmptyCells.Add(cellIndex);
+                minDistance = distance;
+                nearest = candidate;
             }
         }
 
-        return nonEmptyCells;
+        return nearest;
     }
+
+    private Vector2Int? SearchInRing(Vector2Int center, int radius, Func<T, bool> predicate)
+    {
+        for (int x = -radius; x <= radius; x++)
+        {
+            for (int y = -radius; y <= radius; y++)
+            {
+                if (Mathf.Abs(x) < radius && Mathf.Abs(y) < radius)
+                    continue;
+
+                var checkIndex = new Vector2Int(center.x + x, center.y + y);
+
+                if (IsWithinGrid(checkIndex) &&
+                    TryGetValue(checkIndex, out var value) &&
+                    predicate(value))
+                {
+                    return checkIndex;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private void SearchInRadius(Vector2Int center, int radius, Func<T, bool> predicate, HashSet<Vector2Int> results)
+    {
+        for (int x = -radius; x <= radius; x++)
+        {
+            for (int y = -radius; y <= radius; y++)
+            {
+                if (Mathf.Abs(x) + Mathf.Abs(y) > radius)
+                    continue;
+
+                var checkIndex = new Vector2Int(center.x + x, center.y + y);
+
+                if (IsWithinGrid(checkIndex) &&
+                    !results.Contains(checkIndex) &&
+                    TryGetValue(checkIndex, out var value) &&
+                    predicate(value))
+                {
+                    results.Add(checkIndex);
+                }
+            }
+        }
+    }
+
 }

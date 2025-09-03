@@ -10,6 +10,16 @@ public class GridModel<T>
     public Vector3 PositionOrigin { get; private set; }
     public Quaternion Rotation { get; private set; }
 
+    public static Vector2Int[] Directions = new Vector2Int[] {
+        new(1, 1),
+        new(-1,-1),
+        new(-1,1),
+        new(1,-1),
+        Vector2Int.up,
+        Vector2Int.down,
+        Vector2Int.left,
+        Vector2Int.right };
+
     public GridModel(GridConfig gridConfig)
     {
         Size = gridConfig.size;
@@ -19,7 +29,6 @@ public class GridModel<T>
         Rotation = gridConfig.RotationQuaternion;
 
         Array = new T[Size.x, Size.y];
-        GridNodes = new GridNode[Size.x, Size.y];
 
         for (int x = 0; x < Size.x; x++)
         {
