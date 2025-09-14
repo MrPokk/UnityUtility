@@ -34,7 +34,7 @@ namespace BitterECS.Integration.Editor
             EditorGUILayout.Space();
             EditorGUI.BeginChangeCheck();
 
-            var newSelectedIndex = EditorGUILayout.Popup("Entity Type", _selectedIndex, _typeNames);
+            var newSelectedIndex = EditorGUILayout.Popup("Presenter Type", _selectedIndex, _typeNames);
 
             if (EditorGUI.EndChangeCheck())
             {

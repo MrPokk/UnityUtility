@@ -12,9 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 51919544095551e6c9328399ad1d0710, type: 3}
   m_Name: NewGridConfig
   m_EditorClassIdentifier: 
-  position: {x: -6.27, y: -4.79, z: 3.1911926}
-  rotation: {x: 67.503784, y: -0, z: -0}
-  size: {x: 13, y: 10}
+  position: {x: -6.45, y: -3.5, z: 2}
+  rotation: {x: 46.957462, y: -0, z: -0}
+  size: {x: 10, y: 10}
   cellSize: 1
-  cellOffset: {x: 0, y: 0}
+  cellOffset: {x: 1, y: 0}
   nodePrefab: {fileID: 9185536958120972782, guid: f593857a68e2c63de89cbb9147946433, type: 3}
