@@ -157,12 +157,10 @@ public class GridProviderEditor : Editor
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            // Update the serialized property directly
             serializedObject.Update();
             serializedObject.FindProperty("_gridConfig").objectReferenceValue = newConfig;
             serializedObject.ApplyModifiedProperties();
 
-            // Update the visualizer and editor references
             _gridVisualizerSetting.Initialized(newConfig);
             _gridEditorSetting.Initialized(newConfig);
 
@@ -172,9 +170,40 @@ public class GridProviderEditor : Editor
 
     private void OnSceneGUI()
     {
-        if (_gridEditorSetting == null || !_gridEditorSetting.DrawAddButtons || GridConfig == null)
+        if (_gridEditorSetting == null || GridConfig == null)
             return;
+        if (_gridEditorSetting.DrawAddButtons)
+            AddButtonCells();
 
+        if (_gridEditorSetting.DrawRemoveButtons)
+            RemoveButtonCells();
+    }
+
+    private void RemoveButtonCells()
+    {
+        Handles.color = _gridEditorSetting.RemoveButtonColor;
+        var style = new GUIStyle();
+        style.normal.textColor = _gridEditorSetting.RemoveButtonColor;
+        style.fontSize = _gridEditorSetting.ButtonFontSize;
+        style.alignment = TextAnchor.MiddleCenter;
+
+        foreach (var pos in GridConfig.Cells)
+        {
+            var worldPosition = _gridEditorSetting.GetWorldPosition(pos);
+            var buttonSize = GridConfig.CellSize * 0.3f;
+
+            if (Handles.Button(worldPosition, GridConfig.RotationQuaternion,
+                buttonSize, buttonSize, Handles.RectangleHandleCap))
+            {
+                RemoveCellFromConfig(pos);
+            }
+
+            Handles.Label(worldPosition + Vector3.up * buttonSize * 0.7f, "[-]", style);
+        }
+    }
+
+    private void AddButtonCells()
+    {
         Handles.color = _gridEditorSetting.AddButtonColor;
         var style = new GUIStyle();
         style.normal.textColor = _gridEditorSetting.AddButtonColor;
@@ -183,8 +212,8 @@ public class GridProviderEditor : Editor
 
         foreach (var pos in _gridEditorSetting.FindAdjacentPositions())
         {
-            Vector3 worldPosition = _gridEditorSetting.GetWorldPosition(pos);
-            float buttonSize = GridConfig.CellSize * 0.3f;
+            var worldPosition = _gridEditorSetting.GetWorldPosition(pos);
+            var buttonSize = GridConfig.CellSize * 0.3f;
 
             if (Handles.Button(worldPosition, GridConfig.RotationQuaternion,
                 buttonSize, buttonSize, Handles.RectangleHandleCap))
@@ -193,6 +222,33 @@ public class GridProviderEditor : Editor
             }
 
             Handles.Label(worldPosition + Vector3.up * buttonSize * 0.7f, "[+]", style);
+        }
+    }
+
+    private void RemoveCellFromConfig(Vector2Int cell)
+    {
+        if (_gridConfigSerializedObject != null && _cellsProperty != null)
+        {
+            _gridConfigSerializedObject.Update();
+
+            int indexToRemove = -1;
+            for (int i = 0; i < _cellsProperty.arraySize; i++)
+            {
+                var currentCell = _cellsProperty.GetArrayElementAtIndex(i).vector2IntValue;
+                if (currentCell == cell)
+                {
+                    indexToRemove = i;
+                    break;
+                }
+            }
+
+            if (indexToRemove >= 0)
+            {
+                _cellsProperty.DeleteArrayElementAtIndex(indexToRemove);
+                _gridConfigSerializedObject.ApplyModifiedProperties();
+                EditorUtility.SetDirty(GridConfig);
+                _gridEditorSetting.RefreshGrid();
+            }
         }
     }
 

@@ -7,11 +7,27 @@ public class GridEditorSetting : MonoBehaviour
 {
     private GridConfig _gridConfig;
     [SerializeField] private bool _drawAddButtons = true;
+    [SerializeField] private bool _drawRemoveButtons = true;
     [SerializeField] private Color _addButtonColor = Color.green;
+    [SerializeField] private Color _removeButtonColor = Color.red;
     [SerializeField] private int _buttonFontSize = 12;
 
+    private static readonly Vector2Int[] s_directions = new Vector2Int[]
+    {
+        new(1, 1),
+        new(-1,-1),
+        new(-1,1),
+        new(1,-1),
+        Vector2Int.up,
+        Vector2Int.down,
+        Vector2Int.left,
+        Vector2Int.right
+    };
+
     public bool DrawAddButtons => _drawAddButtons;
+    public bool DrawRemoveButtons => _drawRemoveButtons;
     public Color AddButtonColor => _addButtonColor;
+    public Color RemoveButtonColor => _removeButtonColor;
     public int ButtonFontSize => _buttonFontSize;
 
     public void Initialized(GridConfig gridConfig)
@@ -35,7 +51,7 @@ public class GridEditorSetting : MonoBehaviour
 
         foreach (var cell in config.Cells)
         {
-            foreach (var direction in new[] { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right })
+            foreach (var direction in s_directions)
             {
                 var adjacentPos = cell + direction;
 
