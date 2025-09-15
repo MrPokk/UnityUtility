@@ -7,28 +7,57 @@ public sealed class GridConfig : ScriptableObject
 {
     [Header("Grid Dimensions")]
     [Tooltip("World origin position")]
-    public Vector3 position;
+    [SerializeField] private Vector3 _position;
 
     [Tooltip("Rotation of the grid in degrees")]
-    public Vector3 rotation;
+    [SerializeField] private Vector3 _rotation;
 
     [Header("Cell Properties")]
     [Tooltip("Size of each individual cell in world units")]
     [Min(0)]
-    public float cellSize = 1f;
+    [SerializeField] private float _cellSize = 1f;
 
     [Tooltip("Spacing between cells in world units (X for horizontal, Y for vertical spacing)")]
-    public Vector2 cellOffset;
+    [SerializeField] private Vector2 _cellOffset;
 
     [Header("Visual Settings")]
     [Tooltip("Prefab to use for grid node visualization")]
-    public GameObject nodePrefab;
+    [SerializeField] private GameObject _nodePrefab;
 
     [Header("Grid Cells")]
     [Tooltip("List of cell coordinates in grid space")]
-    public List<Vector2Int> cells = new();
+    [SerializeField] private List<Vector2Int> _cells = new();
 
-    public Quaternion RotationQuaternion => Quaternion.Euler(rotation);
+    public Vector3 Position => _position;
+    public Vector3 Rotation => _rotation;
+    public float CellSize => _cellSize;
+    public Vector2 CellOffset => _cellOffset;
+    public GameObject NodePrefab => _nodePrefab;
+    public IReadOnlyList<Vector2Int> Cells => _cells.AsReadOnly();
+    public Quaternion RotationQuaternion => Quaternion.Euler(_rotation);
+
+    public void AddCell(Vector2Int cell)
+    {
+        if (!_cells.Contains(cell))
+        {
+            _cells.Add(cell);
+        }
+    }
+
+    public bool RemoveCell(Vector2Int cell)
+    {
+        return _cells.Remove(cell);
+    }
+
+    public void ClearCells()
+    {
+        _cells.Clear();
+    }
+
+    public bool ContainsCell(Vector2Int cell)
+    {
+        return _cells.Contains(cell);
+    }
 
     private void OnValidate()
     {
@@ -37,26 +66,16 @@ public sealed class GridConfig : ScriptableObject
 
     private void RemoveDuplicateCells()
     {
-        if (cells == null || cells.Count == 0)
+        if (_cells == null || _cells.Count == 0)
             return;
 
-        int originalCount = cells.Count;
+        int originalCount = _cells.Count;
+        var uniqueCells = new HashSet<Vector2Int>(_cells);
 
-        var uniqueCells = new HashSet<Vector2Int>();
-        var newCellsList = new List<Vector2Int>();
-
-        foreach (var cell in cells)
+        if (uniqueCells.Count != originalCount)
         {
-            if (uniqueCells.Add(cell))
-            {
-                newCellsList.Add(cell);
-            }
-        }
-
-        if (newCellsList.Count != originalCount)
-        {
-            cells = newCellsList;
-            Debug.LogWarning($"Removed {originalCount - newCellsList.Count} duplicate cells from {name}");
+            _cells = uniqueCells.ToList();
+            Debug.LogWarning($"Removed {originalCount - uniqueCells.Count} duplicate cells from {name}");
         }
     }
 }

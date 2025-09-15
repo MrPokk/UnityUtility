@@ -10,23 +10,23 @@ public class GridView : MonoBehaviour
 
     public void Instantiate(GridConfig gridConfig)
     {
-        if (gridConfig.nodePrefab == null)
+        if (gridConfig.NodePrefab == null)
         {
             Debug.LogAssertion("NodePrefab is null");
             return;
         }
 
-        transform.position = gridConfig.position;
+        transform.position = gridConfig.Position;
         transform.rotation = gridConfig.RotationQuaternion;
 
         // Сохраняем размер для использования в других методах
         // _size = gridConfig.size;
-        var cellSize = gridConfig.cellSize;
-        var cellOffset = gridConfig.cellOffset;
+        var cellSize = gridConfig.CellSize;
+        var cellOffset = gridConfig.CellOffset;
         var totalCellSize = new Vector2(cellSize, cellSize) + cellOffset;
 
         // Получаем материал и текстуру из префаба
-        ExtractVisualComponentsFromPrefab(gridConfig.nodePrefab);
+        ExtractVisualComponentsFromPrefab(gridConfig.NodePrefab);
 
         // Создаем меш для всей сетки (всего 2 треугольника)
         CreateGridMeshWithTwoTriangles(_size, totalCellSize);
@@ -35,15 +35,15 @@ public class GridView : MonoBehaviour
         SetupMaterial();
     }
 
-    private void ExtractVisualComponentsFromPrefab(GameObject nodePrefab)
+    private void ExtractVisualComponentsFromPrefab(GameObject NodePrefab)
     {
         // Добавляем компоненты для рендеринга
         _meshFilter = gameObject.AddComponent<MeshFilter>();
         _meshRenderer = gameObject.AddComponent<MeshRenderer>();
 
         // Пытаемся получить материал из префаба
-        var meshRenderer = nodePrefab.GetComponent<MeshRenderer>();
-        var spriteRenderer = nodePrefab.GetComponent<SpriteRenderer>();
+        var meshRenderer = NodePrefab.GetComponent<MeshRenderer>();
+        var spriteRenderer = NodePrefab.GetComponent<SpriteRenderer>();
 
         if (meshRenderer != null && meshRenderer.sharedMaterial != null)
         {

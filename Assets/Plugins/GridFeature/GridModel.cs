@@ -23,14 +23,14 @@ public class GridModel<T>
 
     public GridModel(GridConfig gridConfig)
     {
-        CellSize = gridConfig.cellSize;
-        CellOffset = gridConfig.cellOffset;
-        PositionOrigin = gridConfig.position;
+        CellSize = gridConfig.CellSize;
+        CellOffset = gridConfig.CellOffset;
+        PositionOrigin = gridConfig.Position;
         Rotation = gridConfig.RotationQuaternion;
         GridDictionary = new Dictionary<Vector2Int, T>();
         GridNodes = new Dictionary<Vector2Int, GridNode>();
 
-        var cells = gridConfig.cells;
+        var cells = gridConfig.Cells;
         foreach (var cell in cells)
         {
             GridDictionary.TryAdd(cell, default);
