@@ -258,7 +258,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   presenterType:
-    _typeName: EcsPresenterTest
+    _typeName: EcsPredasdassenterTest
     _assemblyName: Assembly-CSharp, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
 --- !u!4 &1773727926
 Transform:

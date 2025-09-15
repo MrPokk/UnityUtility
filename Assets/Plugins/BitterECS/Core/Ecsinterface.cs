@@ -61,7 +61,6 @@ namespace BitterECS.Core
 
     #region Helper
 
-
     public interface ILinkableProvider : IInitialize<EcsProviderProperty>, IDisposable
     {
         public EcsEntity Entity => Properties?.Presenter?.Get(this);
