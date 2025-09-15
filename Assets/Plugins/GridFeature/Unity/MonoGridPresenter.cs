@@ -23,6 +23,9 @@ public class MonoGridPresenter : GridPresenter<GameObject>
     public bool InitializeGameObject(Vector3 worldPosition, GameObject prefab, Transform parent = null)
     {
         var index = GetGridIndex(worldPosition);
+        if (!IsWithinGrid(index))
+            return false;
+
         return InitializeGameObject(index, prefab, parent);
     }
 
@@ -105,6 +108,9 @@ public class MonoGridPresenter : GridPresenter<GameObject>
     public bool TrySetGameObject(Vector3 worldPosition, GameObject gameObject)
     {
         var index = GetGridIndex(worldPosition);
+        if (!IsWithinGrid(index))
+            return false;
+
         return TrySetGameObject(index, gameObject);
     }
 
@@ -126,18 +132,15 @@ public class MonoGridPresenter : GridPresenter<GameObject>
 
     public IEnumerable<GameObject> GetAllGameObjects()
     {
-        var array = GetArray();
         var result = new List<GameObject>();
+        var dictionary = GetGridDictionary();
 
-        for (int x = 0; x < array.GetLength(0); x++)
+        foreach (var kvp in dictionary)
         {
-            for (int y = 0; y < array.GetLength(1); y++)
+            var gameObject = kvp.Value;
+            if (gameObject != null)
             {
-                var gameObject = array[x, y];
-                if (gameObject != null)
-                {
-                    result.Add(gameObject);
-                }
+                result.Add(gameObject);
             }
         }
 
@@ -146,18 +149,23 @@ public class MonoGridPresenter : GridPresenter<GameObject>
 
     public void ClearAllGameObjects()
     {
-        var array = GetArray();
-        for (int x = 0; x < array.GetLength(0); x++)
+        var dictionary = GetGridDictionary();
+        var keysToRemove = new List<Vector2Int>();
+
+        foreach (var kvp in dictionary)
         {
-            for (int y = 0; y < array.GetLength(1); y++)
+            var gameObject = kvp.Value;
+            if (gameObject != null)
             {
-                var gameObject = array[x, y];
-                if (gameObject != null)
-                {
-                    UnityEngine.Object.Destroy(gameObject);
-                }
-                array[x, y] = null;
+                UnityEngine.Object.Destroy(gameObject);
             }
+            keysToRemove.Add(kvp.Key);
+        }
+
+        // Remove all entries from dictionary
+        foreach (var key in keysToRemove)
+        {
+            dictionary.Remove(key);
         }
     }
 
@@ -168,6 +176,23 @@ public class MonoGridPresenter : GridPresenter<GameObject>
 
     public void FillAreaWithPrefab(Vector2Int pointA, Vector2Int pointB, GameObject prefab, Transform parent = null)
     {
+        var minX = Mathf.Min(pointA.x, pointB.x);
+        var maxX = Mathf.Max(pointA.x, pointB.x);
+        var minY = Mathf.Min(pointA.y, pointB.y);
+        var maxY = Mathf.Max(pointA.y, pointB.y);
+
+        for (int x = minX; x <= maxX; x++)
+        {
+            for (int y = minY; y <= maxY; y++)
+            {
+                var index = new Vector2Int(x, y);
+                if (!IsWithinGrid(index))
+                {
+                    AddGridCell(index);
+                }
+            }
+        }
+
         var area = GetRectangularArea(pointA, pointB);
         foreach (var index in area.Keys)
         {
@@ -184,20 +209,25 @@ public class MonoGridPresenter : GridPresenter<GameObject>
     public List<GameObject> GetGameObjectsWithComponent<TComponent>() where TComponent : Component
     {
         var result = new List<GameObject>();
-        var array = GetArray();
+        var dictionary = GetGridDictionary();
 
-        for (int x = 0; x < array.GetLength(0); x++)
+        foreach (var kvp in dictionary)
         {
-            for (int y = 0; y < array.GetLength(1); y++)
+            var gameObject = kvp.Value;
+            if (gameObject != null && gameObject.GetComponent<TComponent>() != null)
             {
-                var gameObject = array[x, y];
-                if (gameObject != null && gameObject.GetComponent<TComponent>() != null)
-                {
-                    result.Add(gameObject);
-                }
+                result.Add(gameObject);
             }
         }
 
         return result;
+    }
+
+    private void AddGridCell(Vector2Int index)
+    {
+        if (!IsWithinGrid(index))
+        {
+            SetValueInGrid(index, null);
+        }
     }
 }

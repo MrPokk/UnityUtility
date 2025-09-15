@@ -6,6 +6,53 @@ using UnityEngine;
 public partial class AStar
 {
     public static List<Vector2Int> TryGetPathFindNearest<T>(
+        Dictionary<Vector2Int, T> gridDict,
+        Vector2Int start,
+        Vector2Int end,
+        in Vector2Int[] allNeighborOffsets,
+        out Vector2Int nearestReachableNode,
+        Predicate<Vector2Int> nodeCondition = null
+    )
+    {
+        var gridNodeDict = ConvertDictionaryToGridNode(gridDict);
+        return TryGetPathFindNearest(gridNodeDict, start, end, allNeighborOffsets, out nearestReachableNode, nodeCondition);
+    }
+
+    public static List<Vector2Int> TryGetPathFindNearest(
+        Dictionary<Vector2Int, GridNode> gridDict,
+        Vector2Int start,
+        Vector2Int end,
+        in Vector2Int[] allNeighborOffsets,
+        out Vector2Int nearestReachableNode,
+        Predicate<Vector2Int> nodeCondition = null
+    )
+    {
+        var pathfinder = new AStar();
+        pathfinder._gridDict = gridDict;
+
+        var validNeighbors = pathfinder.GetValidNeighbors(
+            end,
+            allNeighborOffsets,
+            nodeCondition);
+
+        if (validNeighbors.Count == 0)
+        {
+            nearestReachableNode = Vector2Int.one * -1;
+            return null;
+        }
+
+        var isNearestReachableNode = pathfinder.FindNearestToStart(start, validNeighbors);
+        if (isNearestReachableNode != null)
+        {
+            nearestReachableNode = isNearestReachableNode.Value;
+            return TryGetPathFind(gridDict, start, nearestReachableNode, allNeighborOffsets);
+        }
+
+        nearestReachableNode = Vector2Int.one * -1;
+        return null;
+    }
+
+    public static List<Vector2Int> TryGetPathFindNearest<T>(
         T[,] grid,
         Vector2Int start,
         Vector2Int end,
@@ -15,49 +62,28 @@ public partial class AStar
         Predicate<Vector2Int> nodeCondition = null
     )
     {
-        var pathfinder = new AStar();
-        if (gridNode == null)
+        Dictionary<Vector2Int, GridNode> gridDict;
+        if (gridNode != null)
         {
-            pathfinder.SetupGrid(grid);
+            gridDict = ConvertGridNodeArrayToDictionary(gridNode);
         }
         else
         {
-            pathfinder.SetupGrid(gridNode);
+            gridDict = ConvertArrayToDictionary(grid);
         }
 
-        var validNeighbors = pathfinder.GetValidNeighbors(
-            end,
-           pathfinder._grid,
-            allNeighborOffsets,
-            nodeCondition);
-
-        if (validNeighbors.Count == 0)
-        {
-            nearestReachableNode = Vector2Int.up * -1;
-            return null;
-        }
-
-        var isNearestReachableNode = pathfinder.FindNearestToStart(start, validNeighbors);
-        if (isNearestReachableNode != null)
-        {
-            nearestReachableNode = isNearestReachableNode.Value;
-            return TryGetPathFind(grid, start, nearestReachableNode, allNeighborOffsets);
-        }
-
-        nearestReachableNode = Vector2Int.up * -1;
-        return null;
+        return TryGetPathFindNearest(gridDict, start, end, allNeighborOffsets, out nearestReachableNode, nodeCondition);
     }
 
     private List<Vector2Int> GetValidNeighbors(
         Vector2Int centerPosition,
-        in GridNode[,] grid,
         in Vector2Int[] neighborOffsets,
         Predicate<Vector2Int> condition
     )
     {
         var validNodes = new List<Vector2Int>();
 
-        if (IsWithinGrid(centerPosition, grid) && IsNodeWalkable(centerPosition, grid) &&
+        if (IsWithinGrid(centerPosition) && IsNodeWalkable(centerPosition) &&
             (condition == null || condition(centerPosition)))
         {
             validNodes.Add(centerPosition);
@@ -67,7 +93,7 @@ public partial class AStar
         {
             var neighborPosition = centerPosition + offset;
 
-            if (!IsWithinGrid(neighborPosition, grid) || !IsNodeWalkable(neighborPosition, grid))
+            if (!IsWithinGrid(neighborPosition) || !IsNodeWalkable(neighborPosition))
             {
                 continue;
             }
@@ -93,4 +119,3 @@ public partial class AStar
             .First();
     }
 }
-

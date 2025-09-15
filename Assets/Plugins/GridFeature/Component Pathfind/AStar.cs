@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using static GridNode;
 
 public partial class AStar
 {
@@ -9,51 +10,119 @@ public partial class AStar
     private GridNode _current;
     private GridNode _endNode;
     private GridNode _startNode;
-    private GridNode[,] _grid;
+    private Dictionary<Vector2Int, GridNode> _gridDict;
+
+    public static List<Vector2Int> TryGetPathFind<T>(Dictionary<Vector2Int, T> gridDict, Vector2Int start, Vector2Int end, in Vector2Int[] neighborsAll)
+    {
+        var gridDictConvert = ConvertDictionaryToGridNode(gridDict);
+        return ValidatePath(start, end, gridDictConvert) ? new AStar().Find(start, end, neighborsAll, gridDictConvert) : null;
+    }
+
+    public static List<Vector2Int> TryGetPathFind(Dictionary<Vector2Int, GridNode> gridDict, Vector2Int start, Vector2Int end, in Vector2Int[] neighborsAll)
+    {
+        return ValidatePath(start, end, gridDict) ? new AStar().Find(start, end, neighborsAll, gridDict) : null;
+    }
 
     public static List<Vector2Int> TryGetPathFind<T>(T[,] grid, Vector2Int start, Vector2Int end, in Vector2Int[] neighborsAll, GridNode[,] gridNode = null)
     {
-        if (gridNode == null)
+        Dictionary<Vector2Int, GridNode> gridDict;
+        if (gridNode != null)
         {
-            return ValidatePath(start, end, grid) ? new AStar().Find(start, end,
-            new(grid.GetLength(0), grid.GetLength(1)), neighborsAll, gridNode) : null;
+            gridDict = ConvertGridNodeArrayToDictionary(gridNode);
         }
         else
         {
-            return ValidatePath(start, end, gridNode) ? new AStar().Find(start, end,
-            new(gridNode.GetLength(0), gridNode.GetLength(1)), neighborsAll, gridNode) : null;
+            gridDict = ConvertArrayToDictionary(grid);
         }
+
+        return TryGetPathFind(gridDict, start, end, neighborsAll);
     }
 
-    private List<Vector2Int> Find(Vector2Int startNode, Vector2Int endNode, Vector2Int gridSize, in Vector2Int[] neighborsAll, GridNode[,] gridNode = null)
+    private static Dictionary<Vector2Int, GridNode> ConvertDictionaryToGridNode<T>(Dictionary<Vector2Int, T> gridDict)
     {
-        if (gridNode == null)
+        var dict = new Dictionary<Vector2Int, GridNode>();
+        foreach (var item in gridDict)
         {
-            SetupGrid(gridSize);
+            dict[item.Key] = new GridNode(item.Key) { type = TypeNode.SimplyNode };
         }
-        else
+        return dict;
+    }
+
+    private static Dictionary<Vector2Int, GridNode> ConvertArrayToDictionary<T>(T[,] grid)
+    {
+        var dict = new Dictionary<Vector2Int, GridNode>();
+        int width = grid.GetLength(0);
+        int height = grid.GetLength(1);
+
+        for (int x = 0; x < width; x++)
         {
-            SetupGrid(gridNode);
+            for (int y = 0; y < height; y++)
+            {
+                var index = new Vector2Int(x, y);
+                dict[index] = new GridNode(index) { type = TypeNode.SimplyNode };
+            }
         }
+        return dict;
+    }
+
+    private static Dictionary<Vector2Int, GridNode> ConvertGridNodeArrayToDictionary(GridNode[,] gridNode)
+    {
+        var dict = new Dictionary<Vector2Int, GridNode>();
+        int width = gridNode.GetLength(0);
+        int height = gridNode.GetLength(1);
+
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+                var index = new Vector2Int(x, y);
+                dict[index] = gridNode[x, y];
+            }
+        }
+        return dict;
+    }
+
+    private static bool ValidatePath(Vector2Int start, Vector2Int end, Dictionary<Vector2Int, GridNode> gridDict)
+    {
+        if (gridDict == null || start == end)
+        {
+            return false;
+        }
+        if (!gridDict.ContainsKey(start) || !gridDict.ContainsKey(end))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private List<Vector2Int> Find(Vector2Int startNode, Vector2Int endNode, in Vector2Int[] neighborsAll, Dictionary<Vector2Int, GridNode> gridDict)
+    {
+        _gridDict = gridDict;
 
         _open = new HashSet<Vector2Int>();
         _close = new HashSet<Vector2Int>();
 
-        _startNode = _grid[startNode.x, startNode.y];
+        if (!_gridDict.TryGetValue(startNode, out _startNode))
+        {
+            return null;
+        }
         _startNode.gCost = 0;
         _startNode.hCost = CalculateHCost(startNode, endNode);
-
-        _grid[startNode.x, startNode.y] = _startNode;
+        _gridDict[startNode] = _startNode;
 
         _open.Add(_startNode.index);
 
-        _endNode = _grid[endNode.x, endNode.y];
-        _grid[endNode.x, endNode.y] = _endNode;
+        if (!_gridDict.TryGetValue(endNode, out _endNode))
+        {
+            return null;
+        }
+        _gridDict[endNode] = _endNode;
 
         while (_open.Count > 0)
         {
             _current = GetLowerFCost(_open);
-            _grid[_current.index.x, _current.index.y] = _current;
+            _gridDict[_current.index] = _current;
 
             _open.Remove(_current.index);
             _close.Add(_current.index);
@@ -66,8 +135,10 @@ public partial class AStar
             var neighbors = GetIndexNeighbors(_current.index, neighborsAll);
             foreach (var neighbor in neighbors)
             {
-
-                var neighborNode = _grid[neighbor.x, neighbor.y];
+                if (!_gridDict.TryGetValue(neighbor, out var neighborNode))
+                {
+                    continue;
+                }
 
                 var tentativeGCost = _current.gCost + CalculateHCost(_current.index, neighbor);
                 if (tentativeGCost < neighborNode.gCost)
@@ -76,7 +147,7 @@ public partial class AStar
                     neighborNode.gCost = tentativeGCost;
                     neighborNode.hCost = CalculateHCost(neighborNode.index, _endNode.index);
 
-                    _grid[neighborNode.index.x, neighborNode.index.y] = neighborNode;
+                    _gridDict[neighborNode.index] = neighborNode;
 
                     _open.Add(neighborNode.index);
                 }
@@ -95,12 +166,18 @@ public partial class AStar
     {
         var path = new List<Vector2Int>();
 
-        var currentNode = GetNodeByIndex(endNodeIndex, _grid);
+        if (!_gridDict.TryGetValue(endNodeIndex, out var currentNode))
+        {
+            return path;
+        }
         path.Add(currentNode.index);
 
         while (currentNode.indexParent != Vector2Int.one * -1)
         {
-            var cameFromNode = GetNodeByIndex(currentNode.indexParent, _grid);
+            if (!_gridDict.TryGetValue(currentNode.indexParent, out var cameFromNode))
+            {
+                break;
+            }
             path.Add(cameFromNode.index);
             currentNode = cameFromNode;
         }
@@ -117,7 +194,7 @@ public partial class AStar
         {
             var neighborIndex = currentNodeIndex + neighborsOffset;
 
-            if (IsWithinGrid(neighborIndex, _grid) && IsNodeWalkable(neighborIndex, _grid))
+            if (IsWithinGrid(neighborIndex) && IsNodeWalkable(neighborIndex))
             {
                 neighborAll.Add(neighborIndex);
             }
@@ -126,27 +203,27 @@ public partial class AStar
         return neighborAll;
     }
 
-    private bool IsNodeWalkable(Vector2Int indexNode, GridNode[,] grid)
+    private bool IsNodeWalkable(Vector2Int indexNode)
     {
-        var gridNode = GetNodeByIndex(indexNode, grid);
-        if (gridNode.type == GridNode.TypeNode.SimplyNode)
-        {
-            return true;
-        }
-        else if (gridNode.type == GridNode.TypeNode.Wall)
+        if (!_gridDict.TryGetValue(indexNode, out var gridNode))
         {
             return false;
         }
 
-        return false;
+        return gridNode.type == TypeNode.SimplyNode;
+    }
+
+    private bool IsWithinGrid(Vector2Int indexNode)
+    {
+        return _gridDict.ContainsKey(indexNode);
     }
 
     private GridNode GetLowerFCost(HashSet<Vector2Int> nodeArray)
     {
-        var indexLowerNode = GetNodeByIndex(nodeArray.First(), _grid);
+        var indexLowerNode = _gridDict[nodeArray.First()];
         foreach (var nodeIndex in nodeArray)
         {
-            var nodeElement = GetNodeByIndex(nodeIndex, _grid);
+            var nodeElement = _gridDict[nodeIndex];
 
             if (nodeElement.FCost < indexLowerNode.FCost)
             {
@@ -156,35 +233,4 @@ public partial class AStar
 
         return indexLowerNode;
     }
-
-    private void SetupGrid(GridNode[,] gridSize)
-    {
-        _grid = (GridNode[,])gridSize.Clone();
-    }
-
-    private void SetupGrid(Vector2Int gridSize)
-    {
-        _grid = new GridNode[gridSize.x, gridSize.y];
-        for (int i = 0; i < gridSize.x; i++)
-        {
-            for (int j = 0; j < gridSize.y; j++)
-            {
-                _grid[i, j] = new GridNode(new Vector2Int(i, j));
-            }
-        }
-    }
-
-    private void SetupGrid<T>(T[,] grid)
-    {
-        var gridSize = new Vector2Int(grid.GetLength(0), grid.GetLength(1));
-        _grid = new GridNode[gridSize.x, gridSize.y];
-        for (int i = 0; i < gridSize.x; i++)
-        {
-            for (int j = 0; j < gridSize.y; j++)
-            {
-                _grid[i, j] = new GridNode(new Vector2Int(i, j));
-            }
-        }
-    }
 }
-

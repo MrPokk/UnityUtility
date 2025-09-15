@@ -15,18 +15,6 @@ public class GridPresenter<T>
         _gridView.Instantiate(gridConfig);
     }
 
-    public void CreateSearchNodes()
-    {
-        var size = _grid.Size;
-        for (int x = 0; x < size.x; x++)
-        {
-            for (int y = 0; y < size.y; y++)
-            {
-                _grid.GridNodes[x, y] = new GridNode();
-            }
-        }
-    }
-
     public Vector3 GetWorldPosition(Vector2Int index)
     {
         var positionOrigin = _grid.PositionOrigin;
@@ -55,12 +43,12 @@ public class GridPresenter<T>
         return new Vector2(_grid.CellSize, _grid.CellSize) + _grid.CellOffset;
     }
 
-    public T[,] GetArray()
+    public Dictionary<Vector2Int, T> GetGridDictionary()
     {
-        return _grid.Array;
+        return _grid.GridDictionary;
     }
 
-    public GridNode[,] GetGridNodes()
+    public Dictionary<Vector2Int, GridNode> GetGridNodes()
     {
         return _grid.GridNodes;
     }
@@ -83,44 +71,37 @@ public class GridPresenter<T>
         return IsWithinGrid(positionValue);
     }
 
-    public void SetValueInGrid(Vector2Int index, T value) => _grid.Array[index.x, index.y] = value;
+    public void SetValueInGrid(Vector2Int index, T value) => _grid.GridDictionary[index] = value;
 
-    public bool TrySetValue(Vector3 index, T value)
+    public bool TrySetValue(Vector3 worldPosition, T value)
     {
-        return TrySetValue(GetGridIndex(index), value);
+        return TrySetValue(GetGridIndex(worldPosition), value);
     }
 
     public bool TrySetValue(Vector2Int index, T value)
     {
         if (!IsWithinGrid(index)) return false;
 
-        TrySetValue(index, value);
+        SetValueInGrid(index, value);
         return true;
     }
 
     public T GetByIndex(Vector2Int index)
     {
-        return _grid.Array[index.x, index.y];
+        return _grid.GridDictionary.ContainsKey(index) ? _grid.GridDictionary[index] : default;
     }
 
     public bool TryGetValue(Vector2Int index, out T value)
     {
-        value = default;
-        if (!IsWithinGrid(index)) return false;
-
-        value = _grid.Array[index.x, index.y];
-        return true;
+        return _grid.GridDictionary.TryGetValue(index, out value);
     }
 
     public IEnumerable<Vector2Int> FindAll(Func<T, bool> predicate)
     {
-        for (int x = 0; x < _grid.Size.x; x++)
+        foreach (var kvp in _grid.GridDictionary)
         {
-            for (int y = 0; y < _grid.Size.y; y++)
-            {
-                if (predicate(_grid.Array[x, y]))
-                    yield return new Vector2Int(x, y);
-            }
+            if (predicate(kvp.Value))
+                yield return kvp.Key;
         }
     }
 
@@ -141,7 +122,20 @@ public class GridPresenter<T>
 
     public bool IsWithinGrid(Vector2Int indexNode)
     {
-        return indexNode.x >= 0 && indexNode.x < _grid.Size.x && indexNode.y >= 0 && indexNode.y < _grid.Size.y;
+        return _grid.GridDictionary.ContainsKey(indexNode);
+    }
+
+    public void AddGridCell(Vector2Int index, T value = default)
+    {
+        if (!_grid.GridDictionary.ContainsKey(index))
+        {
+            _grid.GridDictionary.Add(index, value);
+        }
+    }
+
+    public bool RemoveGridCell(Vector2Int index)
+    {
+        return _grid.GridDictionary.Remove(index);
     }
 
     public void FillArea(Vector2Int pointA, Vector2Int pointB, T value)
@@ -149,13 +143,17 @@ public class GridPresenter<T>
         var area = GetRectangularArea(pointA, pointB);
         foreach (var index in area.Keys)
         {
-            TrySetValue(index, value);
+            SetValueInGrid(index, value);
         }
     }
 
     public void ClearArea(Vector2Int pointA, Vector2Int pointB)
     {
-        FillArea(pointA, pointB, default);
+        var area = GetRectangularArea(pointA, pointB);
+        foreach (var index in area.Keys)
+        {
+            _grid.GridDictionary.Remove(index);
+        }
     }
 
     public HashSet<Vector2Int> GetNeighbors(Vector2Int index, Vector2Int[] neighbors, Func<T, bool> filterCondition = null)
@@ -188,23 +186,19 @@ public class GridPresenter<T>
         var minY = Mathf.Min(pointA.y, pointB.y);
         var maxY = Mathf.Max(pointA.y, pointB.y);
 
-        minX = Mathf.Max(minX, 0);
-        maxX = Mathf.Min(maxX, _grid.Size.x - 1);
-        minY = Mathf.Max(minY, 0);
-        maxY = Mathf.Min(maxY, _grid.Size.y - 1);
-
-        var cells = new Dictionary<Vector2Int, T>(maxX * maxY);
+        var cells = new Dictionary<Vector2Int, T>();
 
         for (int x = minX; x <= maxX; x++)
         {
             for (int y = minY; y <= maxY; y++)
             {
                 var currentIndex = new Vector2Int(x, y);
-                var cellValue = _grid.Array[x, y];
-
-                if (filterCondition == null || filterCondition(cellValue))
+                if (_grid.GridDictionary.TryGetValue(currentIndex, out var cellValue))
                 {
-                    cells[currentIndex] = cellValue;
+                    if (filterCondition == null || filterCondition(cellValue))
+                    {
+                        cells[currentIndex] = cellValue;
+                    }
                 }
             }
         }
@@ -224,16 +218,17 @@ public class GridPresenter<T>
         float x = start.x;
         float y = start.y;
 
-        var cells = new Dictionary<Vector2Int, T>(dx + dy);
+        var cells = new Dictionary<Vector2Int, T>();
 
         for (int i = 0; i <= steps; i++)
         {
             var gridPoint = new Vector2Int(Mathf.RoundToInt(x), Mathf.RoundToInt(y));
-            var cellValue = _grid.Array[gridPoint.x, gridPoint.y];
-
-            if (IsWithinGrid(gridPoint) && (isEmptyCondition == null || isEmptyCondition(cellValue)))
+            if (_grid.GridDictionary.TryGetValue(gridPoint, out var cellValue))
             {
-                cells[gridPoint] = cellValue;
+                if (isEmptyCondition == null || isEmptyCondition(cellValue))
+                {
+                    cells[gridPoint] = cellValue;
+                }
             }
 
             x += xIncrement;
@@ -245,34 +240,30 @@ public class GridPresenter<T>
 
     public Dictionary<Vector2Int, T> GetCellsInRow(int rowIndex, Func<T, bool> filterCondition = null)
     {
-        if (rowIndex < 0 || rowIndex >= _grid.Size.y)
-        {
-            Debug.LogWarning($"Row index {rowIndex} is out of grid bounds (0-{_grid.Size.y - 1})");
-            return null;
-        }
+        var cells = new Dictionary<Vector2Int, T>();
 
-        var cells = GetRectangularArea(
-            new Vector2Int(0, rowIndex),
-            new Vector2Int(_grid.Size.x - 1, rowIndex),
-            filterCondition
-        );
+        foreach (var kvp in _grid.GridDictionary)
+        {
+            if (kvp.Key.y == rowIndex && (filterCondition == null || filterCondition(kvp.Value)))
+            {
+                cells[kvp.Key] = kvp.Value;
+            }
+        }
 
         return cells;
     }
 
     public Dictionary<Vector2Int, T> GetCellsInColumn(int columnIndex, Func<T, bool> filterCondition = null)
     {
-        if (columnIndex < 0 || columnIndex >= _grid.Size.x)
-        {
-            Debug.LogWarning($"Column index {columnIndex} is out of grid bounds (0-{_grid.Size.x - 1})");
-            return null;
-        }
+        var cells = new Dictionary<Vector2Int, T>();
 
-        var cells = GetRectangularArea(
-            new Vector2Int(columnIndex, 0),
-            new Vector2Int(columnIndex, _grid.Size.y - 1),
-            filterCondition
-        );
+        foreach (var kvp in _grid.GridDictionary)
+        {
+            if (kvp.Key.x == columnIndex && (filterCondition == null || filterCondition(kvp.Value)))
+            {
+                cells[kvp.Key] = kvp.Value;
+            }
+        }
 
         return cells;
     }
@@ -288,14 +279,18 @@ public class GridPresenter<T>
         if (TryGetValue(startIndex, out var startValue) && predicate(startValue))
             return startIndex;
 
-        for (int radius = 1; radius <= (maxRadius > 0 ? maxRadius : Mathf.Max(_grid.Size.x, _grid.Size.y)); radius++)
+        // Calculate max search radius based on grid bounds if not specified
+        if (maxRadius <= 0)
+        {
+            var bounds = GetGridBounds();
+            maxRadius = Mathf.CeilToInt(Mathf.Max(bounds.size.x, bounds.size.y));
+        }
+
+        for (int radius = 1; radius <= maxRadius; radius++)
         {
             var foundPoint = SearchInRing(startIndex, radius, predicate);
             if (foundPoint.HasValue)
                 return foundPoint;
-
-            if (maxRadius > 0 && radius >= maxRadius)
-                break;
         }
 
         return null;
@@ -317,14 +312,16 @@ public class GridPresenter<T>
         if (!IsWithinGrid(startIndex))
             return results;
 
-        var searchRadius = maxRadius > 0 ? maxRadius : Mathf.Max(_grid.Size.x, _grid.Size.y);
+        // Calculate max search radius based on grid bounds if not specified
+        if (maxRadius <= 0)
+        {
+            var bounds = GetGridBounds();
+            maxRadius = Mathf.CeilToInt(Mathf.Max(bounds.size.x, bounds.size.y));
+        }
 
-        for (int radius = 0; radius <= searchRadius; radius++)
+        for (int radius = 0; radius <= maxRadius; radius++)
         {
             SearchInRadius(startIndex, radius, predicate, results);
-
-            if (maxRadius > 0 && radius >= maxRadius)
-                break;
         }
 
         return results;
@@ -401,4 +398,47 @@ public class GridPresenter<T>
         }
     }
 
+    public Bounds GetGridBounds()
+    {
+        if (_grid.GridDictionary.Count == 0)
+            return new Bounds(Vector3.zero, Vector3.zero);
+
+        var minX = int.MaxValue;
+        var maxX = int.MinValue;
+        var minY = int.MaxValue;
+        var maxY = int.MinValue;
+
+        foreach (var index in _grid.GridDictionary.Keys)
+        {
+            minX = Mathf.Min(minX, index.x);
+            maxX = Mathf.Max(maxX, index.x);
+            minY = Mathf.Min(minY, index.y);
+            maxY = Mathf.Max(maxY, index.y);
+        }
+
+        var cellSize = GetTotalCellSize();
+        var width = (maxX - minX + 1) * cellSize.x;
+        var height = (maxY - minY + 1) * cellSize.y;
+
+        var center = GetWorldPosition(new Vector2Int((minX + maxX) / 2, (minY + maxY) / 2));
+
+        return new Bounds(center, new Vector3(width, height, 0));
+    }
+
+    public void ForEach(Action<Vector2Int, T> action)
+    {
+        foreach (var kvp in _grid.GridDictionary)
+        {
+            action(kvp.Key, kvp.Value);
+        }
+    }
+
+    public void Clear()
+    {
+        _grid.GridDictionary.Clear();
+    }
+
+    public int Count => _grid.GridDictionary.Count;
+
+    public bool IsEmpty => _grid.GridDictionary.Count == 0;
 }
