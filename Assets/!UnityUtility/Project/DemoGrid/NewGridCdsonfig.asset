@@ -10,12 +10,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 51919544095551e6c9328399ad1d0710, type: 3}
-  m_Name: NewGridConfig
+  m_Name: NewGridCdsonfig
   m_EditorClassIdentifier: 
-  _position: {x: 1.28, y: 1.28, z: 0}
-  _rotation: {x: 2.52, y: 0, z: 0}
+  _position: {x: 0, y: 0, z: 0}
+  _rotation: {x: 0, y: 0, z: 0}
   _cellSize: 1
   _cellOffset: {x: 0, y: 0}
   _nodePrefab: {fileID: 0}
-  _cells:
-  - {x: 0, y: 0}
+  _cells: []

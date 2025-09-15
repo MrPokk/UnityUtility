@@ -7,13 +7,10 @@ using System.Linq;
 public class GridProviderEditor : Editor
 {
     private GridProvider _gridProvider;
-    private GridVisualizerSetting _GridVisualizerSetting;
-    private GridEditorSetting _GridEditorSetting;
+    private GridVisualizerSetting _gridVisualizerSetting;
+    private GridEditorSetting _gridEditorSetting;
 
     private GridConfig GridConfig => _gridProvider.GridConfig;
-
-    private SerializedProperty _GridVisualizerSettingProperty;
-    private SerializedProperty _GridEditorSettingProperty;
 
     private SerializedObject _gridConfigSerializedObject;
     private SerializedProperty _cellsProperty;
@@ -23,11 +20,8 @@ public class GridProviderEditor : Editor
     private void OnEnable()
     {
         _gridProvider = (GridProvider)target;
-        _GridVisualizerSetting = _gridProvider.GridVisualizerSetting;
-        _GridEditorSetting = _gridProvider.GridEditorSetting;
-
-        _GridVisualizerSettingProperty = serializedObject.FindProperty("_GridVisualizerSetting");
-        _GridEditorSettingProperty = serializedObject.FindProperty("_GridEditorSetting");
+        _gridVisualizerSetting = _gridProvider.GridVisualizerSetting;
+        _gridEditorSetting = _gridProvider.GridEditorSetting;
 
         UpdateGridConfigReference();
     }
@@ -49,14 +43,9 @@ public class GridProviderEditor : Editor
     public override void OnInspectorGUI()
     {
         serializedObject?.Update();
+        DrawDefaultInspector();
 
-        EditorGUI.BeginChangeCheck();
-        EditorGUILayout.PropertyField(serializedObject.FindProperty("_gridConfig"));
-        if (EditorGUI.EndChangeCheck())
-        {
-            // Update the reference when the GridConfig is changed
-            UpdateGridConfigReference();
-        }
+        UpdateGridConfigReference();
 
         if (GridConfig == null)
         {
@@ -65,14 +54,13 @@ public class GridProviderEditor : Editor
         }
         else
         {
-            // Add null check before calling DrawGridConfiguration
             if (_gridConfigSerializedObject != null)
             {
                 DrawGridConfiguration();
             }
             else
             {
-                UpdateGridConfigReference(); // Try to update reference again
+                UpdateGridConfigReference();
                 if (_gridConfigSerializedObject != null)
                 {
                     DrawGridConfiguration();
@@ -175,8 +163,8 @@ public class GridProviderEditor : Editor
             serializedObject.ApplyModifiedProperties();
 
             // Update the visualizer and editor references
-            _GridVisualizerSetting.Initialized(newConfig);
-            _GridEditorSetting.Initialized(newConfig);
+            _gridVisualizerSetting.Initialized(newConfig);
+            _gridEditorSetting.Initialized(newConfig);
 
             UpdateGridConfigReference();
         }
@@ -184,18 +172,18 @@ public class GridProviderEditor : Editor
 
     private void OnSceneGUI()
     {
-        if (_GridEditorSetting == null || !_GridEditorSetting.DrawAddButtons || GridConfig == null)
+        if (_gridEditorSetting == null || !_gridEditorSetting.DrawAddButtons || GridConfig == null)
             return;
 
-        Handles.color = _GridEditorSetting.AddButtonColor;
+        Handles.color = _gridEditorSetting.AddButtonColor;
         var style = new GUIStyle();
-        style.normal.textColor = _GridEditorSetting.AddButtonColor;
-        style.fontSize = _GridEditorSetting.ButtonFontSize;
+        style.normal.textColor = _gridEditorSetting.AddButtonColor;
+        style.fontSize = _gridEditorSetting.ButtonFontSize;
         style.alignment = TextAnchor.MiddleCenter;
 
-        foreach (var pos in _GridEditorSetting.FindAdjacentPositions())
+        foreach (var pos in _gridEditorSetting.FindAdjacentPositions())
         {
-            Vector3 worldPosition = _GridEditorSetting.GetWorldPosition(pos);
+            Vector3 worldPosition = _gridEditorSetting.GetWorldPosition(pos);
             float buttonSize = GridConfig.CellSize * 0.3f;
 
             if (Handles.Button(worldPosition, GridConfig.RotationQuaternion,
@@ -217,7 +205,7 @@ public class GridProviderEditor : Editor
             _cellsProperty.GetArrayElementAtIndex(_cellsProperty.arraySize - 1).vector2IntValue = cell;
             _gridConfigSerializedObject.ApplyModifiedProperties();
             EditorUtility.SetDirty(GridConfig);
-            _GridEditorSetting.RefreshGrid();
+            _gridEditorSetting.RefreshGrid();
         }
     }
 }

@@ -5,20 +5,20 @@ public class GridProvider : MonoBehaviour
 {
     [SerializeField] private GridConfig _gridConfig;
 
-    private GridVisualizerSetting _GridVisualizerSetting;
-    private GridEditorSetting _GridEditorSetting;
+    private GridVisualizerSetting _gridVisualizerSetting;
+    private GridEditorSetting _gridEditorSetting;
 
     public GridConfig GridConfig => _gridConfig;
-    public GridVisualizerSetting GridVisualizerSetting => _GridVisualizerSetting;
-    public GridEditorSetting GridEditorSetting => _GridEditorSetting;
+    public GridVisualizerSetting GridVisualizerSetting => _gridVisualizerSetting;
+    public GridEditorSetting GridEditorSetting => _gridEditorSetting;
 
     private void OnValidate()
     {
-        _GridVisualizerSetting = GetComponent<GridVisualizerSetting>() ?? gameObject.AddComponent<GridVisualizerSetting>();
-        _GridEditorSetting = GetComponent<GridEditorSetting>() ?? gameObject.AddComponent<GridEditorSetting>();
+        _gridVisualizerSetting = GetComponent<GridVisualizerSetting>();
+        _gridEditorSetting = GetComponent<GridEditorSetting>();
 
-        _GridVisualizerSetting.Initialized(_gridConfig);
-        _GridEditorSetting.Initialized(_gridConfig);
+        _gridVisualizerSetting.Initialized(_gridConfig);
+        _gridEditorSetting.Initialized(_gridConfig);
     }
 
     private void Start()
@@ -31,16 +31,16 @@ public class GridProvider : MonoBehaviour
 #if UNITY_EDITOR
     private void OnDrawGizmos()
     {
-        _GridVisualizerSetting?.DrawGridGizmos();
+        _gridVisualizerSetting?.DrawGridGizmos();
     }
 #endif
 
     private void Reset()
     {
-        _GridVisualizerSetting = GetComponent<GridVisualizerSetting>() ?? gameObject.AddComponent<GridVisualizerSetting>();
-        _GridEditorSetting = GetComponent<GridEditorSetting>() ?? gameObject.AddComponent<GridEditorSetting>();
+        _gridVisualizerSetting = GetComponent<GridVisualizerSetting>();
+        _gridEditorSetting = GetComponent<GridEditorSetting>();
 
-        _GridVisualizerSetting.Initialized(_gridConfig);
-        _GridEditorSetting.Initialized(_gridConfig);
+        _gridVisualizerSetting.Initialized(_gridConfig);
+        _gridEditorSetting.Initialized(_gridConfig);
     }
 }
