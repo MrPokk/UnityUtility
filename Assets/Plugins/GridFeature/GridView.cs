@@ -20,7 +20,7 @@ public class GridView : MonoBehaviour
         transform.rotation = gridConfig.RotationQuaternion;
 
         // Сохраняем размер для использования в других методах
-        _size = gridConfig.size;
+        // _size = gridConfig.size;
         var cellSize = gridConfig.cellSize;
         var cellOffset = gridConfig.cellOffset;
         var totalCellSize = new Vector2(cellSize, cellSize) + cellOffset;

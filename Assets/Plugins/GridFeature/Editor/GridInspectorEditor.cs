@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEditor;
+using System.Collections.Generic;
 
 [CustomEditor(typeof(GridInspector))]
 public class GridInspectorEditor : Editor
@@ -7,32 +8,42 @@ public class GridInspectorEditor : Editor
     private GridInspector _gridInspector;
     private SerializedProperty _gridConfigProperty;
     private SerializedProperty _drawCoordinatesProperty;
+    private SerializedProperty _drawAddButtonsProperty;
     private SerializedProperty _gridColorProperty;
     private SerializedProperty _fontColorProperty;
+    private SerializedProperty _addButtonColorProperty;
     private SerializedProperty _fontSizeProperty;
 
-    private Vector2Int _tempSize;
-    private float _tempCellSize;
-    private Vector2 _tempCellOffset;
-    private GameObject _tempNodePrefab;
-    private Vector3 TempPosition => _gridInspector.transform.position;
-    private Vector3 TempRotation => _gridInspector.transform.rotation.eulerAngles;
+    private SerializedObject _gridConfigSerializedObject;
+    private SerializedProperty _cellsProperty;
 
-    private GridConfig _lastGridConfig; // Для отслеживания изменения конфига
+    private bool _showGridCells = false; // Добавляем переменную для состояния Foldout
 
     private void OnEnable()
     {
         _gridInspector = (GridInspector)target;
         _gridConfigProperty = serializedObject.FindProperty("gridConfig");
-        _drawCoordinatesProperty = serializedObject.FindProperty("_drawCoordinates");
-        _gridColorProperty = serializedObject.FindProperty("_gridColor");
-        _fontColorProperty = serializedObject.FindProperty("_fontColor");
-        _fontSizeProperty = serializedObject.FindProperty("_fontSize");
+        _drawCoordinatesProperty = serializedObject.FindProperty("drawCoordinates");
+        _drawAddButtonsProperty = serializedObject.FindProperty("drawAddButtons");
+        _gridColorProperty = serializedObject.FindProperty("gridColor");
+        _fontColorProperty = serializedObject.FindProperty("fontColor");
+        _addButtonColorProperty = serializedObject.FindProperty("addButtonColor");
+        _fontSizeProperty = serializedObject.FindProperty("fontSize");
 
+        UpdateGridConfigReference();
+    }
+
+    private void UpdateGridConfigReference()
+    {
         if (_gridInspector.gridConfig != null)
         {
-            CacheConfigValues();
-            _lastGridConfig = _gridInspector.gridConfig;
+            _gridConfigSerializedObject = new SerializedObject(_gridInspector.gridConfig);
+            _cellsProperty = _gridConfigSerializedObject.FindProperty("cells");
+        }
+        else
+        {
+            _gridConfigSerializedObject = null;
+            _cellsProperty = null;
         }
     }
 
@@ -40,26 +51,11 @@ public class GridInspectorEditor : Editor
     {
         serializedObject.Update();
 
-        // Проверяем, изменился ли GridConfig
-        bool configChanged = false;
-        if (_gridInspector.gridConfig != _lastGridConfig)
-        {
-            configChanged = true;
-            _lastGridConfig = _gridInspector.gridConfig;
-        }
-
         EditorGUI.BeginChangeCheck();
         EditorGUILayout.PropertyField(_gridConfigProperty);
-        if (EditorGUI.EndChangeCheck() || configChanged)
+        if (EditorGUI.EndChangeCheck())
         {
-            // Если конфиг изменился, обновляем временные значения
-            if (_gridInspector.gridConfig != null)
-            {
-                CacheConfigValues();
-                // Также обновляем позицию и вращение объекта
-                _gridInspector.transform.position = _gridInspector.gridConfig.position;
-                _gridInspector.transform.rotation = _gridInspector.gridConfig.RotationQuaternion;
-            }
+            UpdateGridConfigReference();
         }
 
         EditorGUILayout.BeginHorizontal();
@@ -74,12 +70,6 @@ public class GridInspectorEditor : Editor
             {
                 Selection.activeObject = _gridInspector.gridConfig;
             }
-
-            if (GUILayout.Button("Apply Config"))
-            {
-                ApplyConfigChanges();
-                _gridInspector.RefreshGrid();
-            }
         }
         EditorGUILayout.EndHorizontal();
 
@@ -89,87 +79,64 @@ public class GridInspectorEditor : Editor
         }
         else
         {
+            _gridConfigSerializedObject?.Update();
+
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Grid Configuration (Editable)", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Grid Configuration", EditorStyles.boldLabel);
 
-            // Отображаем редактируемые свойства
-            EditorGUI.BeginChangeCheck();
+            EditorGUILayout.PropertyField(_gridConfigSerializedObject.FindProperty("position"));
+            EditorGUILayout.PropertyField(_gridConfigSerializedObject.FindProperty("rotation"));
+            EditorGUILayout.PropertyField(_gridConfigSerializedObject.FindProperty("cellSize"));
+            EditorGUILayout.PropertyField(_gridConfigSerializedObject.FindProperty("cellOffset"));
+            EditorGUILayout.PropertyField(_gridConfigSerializedObject.FindProperty("nodePrefab"));
 
-            _tempSize = EditorGUILayout.Vector2IntField("Grid Size", _tempSize);
-            _tempCellSize = EditorGUILayout.FloatField("Cell Size", _tempCellSize);
-            _tempCellOffset = EditorGUILayout.Vector2Field("Cell Offset", _tempCellOffset);
-            _tempNodePrefab = (GameObject)EditorGUILayout.ObjectField("Node Prefab", _tempNodePrefab, typeof(GameObject), false);
+            EditorGUILayout.Space();
 
-            EditorGUI.EndChangeCheck();
+            // Изменяем LabelField на Foldout для Grid Cells
+            _showGridCells = EditorGUILayout.Foldout(_showGridCells, "Grid Cells", true, EditorStyles.foldoutHeader);
 
+            if (_showGridCells && _cellsProperty != null)
+            {
+                EditorGUI.indentLevel++;
+
+                for (int i = 0; i < _cellsProperty.arraySize; i++)
+                {
+                    EditorGUILayout.BeginHorizontal();
+                    EditorGUILayout.PropertyField(_cellsProperty.GetArrayElementAtIndex(i), GUIContent.none);
+                    if (GUILayout.Button("Remove", GUILayout.Width(60)))
+                    {
+                        _cellsProperty.DeleteArrayElementAtIndex(i);
+                    }
+                    EditorGUILayout.EndHorizontal();
+                }
+
+                if (GUILayout.Button("Add Cell"))
+                {
+                    _cellsProperty.arraySize++;
+                    _cellsProperty.GetArrayElementAtIndex(_cellsProperty.arraySize - 1).vector2IntValue = Vector2Int.zero;
+                }
+
+                EditorGUI.indentLevel--;
+            }
+
+            _gridConfigSerializedObject.ApplyModifiedProperties();
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Gizmo Settings", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(_drawCoordinatesProperty);
+            EditorGUILayout.PropertyField(_drawAddButtonsProperty);
             EditorGUILayout.PropertyField(_gridColorProperty);
             EditorGUILayout.PropertyField(_fontColorProperty);
+            EditorGUILayout.PropertyField(_addButtonColorProperty);
             EditorGUILayout.PropertyField(_fontSizeProperty);
-
-            EditorGUILayout.Space();
-            EditorGUILayout.HelpBox("Changes will be applied to the GridConfig asset only when you click 'Apply Config'.", MessageType.Info);
         }
 
         serializedObject.ApplyModifiedProperties();
     }
 
-    private void CacheConfigValues()
-    {
-        if (_gridInspector.gridConfig != null)
-        {
-            _tempSize = _gridInspector.gridConfig.size;
-            _tempCellSize = _gridInspector.gridConfig.cellSize;
-            _tempCellOffset = _gridInspector.gridConfig.cellOffset;
-            _tempNodePrefab = _gridInspector.gridConfig.nodePrefab;
-
-        }
-    }
-
-    private void ApplyConfigChanges()
-    {
-        if (_gridInspector.gridConfig != null)
-        {
-            Undo.RecordObject(_gridInspector.gridConfig, "Apply Grid Config Changes");
-
-            _gridInspector.gridConfig.size = _tempSize;
-            _gridInspector.gridConfig.cellSize = _tempCellSize;
-            _gridInspector.gridConfig.cellOffset = _tempCellOffset;
-            _gridInspector.gridConfig.nodePrefab = _tempNodePrefab;
-            _gridInspector.gridConfig.position = TempPosition;
-            _gridInspector.gridConfig.rotation = TempRotation;
-
-            EditorUtility.SetDirty(_gridInspector.gridConfig);
-        }
-    }
-
     private void CreateNewGridConfig()
     {
         var newConfig = CreateInstance<GridConfig>();
-
-        // Если уже есть конфиг, копируем его значения
-        if (_gridInspector.gridConfig != null)
-        {
-            var currentConfig = _gridInspector.gridConfig;
-            newConfig.size = currentConfig.size;
-            newConfig.cellSize = currentConfig.cellSize;
-            newConfig.cellOffset = currentConfig.cellOffset;
-            newConfig.nodePrefab = currentConfig.nodePrefab;
-            newConfig.position = currentConfig.position;
-            newConfig.rotation = currentConfig.rotation;
-        }
-        else
-        {
-            // Значения по умолчанию, если конфига нет
-            newConfig.size = new Vector2Int(10, 10);
-            newConfig.cellSize = 1f;
-            newConfig.cellOffset = Vector2.zero;
-            newConfig.position = _gridInspector.transform.position;
-            newConfig.rotation = _gridInspector.transform.rotation.eulerAngles;
-        }
 
         string path = EditorUtility.SaveFilePanelInProject(
             "Save Grid Config",
@@ -187,28 +154,77 @@ public class GridInspectorEditor : Editor
             _gridConfigProperty.objectReferenceValue = newConfig;
             serializedObject.ApplyModifiedProperties();
 
-            // Кэшируем значения нового конфига
-            CacheConfigValues();
-            _lastGridConfig = newConfig;
+            UpdateGridConfigReference();
 
             EditorUtility.SetDirty(_gridInspector);
-            Debug.Log($"Grid Config created and saved to: {path}");
         }
     }
 
-    private void OnInspectorUpdate()
+    private void OnSceneGUI()
     {
-        // Если конфиг изменился (например, через другой редактор), обновляем временные значения
-        if (_gridInspector.gridConfig != null &&
-            (_tempSize != _gridInspector.gridConfig.size ||
-             _tempCellSize != _gridInspector.gridConfig.cellSize ||
-             _tempCellOffset != _gridInspector.gridConfig.cellOffset ||
-             _tempNodePrefab != _gridInspector.gridConfig.nodePrefab ||
-             TempPosition != _gridInspector.gridConfig.position ||
-             TempRotation != _gridInspector.gridConfig.rotation))
+        if (_gridInspector.gridConfig == null || !_gridInspector.drawAddButtons) return;
+
+        var config = _gridInspector.gridConfig;
+        var cellSize = config.cellSize;
+        var cellOffset = config.cellOffset;
+        var totalCellSize = new Vector2(cellSize, cellSize) + cellOffset;
+        var origin = config.position;
+        var rotation = config.RotationQuaternion;
+
+        // Find all adjacent positions
+        var adjacentPositions = new List<Vector2Int>();
+        var existingCells = new HashSet<Vector2Int>(config.cells);
+
+        foreach (var cell in config.cells)
         {
-            CacheConfigValues();
-            Repaint();
+            CheckAndAddAdjacentPosition(cell + Vector2Int.up, existingCells, adjacentPositions);
+            CheckAndAddAdjacentPosition(cell + Vector2Int.down, existingCells, adjacentPositions);
+            CheckAndAddAdjacentPosition(cell + Vector2Int.left, existingCells, adjacentPositions);
+            CheckAndAddAdjacentPosition(cell + Vector2Int.right, existingCells, adjacentPositions);
+        }
+
+        // Draw buttons for adjacent positions
+        Handles.color = _gridInspector.addButtonColor;
+        var style = new GUIStyle();
+        style.normal.textColor = _gridInspector.addButtonColor;
+        style.fontSize = _gridInspector.fontSize;
+        style.alignment = TextAnchor.MiddleCenter;
+
+        foreach (var pos in adjacentPositions)
+        {
+            var localCellCenter = new Vector2(
+                pos.x * totalCellSize.x + cellSize * 0.5f,
+                pos.y * totalCellSize.y + cellSize * 0.5f
+            );
+
+            var worldCellCenter = rotation * localCellCenter + origin;
+
+            // Draw button
+            float buttonSize = cellSize * 0.3f;
+            if (Handles.Button(worldCellCenter, rotation, buttonSize, buttonSize, Handles.RectangleHandleCap))
+            {
+                // Add the new cell
+                if (_gridConfigSerializedObject != null && _cellsProperty != null)
+                {
+                    _gridConfigSerializedObject.Update();
+                    _cellsProperty.arraySize++;
+                    _cellsProperty.GetArrayElementAtIndex(_cellsProperty.arraySize - 1).vector2IntValue = pos;
+                    _gridConfigSerializedObject.ApplyModifiedProperties();
+                    EditorUtility.SetDirty(config);
+                    _gridInspector.RefreshGrid();
+                }
+            }
+
+            // Draw plus label
+            Handles.Label(worldCellCenter + Vector3.up * buttonSize * 0.7f, "[+]", style);
+        }
+    }
+
+    private void CheckAndAddAdjacentPosition(Vector2Int position, HashSet<Vector2Int> existingCells, List<Vector2Int> adjacentPositions)
+    {
+        if (!existingCells.Contains(position) && !adjacentPositions.Contains(position))
+        {
+            adjacentPositions.Add(position);
         }
     }
 }

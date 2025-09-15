@@ -9,7 +9,8 @@ public class GridModel<T>
     public Dictionary<Vector2Int, GridNode> GridNodes { get; private set; }
     public Vector3 PositionOrigin { get; private set; }
     public Quaternion Rotation { get; private set; }
-    public static Vector2Int[] Directions = new Vector2Int[] {
+    public static Vector2Int[] Directions = new Vector2Int[]
+    {
         new(1, 1),
         new(-1,-1),
         new(-1,1),
@@ -18,7 +19,7 @@ public class GridModel<T>
         Vector2Int.down,
         Vector2Int.left,
         Vector2Int.right
-        };
+    };
 
     public GridModel(GridConfig gridConfig)
     {
@@ -28,5 +29,11 @@ public class GridModel<T>
         Rotation = gridConfig.RotationQuaternion;
         GridDictionary = new Dictionary<Vector2Int, T>();
         GridNodes = new Dictionary<Vector2Int, GridNode>();
+
+        var cells = gridConfig.cells;
+        foreach (var cell in cells)
+        {
+            GridDictionary.TryAdd(cell, default);
+        }
     }
 }

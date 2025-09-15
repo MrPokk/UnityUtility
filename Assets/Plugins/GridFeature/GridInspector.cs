@@ -1,4 +1,6 @@
 using UnityEngine;
+using System.Collections.Generic;
+
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -16,17 +18,18 @@ public partial class GridInspector : MonoBehaviour
     }
 
 #if UNITY_EDITOR
-    [SerializeField] private bool _drawCoordinates = true;
-    [SerializeField] private Color _gridColor = Color.white;
-    [SerializeField] private Color _fontColor = Color.yellow;
-    [SerializeField] private int _fontSize = 12;
+    [SerializeField] public bool drawCoordinates = true;
+    [SerializeField] public bool drawAddButtons = true;
+    [SerializeField] public Color gridColor = Color.white;
+    [SerializeField] public Color fontColor = Color.yellow;
+    [SerializeField] public Color addButtonColor = Color.green;
+    [SerializeField] public int fontSize = 12;
 
     private void OnDrawGizmos()
     {
         if (gridConfig == null) return;
 
-        Gizmos.color = _gridColor;
-        var size = gridConfig.size;
+        Gizmos.color = gridColor;
         var cellSize = gridConfig.cellSize;
         var cellOffset = gridConfig.cellOffset;
         var totalCellSize = new Vector2(cellSize, cellSize) + cellOffset;
@@ -35,37 +38,37 @@ public partial class GridInspector : MonoBehaviour
         var rotation = gridConfig.RotationQuaternion;
 
         var style = new GUIStyle();
-        style.normal.textColor = _fontColor;
-        style.fontSize = _fontSize;
+        style.normal.textColor = fontColor;
+        style.fontSize = fontSize;
         style.alignment = TextAnchor.MiddleCenter;
 
-        for (int y = 0; y < size.y; y++)
+        foreach (var cell in gridConfig.cells)
         {
-            for (int x = 0; x < size.x; x++)
+            var x = cell.x;
+            var y = cell.y;
+
+            var localCellCenter = new Vector2(
+                x * totalCellSize.x + cellSize * 0.5f,
+                y * totalCellSize.y + cellSize * 0.5f
+            );
+
+            var localCellMin = new Vector2(x * totalCellSize.x, y * totalCellSize.y);
+            var localCellMax = new Vector2(x * totalCellSize.x + cellSize, y * totalCellSize.y + cellSize);
+
+            var worldCellCenter = rotation * localCellCenter + origin;
+            var worldCellMin = rotation * localCellMin + origin;
+            var worldCellMax = rotation * localCellMax + origin;
+            var worldCellTopLeft = rotation * new Vector2(localCellMin.x, localCellMax.y) + origin;
+            var worldCellBottomRight = rotation * new Vector2(localCellMax.x, localCellMin.y) + origin;
+
+            Gizmos.DrawLine(worldCellMin, worldCellBottomRight);
+            Gizmos.DrawLine(worldCellBottomRight, worldCellMax);
+            Gizmos.DrawLine(worldCellMax, worldCellTopLeft);
+            Gizmos.DrawLine(worldCellTopLeft, worldCellMin);
+
+            if (drawCoordinates)
             {
-                var localCellCenter = new Vector2(
-                    x * totalCellSize.x + cellSize * 0.5f,
-                    y * totalCellSize.y + cellSize * 0.5f
-                );
-
-                var localCellMin = new Vector2(x * totalCellSize.x, y * totalCellSize.y);
-                var localCellMax = new Vector2(x * totalCellSize.x + cellSize, y * totalCellSize.y + cellSize);
-
-                var worldCellCenter = rotation * localCellCenter + origin;
-                var worldCellMin = rotation * localCellMin + origin;
-                var worldCellMax = rotation * localCellMax + origin;
-                var worldCellTopLeft = rotation * new Vector2(localCellMin.x, localCellMax.y) + origin;
-                var worldCellBottomRight = rotation * new Vector2(localCellMax.x, localCellMin.y) + origin;
-
-                Gizmos.DrawLine(worldCellMin, worldCellBottomRight);
-                Gizmos.DrawLine(worldCellBottomRight, worldCellMax);
-                Gizmos.DrawLine(worldCellMax, worldCellTopLeft);
-                Gizmos.DrawLine(worldCellTopLeft, worldCellMin);
-
-                if (_drawCoordinates)
-                {
-                    Handles.Label(worldCellCenter, $"[{x},{y}]", style);
-                }
+                Handles.Label(worldCellCenter, $"[{x},{y}]", style);
             }
         }
     }
@@ -77,4 +80,6 @@ public partial class GridInspector : MonoBehaviour
 #endif
     }
 #endif
+
+
 }
