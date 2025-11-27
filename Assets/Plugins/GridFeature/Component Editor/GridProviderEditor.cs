@@ -172,6 +172,7 @@ public class GridProviderEditor : Editor
     {
         if (_gridEditorSetting == null || GridConfig == null)
             return;
+
         if (_gridEditorSetting.DrawAddButtons)
             AddButtonCells();
 
