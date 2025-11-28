@@ -19,6 +19,5 @@ namespace BitterECS.Extra
         public const string POPUPS = UI + "Popups/";
         public const string SCREENS = UI + "Screens/";
         public const string SETTING = "Settings/";
-        public const string PROVIDERS = PREFABS + "Providers/";
     }
 }

@@ -9,8 +9,6 @@ public class Root : EcsUnityRoot
 
     protected override void Bootstrap()
     {
-
         var gridPresenter = new GridPresenter<EcsEntity>(_gridConfigs);
-
     }
 }
