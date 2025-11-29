@@ -66,7 +66,7 @@ namespace BitterECS.Integration
         }
     }
 
-    public class MonoProvider<T> : MonoProvider where T : EcsEntity
+    public class MonoProvider<T> : MonoProvider where T : EcsPresenter
     {
         protected override void Awake()
         {
