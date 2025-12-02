@@ -4,6 +4,5 @@ public class TestEntity : EcsEntity
 {
     protected override void Registration()
     {
-        Add<TestComponent>(new());
     }
 }

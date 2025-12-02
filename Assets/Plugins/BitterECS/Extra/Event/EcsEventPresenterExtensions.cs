@@ -40,6 +40,11 @@ namespace BitterECS.Extra
             return false;
         }
 
+        public static void EnsureEventPools<T1>(this EcsPresenter presenter) where T1 : struct
+        {
+            presenter.GetEventPool<T1>();
+        }
+
         public static void EnsureEventPools<T1, T2>(this EcsPresenter presenter)
             where T1 : struct where T2 : struct
         {
@@ -53,6 +58,25 @@ namespace BitterECS.Extra
             presenter.GetEventPool<T1>();
             presenter.GetEventPool<T2>();
             presenter.GetEventPool<T3>();
+        }
+
+        public static void EnsureEventPools<T1, T2, T3, T4>(this EcsPresenter presenter)
+            where T1 : struct where T2 : struct where T3 : struct where T4 : struct
+        {
+            presenter.GetEventPool<T1>();
+            presenter.GetEventPool<T2>();
+            presenter.GetEventPool<T3>();
+            presenter.GetEventPool<T4>();
+        }
+
+        public static void EnsureEventPools<T1, T2, T3, T4, T5>(this EcsPresenter presenter)
+            where T1 : struct where T2 : struct where T3 : struct where T4 : struct where T5 : struct
+        {
+            presenter.GetEventPool<T1>();
+            presenter.GetEventPool<T2>();
+            presenter.GetEventPool<T3>();
+            presenter.GetEventPool<T4>();
+            presenter.GetEventPool<T5>();
         }
     }
 }

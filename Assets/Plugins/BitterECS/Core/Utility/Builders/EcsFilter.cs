@@ -51,9 +51,9 @@ namespace BitterECS.Core
             count++;
         }
 
-        public FilterEnumerator Collect()
+        public readonly FilterEnumerator Collect()
         {
-            return new FilterEnumerator(_presenter.GetAll(), _includeConditions, _excludeConditions, _includeCount, _excludeCount);
+            return new(_presenter.GetAll(), _includeConditions, _excludeConditions, _includeCount, _excludeCount);
         }
 
         public ref struct FilterEnumerator
@@ -119,6 +119,12 @@ namespace BitterECS.Core
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public readonly FilterEnumerator GetEnumerator() => this;
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly EcsEntity[] ToArray() => _entities;
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly int Count() => _entities.Length;
         }
     }
 

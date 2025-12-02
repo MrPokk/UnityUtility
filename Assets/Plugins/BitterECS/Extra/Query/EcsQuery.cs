@@ -9,6 +9,7 @@ namespace BitterECS.Extra
     {
         private readonly EcsFilter _filter;
         private readonly List<EcsEntity> _cachedEntities = new();
+        private EcsEntity[] _cachedArray;
         private bool _isDirty = true;
         private readonly EcsPresenter _presenter;
 
@@ -16,18 +17,25 @@ namespace BitterECS.Extra
         {
             get
             {
-                if (_isDirty)
-                    Refresh();
-                return _cachedEntities.ToArray();
+                EnsureUpdated();
+                return _cachedArray ?? Array.Empty<EcsEntity>();
             }
         }
 
-        public int Count => Entities.Length;
+        public int Count
+        {
+            get
+            {
+                EnsureUpdated();
+                return _cachedArray?.Length ?? 0;
+            }
+        }
 
         public EcsQuery(EcsPresenter presenter, EcsFilter filter)
         {
             _presenter = presenter;
             _filter = filter;
+            _cachedArray = null;
             SubscribeToEvents();
         }
 
@@ -38,8 +46,7 @@ namespace BitterECS.Extra
 
         private void SubscribeToEvents()
         {
-            var pools = _presenter.Pools.Values;
-            foreach (var pool in pools)
+            foreach (var pool in _presenter.Pools.Values)
             {
                 if (pool is IPoolWithEvents eventPool)
                 {
@@ -52,39 +59,68 @@ namespace BitterECS.Extra
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void MarkDirty(int entityId) => _isDirty = true;
 
+        private void EnsureUpdated()
+        {
+            if (_isDirty)
+            {
+                Refresh();
+                _isDirty = false;
+            }
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Refresh()
         {
             _cachedEntities.Clear();
             foreach (var entity in _filter.Collect())
                 _cachedEntities.Add(entity);
-            _isDirty = false;
+
+            if (_cachedArray == null || _cachedArray.Length != _cachedEntities.Count)
+            {
+                _cachedArray = new EcsEntity[_cachedEntities.Count];
+            }
+
+            _cachedEntities.CopyTo(_cachedArray);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Enumerator GetEnumerator() => new(this);
+        public Enumerator GetEnumerator()
+        {
+            EnsureUpdated();
+            return new Enumerator(_cachedArray);
+        }
 
         public ref struct Enumerator
         {
-            private readonly EcsQuery _query;
+            private readonly EcsEntity[] _array;
             private int _index;
+            private readonly int _length;
 
-            public Enumerator(EcsQuery query)
+            public Enumerator(EcsEntity[] array)
             {
-                _query = query;
+                _array = array;
+                _length = array?.Length ?? 0;
                 _index = -1;
             }
 
-            public EcsEntity Current => _query.Entities[_index];
+            public EcsEntity Current => _array[_index];
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public bool MoveNext() => ++_index < _query.Entities.Length;
+            public bool MoveNext()
+            {
+                int index = _index + 1;
+                if (index < _length)
+                {
+                    _index = index;
+                    return true;
+                }
+                return false;
+            }
         }
 
         public void Dispose()
         {
-            var pools = _presenter.Pools.Values;
-            foreach (var pool in pools)
+            foreach (var pool in _presenter.Pools.Values)
             {
                 if (pool is IPoolWithEvents eventPool)
                 {
@@ -92,7 +128,9 @@ namespace BitterECS.Extra
                     eventPool.Events.OnComponentRemoved -= MarkDirty;
                 }
             }
+
+            _cachedArray = null;
+            _cachedEntities.Clear();
         }
     }
-
 }

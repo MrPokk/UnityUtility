@@ -7,12 +7,6 @@ namespace BitterECS.Extra
     public static class EcsQueryExtensions
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static EcsQuery CreateQuery(this EcsPresenter presenter, Func<EcsFilter, EcsFilter> filterBuilder)
-        {
-            return new EcsQuery(presenter, filterBuilder);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static EcsQuery Query(this EcsPresenter presenter, Func<EcsFilter, EcsFilter> filterBuilder)
         {
             return presenter.CreateQuery(filterBuilder);
@@ -41,5 +35,8 @@ namespace BitterECS.Extra
         {
             return presenter.Query(filter => filter.Exclude<T>());
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static EcsQuery CreateQuery(this EcsPresenter presenter, Func<EcsFilter, EcsFilter> filterBuilder) => new(presenter, filterBuilder);
     }
 }
