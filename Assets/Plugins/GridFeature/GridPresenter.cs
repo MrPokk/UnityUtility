@@ -15,7 +15,10 @@ public class GridPresenter<T>
         _gridView.Instantiate(gridConfig);
     }
 
-    public Vector3 GetWorldPosition(Vector2Int index)
+    public Vector2Int ConvertingPosition(Vector3 worldPosition) => GetGridIndex(worldPosition);
+    public Vector3 ConvertingPosition(Vector2Int index) => GetWorldPosition(index) + _grid.CellCenter;
+
+    protected Vector3 GetWorldPosition(Vector2Int index)
     {
         var positionOrigin = _grid.PositionOrigin;
         var totalCellSize = new Vector2(_grid.CellSize, _grid.CellSize) + _grid.CellOffset;
@@ -25,7 +28,7 @@ public class GridPresenter<T>
         return _grid.Rotation * localPosition + positionOrigin;
     }
 
-    public Vector2Int GetGridIndex(Vector3 worldPosition)
+    protected Vector2Int GetGridIndex(Vector3 worldPosition)
     {
         var positionOrigin = _grid.PositionOrigin;
         var totalCellSize = new Vector2(_grid.CellSize, _grid.CellSize) + _grid.CellOffset;
@@ -43,12 +46,12 @@ public class GridPresenter<T>
         return new Vector2(_grid.CellSize, _grid.CellSize) + _grid.CellOffset;
     }
 
-    public Dictionary<Vector2Int, T> GetGridDictionary()
+    public IReadOnlyDictionary<Vector2Int, T> GetGridDictionary()
     {
         return _grid.GridDictionary;
     }
 
-    public Dictionary<Vector2Int, GridNode> GetGridNodes()
+    public IReadOnlyDictionary<Vector2Int, GridNode> GetGridNodes()
     {
         return _grid.GridNodes;
     }
@@ -86,7 +89,12 @@ public class GridPresenter<T>
         return true;
     }
 
-    public T GetByIndex(Vector2Int index)
+    public T GetValue(Vector3 worldPosition)
+    {
+        return GetValue(GetGridIndex(worldPosition));
+    }
+
+    public T GetValue(Vector2Int index)
     {
         return _grid.GridDictionary.ContainsKey(index) ? _grid.GridDictionary[index] : default;
     }
@@ -94,6 +102,11 @@ public class GridPresenter<T>
     public bool TryGetValue(Vector2Int index, out T value)
     {
         return _grid.GridDictionary.TryGetValue(index, out value);
+    }
+
+    public bool TryGetValue(Vector3 worldPosition, out T value)
+    {
+        return TryGetValue(GetGridIndex(worldPosition), out value);
     }
 
     public IEnumerable<Vector2Int> FindAll(Func<T, bool> predicate)
@@ -108,16 +121,6 @@ public class GridPresenter<T>
     public Vector2Int? FindFirst(Func<T, bool> predicate)
     {
         return FindAll(predicate).FirstOrDefault();
-    }
-
-    public Vector3 ConvertingPosition(Vector2Int index)
-    {
-        return GetWorldPosition(index) + _grid.Rotation * new Vector3(_grid.CellSize, _grid.CellSize, 0) * 0.5f;
-    }
-
-    public Vector2Int ConvertingPosition(Vector3 worldPose)
-    {
-        return GetGridIndex(worldPose);
     }
 
     public bool IsWithinGrid(Vector2Int indexNode)
@@ -154,6 +157,48 @@ public class GridPresenter<T>
         {
             _grid.GridDictionary.Remove(index);
         }
+    }
+
+    public bool SwapValues(Vector2Int indexA, Vector2Int indexB)
+    {
+        if (!IsWithinGrid(indexA) || !IsWithinGrid(indexB))
+            return false;
+
+        var valueA = GetValue(indexA);
+        var valueB = GetValue(indexB);
+
+        if (EqualityComparer<T>.Default.Equals(valueA, default) &&
+            EqualityComparer<T>.Default.Equals(valueB, default))
+            return false;
+
+        SetValueInGrid(indexA, valueB);
+        SetValueInGrid(indexB, valueA);
+
+        return true;
+    }
+
+    public bool SwapValues(Vector3 worldPositionA, Vector3 worldPositionB)
+    {
+        var indexA = GetGridIndex(worldPositionA);
+        var indexB = GetGridIndex(worldPositionB);
+        return SwapValues(indexA, indexB);
+    }
+
+    public bool TrySwapValues(Vector2Int indexA, Vector2Int indexB, out T valueA, out T valueB)
+    {
+        valueA = default;
+        valueB = default;
+
+        if (!IsWithinGrid(indexA) || !IsWithinGrid(indexB))
+            return false;
+
+        valueA = GetValue(indexA);
+        valueB = GetValue(indexB);
+
+        SetValueInGrid(indexA, valueB);
+        SetValueInGrid(indexB, valueA);
+
+        return true;
     }
 
     public HashSet<Vector2Int> GetNeighbors(Vector2Int index, Vector2Int[] neighbors, Func<T, bool> filterCondition = null)
@@ -398,6 +443,30 @@ public class GridPresenter<T>
         }
     }
 
+    public Vector2Int GetGridSize()
+    {
+        if (_grid.GridDictionary.Count == 0)
+            return Vector2Int.zero;
+
+        var minX = int.MaxValue;
+        var maxX = int.MinValue;
+        var minY = int.MaxValue;
+        var maxY = int.MinValue;
+
+        foreach (var index in _grid.GridDictionary.Keys)
+        {
+            minX = Mathf.Min(minX, index.x);
+            maxX = Mathf.Max(maxX, index.x);
+            minY = Mathf.Min(minY, index.y);
+            maxY = Mathf.Max(maxY, index.y);
+        }
+
+        var width = maxX - minX + 1;
+        var height = maxY - minY + 1;
+
+        return new Vector2Int(width, height);
+    }
+
     public Bounds GetGridBounds()
     {
         if (_grid.GridDictionary.Count == 0)
@@ -427,7 +496,8 @@ public class GridPresenter<T>
 
     public void ForEach(Action<Vector2Int, T> action)
     {
-        foreach (var kvp in _grid.GridDictionary)
+        var gridNew = _grid.GridDictionary.ToArray();
+        foreach (var kvp in gridNew)
         {
             action(kvp.Key, kvp.Value);
         }

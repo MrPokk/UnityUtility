@@ -3,28 +3,40 @@ using UnityEngine;
 
 namespace BitterECS.Integration
 {
-    public abstract class EcsUnityRoot : MonoBehaviour, IEcsIntegrationRoot
+    [DefaultExecutionOrder(int.MinValue)]
+    [DisallowMultipleComponent]
+    public class EcsUnityRoot : MonoBehaviour, IEcsIntegrationRoot
     {
-        private static EcsWorld s_ecsWorld;
-        private static EcsSystems s_ecsSystems;
-
         public Priority PrioritySystem => Priority.FIRST_TASK;
+
+        private static EcsUnityRoot s_instance;
+        public static EcsUnityRoot Instance
+        {
+            get
+            {
+                if (s_instance == null)
+                {
+                    var instanceFind = FindFirstObjectByType<EcsUnityRoot>();
+                    if (instanceFind == null)
+                    {
+                        s_instance = new GameObject("[EcsUnityRoot]").AddComponent<EcsUnityRoot>();
+                    }
+                    else
+                    {
+                        s_instance = instanceFind;
+                    }
+                }
+                return s_instance;
+            }
+        }
 
         protected virtual void Bootstrap() { }
         protected virtual void PostBootstrap() { }
-
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-        private static void Integration()
-        {
-            s_ecsWorld = new EcsWorld();
-            s_ecsSystems = new EcsSystems();
-        }
 
         private void Awake()
         {
             PreInit();
             Bootstrap();
-
         }
 
         private void Start()
@@ -52,9 +64,6 @@ namespace BitterECS.Integration
         {
             Destroy();
             PostDestroy();
-
-            s_ecsWorld?.Dispose();
-            s_ecsSystems?.Dispose();
         }
 
         public virtual void PreInit()
@@ -92,4 +101,5 @@ namespace BitterECS.Integration
             EcsSystems.Run<IEcsPostDestroySystem>(system => system.PostDestroy());
         }
     }
+
 }

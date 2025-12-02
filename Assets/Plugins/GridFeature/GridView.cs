@@ -12,7 +12,6 @@ public class GridView : MonoBehaviour
     {
         if (gridConfig.NodePrefab == null)
         {
-            Debug.LogWarning("NodePrefab is null");
             return;
         }
 

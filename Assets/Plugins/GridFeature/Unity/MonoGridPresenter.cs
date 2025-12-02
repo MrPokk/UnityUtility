@@ -1,12 +1,12 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class MonoGridPresenter : GridPresenter<GameObject>
+public class MonoGridPresenter<T> : GridPresenter<T> where T : MonoBehaviour
 {
     public MonoGridPresenter(GridConfig gridConfig) : base(gridConfig)
     { }
 
-    public bool InitializeGameObject(Vector2Int index, GameObject prefab, Transform parent = null)
+    public bool InitializeGameObject(Vector2Int index, T prefab, Transform parent = null)
     {
         if (!IsWithinGrid(index) || prefab == null)
             return false;
@@ -20,7 +20,7 @@ public class MonoGridPresenter : GridPresenter<GameObject>
         return true;
     }
 
-    public bool InitializeGameObject(Vector3 worldPosition, GameObject prefab, Transform parent = null)
+    public bool InitializeGameObject(Vector3 worldPosition, T prefab, Transform parent = null)
     {
         var index = GetGridIndex(worldPosition);
         if (!IsWithinGrid(index))
@@ -29,28 +29,64 @@ public class MonoGridPresenter : GridPresenter<GameObject>
         return InitializeGameObject(index, prefab, parent);
     }
 
-    public bool MoveGameObject(Vector2Int fromIndex, Vector2Int toIndex)
+    public bool SwapGameObjects(Vector2Int indexA, Vector2Int indexB)
     {
-        if (!IsWithinGrid(fromIndex) || !IsWithinGrid(toIndex))
+        if (!SwapValues(indexA, indexB))
             return false;
 
-        var gameObject = GetByIndex(fromIndex);
-        if (gameObject == null)
-            return false;
+        var gameObjectA = GetValue(indexA);
+        var gameObjectB = GetValue(indexB);
 
-        gameObject.transform.position = ConvertingPosition(toIndex);
+        if (gameObjectA != null)
+            gameObjectA.transform.position = ConvertingPosition(indexA);
 
-        SetValueInGrid(fromIndex, null);
-        SetValueInGrid(toIndex, gameObject);
+        if (gameObjectB != null)
+            gameObjectB.transform.position = ConvertingPosition(indexB);
 
         return true;
     }
 
-    public bool MoveGameObject(Vector3 fromWorldPosition, Vector3 toWorldPosition)
+    public bool SwapGameObjects(Vector3 worldPositionA, Vector3 worldPositionB)
+    {
+        var indexA = GetGridIndex(worldPositionA);
+        var indexB = GetGridIndex(worldPositionB);
+        return SwapGameObjects(indexA, indexB);
+    }
+
+    public bool MoveGameObject(Vector2Int fromIndex, Vector2Int toIndex, T fromValue)
+    {
+        if (!IsWithinGrid(fromIndex) || !IsWithinGrid(toIndex))
+            return false;
+
+        var gameObjectFrom = GetValue(fromIndex);
+        var gameObjectTo = GetValue(toIndex);
+
+        if (gameObjectFrom == null)
+            return false;
+
+        gameObjectFrom.transform.position = ConvertingPosition(toIndex);
+
+        SetValueInGrid(fromIndex, fromValue);
+        SetValueInGrid(toIndex, gameObjectFrom);
+
+        return true;
+    }
+
+    public bool MoveGameObject(Vector2Int fromIndex, Vector2Int toIndex)
+    {
+        return MoveGameObject(fromIndex, toIndex, null);
+    }
+
+    public bool MoveGameObject(Vector3 fromWorldPosition, Vector3 toWorldPosition, T fromValue)
     {
         var fromIndex = GetGridIndex(fromWorldPosition);
         var toIndex = GetGridIndex(toWorldPosition);
-        return MoveGameObject(fromIndex, toIndex);
+        return MoveGameObject(fromIndex, toIndex, fromValue);
+    }
+
+    public bool MoveGameObject(Vector3 fromWorldPosition, Vector3 toWorldPosition)
+    {
+        return MoveGameObject(fromWorldPosition, toWorldPosition, null);
     }
 
     public bool RemoveGameObject(Vector2Int index)
@@ -58,10 +94,10 @@ public class MonoGridPresenter : GridPresenter<GameObject>
         if (!IsWithinGrid(index))
             return false;
 
-        var gameObject = GetByIndex(index);
+        var gameObject = GetValue(index);
         if (gameObject != null)
         {
-            Object.Destroy(gameObject);
+            Object.Destroy(gameObject.gameObject);
             SetValueInGrid(index, null);
             return true;
         }
@@ -75,23 +111,23 @@ public class MonoGridPresenter : GridPresenter<GameObject>
         return RemoveGameObject(index);
     }
 
-    public GameObject ExtractGameObject(Vector2Int index)
+    public T ExtractGameObject(Vector2Int index)
     {
         if (!IsWithinGrid(index))
             return null;
 
-        var gameObject = GetByIndex(index);
+        var gameObject = GetValue(index);
         SetValueInGrid(index, null);
         return gameObject;
     }
 
-    public GameObject ExtractGameObject(Vector3 worldPosition)
+    public T ExtractGameObject(Vector3 worldPosition)
     {
         var index = GetGridIndex(worldPosition);
         return ExtractGameObject(index);
     }
 
-    public bool TrySetGameObject(Vector2Int index, GameObject gameObject)
+    public bool TrySetGameObject(Vector2Int index, T gameObject)
     {
         if (!IsWithinGrid(index) || gameObject == null)
             return false;
@@ -105,7 +141,7 @@ public class MonoGridPresenter : GridPresenter<GameObject>
         return true;
     }
 
-    public bool TrySetGameObject(Vector3 worldPosition, GameObject gameObject)
+    public bool TrySetGameObject(Vector3 worldPosition, T gameObject)
     {
         var index = GetGridIndex(worldPosition);
         if (!IsWithinGrid(index))
@@ -114,12 +150,12 @@ public class MonoGridPresenter : GridPresenter<GameObject>
         return TrySetGameObject(index, gameObject);
     }
 
-    public GameObject GetGameObject(Vector2Int index)
+    public T GetGameObject(Vector2Int index)
     {
-        return IsWithinGrid(index) ? GetByIndex(index) : null;
+        return IsWithinGrid(index) ? GetValue(index) : null;
     }
 
-    public GameObject GetGameObject(Vector3 worldPosition)
+    public T GetGameObject(Vector3 worldPosition)
     {
         var index = GetGridIndex(worldPosition);
         return GetGameObject(index);
@@ -127,12 +163,12 @@ public class MonoGridPresenter : GridPresenter<GameObject>
 
     public bool HasGameObject(Vector2Int index)
     {
-        return IsWithinGrid(index) && GetByIndex(index) != null;
+        return IsWithinGrid(index) && GetValue(index) != null;
     }
 
-    public IEnumerable<GameObject> GetAllGameObjects()
+    public IEnumerable<T> GetAllGameObjects()
     {
-        var result = new List<GameObject>();
+        var result = new List<T>();
         var dictionary = GetGridDictionary();
 
         foreach (var kvp in dictionary)
@@ -157,16 +193,12 @@ public class MonoGridPresenter : GridPresenter<GameObject>
             var gameObject = kvp.Value;
             if (gameObject != null)
             {
-                UnityEngine.Object.Destroy(gameObject);
+                UnityEngine.Object.Destroy(gameObject.gameObject);
             }
             keysToRemove.Add(kvp.Key);
         }
 
-        // Remove all entries from dictionary
-        foreach (var key in keysToRemove)
-        {
-            dictionary.Remove(key);
-        }
+        _grid.GridDictionary.Clear();
     }
 
     private Quaternion GetRotation()
@@ -174,7 +206,7 @@ public class MonoGridPresenter : GridPresenter<GameObject>
         return Quaternion.identity;
     }
 
-    public void FillAreaWithPrefab(Vector2Int pointA, Vector2Int pointB, GameObject prefab, Transform parent = null)
+    public void FillAreaWithPrefab(Vector2Int pointA, Vector2Int pointB, T prefab, Transform parent = null)
     {
         var minX = Mathf.Min(pointA.x, pointB.x);
         var maxX = Mathf.Max(pointA.x, pointB.x);
@@ -200,15 +232,15 @@ public class MonoGridPresenter : GridPresenter<GameObject>
         }
     }
 
-    public GameObject FindNearestGameObject<TComponent>(Vector3 worldPosition) where TComponent : Component
+    public T FindNearestGameObject<TComponent>(Vector3 worldPosition) where TComponent : Component
     {
         var nearestIndex = FindNearestExpanding(worldPosition, go => go != null && go.GetComponent<TComponent>() != null);
         return nearestIndex.HasValue ? GetGameObject(nearestIndex.Value) : null;
     }
 
-    public List<GameObject> GetGameObjectsWithComponent<TComponent>() where TComponent : Component
+    public List<T> GetGameObjectsWithComponent<TComponent>() where TComponent : Component
     {
-        var result = new List<GameObject>();
+        var result = new List<T>();
         var dictionary = GetGridDictionary();
 
         foreach (var kvp in dictionary)

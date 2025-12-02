@@ -43,8 +43,9 @@ namespace BitterECS.Core
 
         public void Dispose()
         {
-            Properties?.Presenter.Remove(this);
+            Properties?.Presenter?.Remove(this);
             Properties = null;
+
             GC.SuppressFinalize(this);
         }
     }

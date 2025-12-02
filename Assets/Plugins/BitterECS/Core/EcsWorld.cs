@@ -6,25 +6,29 @@ namespace BitterECS.Core
 {
     public sealed class EcsWorld : IDisposable
     {
-        private readonly static Dictionary<Type, EcsPresenter> s_ecsPresenters = new(EcsConfig.InitialPresentersCapacity);
+        private static EcsWorld s_instance;
+        public static EcsWorld Instance => s_instance ??= new EcsWorld();
+        private readonly Dictionary<Type, EcsPresenter> _ecsPresenters = new(EcsConfig.InitialPresentersCapacity);
 
-        public EcsWorld() => LoadAllPresenters();
+        private EcsWorld() => LoadAllPresenters();
 
-        private static void LoadAllPresenters()
+        private void LoadAllPresenters()
         {
+            _ecsPresenters.Clear();
+
             var presenterTypes = ReflectionUtility.FindAllImplement<EcsPresenter>();
             foreach (var type in presenterTypes)
             {
                 if (Activator.CreateInstance(type) is EcsPresenter presenter)
                 {
-                    s_ecsPresenters.TryAdd(type, presenter);
+                    _ecsPresenters.TryAdd(type, presenter);
                 }
             }
         }
 
-        public static EcsPresenter Get(Type type)
+        public EcsPresenter GetInternal(Type type)
         {
-            if (s_ecsPresenters.TryGetValue(type, out var value))
+            if (_ecsPresenters.TryGetValue(type, out var value))
             {
                 return value;
             }
@@ -32,19 +36,19 @@ namespace BitterECS.Core
             throw new Exception($"Presenter not found");
         }
 
-        public static T Get<T>() where T : EcsPresenter, new()
+        public T GetInternal<T>() where T : EcsPresenter, new()
         {
-            if (s_ecsPresenters.TryGetValue(typeof(T), out var value))
+            if (_ecsPresenters.TryGetValue(typeof(T), out var value))
             {
                 return (T)value;
             }
 
-            throw new Exception($"Presenter not found: {typeof(T)} count: {s_ecsPresenters.Count}");
+            throw new Exception($"Presenter not found: {typeof(T)} count: {_ecsPresenters.Count}");
         }
 
-        public static EcsPresenter GetToEntityType(Type type)
+        public EcsPresenter GetToEntityTypeInternal(Type type)
         {
-            foreach (var presenter in s_ecsPresenters.Values)
+            foreach (var presenter in _ecsPresenters.Values)
             {
                 if (presenter.IsTypeAllowed(type))
                 {
@@ -52,12 +56,12 @@ namespace BitterECS.Core
                 }
             }
 
-            throw new Exception($"No presenter found that can handle type: {type} count: {s_ecsPresenters.Count}");
+            throw new Exception($"No presenter found that can handle type: {type} count: {_ecsPresenters.Count}");
         }
 
-        public static EcsPresenter GetToEntityType<T>() where T : EcsEntity
+        public EcsPresenter GetToEntityTypeInternal<T>() where T : EcsEntity
         {
-            foreach (var presenter in s_ecsPresenters.Values)
+            foreach (var presenter in _ecsPresenters.Values)
             {
                 if (presenter.IsTypeAllowed<T>())
                 {
@@ -65,20 +69,30 @@ namespace BitterECS.Core
                 }
             }
 
-            throw new Exception($"No presenter found that can handle type: {typeof(T)} count: {s_ecsPresenters.Count}");
+            throw new Exception($"No presenter found that can handle type: {typeof(T)} count: {_ecsPresenters.Count}");
         }
 
-        public static IEnumerable<EcsPresenter> GetAll()
+        public ICollection<EcsPresenter> GetAllInternal()
         {
-            return s_ecsPresenters.Values;
+            return _ecsPresenters.Values;
         }
 
         public void Dispose()
         {
-            foreach (var presenter in s_ecsPresenters.Values) presenter.Dispose();
+            foreach (var presenter in _ecsPresenters.Values)
+            {
+                presenter.Dispose();
+            }
 
-            s_ecsPresenters.Clear();
+            _ecsPresenters.Clear();
             GC.SuppressFinalize(this);
+            s_instance = null;
         }
+
+        public static EcsPresenter Get(Type type) => Instance.GetInternal(type);
+        public static T Get<T>() where T : EcsPresenter, new() => Instance.GetInternal<T>();
+        public static EcsPresenter GetToEntityType(Type type) => Instance.GetToEntityTypeInternal(type);
+        public static EcsPresenter GetToEntityType<T>() where T : EcsEntity => Instance.GetToEntityTypeInternal<T>();
+        public static ICollection<EcsPresenter> GetAll() => Instance.GetAllInternal();
     }
 }

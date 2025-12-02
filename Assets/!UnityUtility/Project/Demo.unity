@@ -244,6 +244,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _gridConfigs: {fileID: 11400000, guid: aa98f0b9434c28e898d73bf0c89602ef, type: 2}
+  _monoProvider: {fileID: 1773727925}
 --- !u!1 &1773727923
 GameObject:
   m_ObjectHideFlags: 0

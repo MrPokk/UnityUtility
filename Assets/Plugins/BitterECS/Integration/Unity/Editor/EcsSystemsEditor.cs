@@ -366,15 +366,63 @@ namespace BitterECS.Integration.Editor
 
         private List<IEcsSystem> GetAllSystems()
         {
-            var systemsField = typeof(EcsSystems).GetField("s_systems",
-                BindingFlags.NonPublic | BindingFlags.Static);
+            if (!Application.isPlaying)
+                return new List<IEcsSystem>();
 
-            return systemsField?.GetValue(null) is List<IEcsSystem> systems ? systems.ToList() : new List<IEcsSystem>();
+            try
+            {
+                // Получаем экземпляр синглтона
+                var instance = EcsSystems.Instance;
+                if (instance == null)
+                    return new List<IEcsSystem>();
+
+                // Получаем приватное поле _systems через рефлексию
+                var systemsField = typeof(EcsSystems).GetField("_systems",
+                    BindingFlags.NonPublic | BindingFlags.Instance);
+
+                if (systemsField == null)
+                    return new List<IEcsSystem>();
+
+                // Теперь _systems это SortedSet<IEcsSystem>, а не List<IEcsSystem>
+                var systemsSet = systemsField.GetValue(instance) as System.Collections.Generic.SortedSet<IEcsSystem>;
+                if (systemsSet == null)
+                    return new List<IEcsSystem>();
+
+                return systemsSet.ToList();
+            }
+            catch
+            {
+                return new List<IEcsSystem>();
+            }
         }
 
         private int GetSystemsCount()
         {
-            return GetAllSystems().Count;
+            if (!Application.isPlaying)
+                return 0;
+
+            try
+            {
+                // Получаем экземпляр синглтона
+                var instance = EcsSystems.Instance;
+                if (instance == null)
+                    return 0;
+
+                // Получаем приватное поле _systems через рефлексию
+                var systemsField = typeof(EcsSystems).GetField("_systems",
+                    BindingFlags.NonPublic | BindingFlags.Instance);
+
+                if (systemsField == null)
+                    return 0;
+
+                // Теперь _systems это SortedSet<IEcsSystem>
+                var systemsSet = systemsField.GetValue(instance) as System.Collections.Generic.SortedSet<IEcsSystem>;
+                return systemsSet?.Count ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
         }
 
         private int GetActiveSystemsCount()
@@ -421,6 +469,7 @@ namespace BitterECS.Integration.Editor
             }
         }
     }
+
     [InitializeOnLoad]
     public static class EcsSystemsHierarchyViewer
     {
@@ -511,10 +560,31 @@ namespace BitterECS.Integration.Editor
 
         private static int GetSystemsCount()
         {
-            var systemsField = typeof(EcsSystems).GetField("s_systems",
-                BindingFlags.NonPublic | BindingFlags.Static);
+            if (!Application.isPlaying)
+                return 0;
 
-            return systemsField?.GetValue(null) is List<IEcsSystem> systems ? systems.Count : 0;
+            try
+            {
+                // Получаем экземпляр синглтона
+                var instance = EcsSystems.Instance;
+                if (instance == null)
+                    return 0;
+
+                // Получаем приватное поле _systems через рефлексию
+                var systemsField = typeof(EcsSystems).GetField("_systems",
+                    BindingFlags.NonPublic | BindingFlags.Instance);
+
+                if (systemsField == null)
+                    return 0;
+
+                // Теперь _systems это SortedSet<IEcsSystem>
+                var systemsSet = systemsField.GetValue(instance) as System.Collections.Generic.SortedSet<IEcsSystem>;
+                return systemsSet?.Count ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
         }
     }
 }
