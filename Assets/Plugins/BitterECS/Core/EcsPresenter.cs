@@ -157,6 +157,8 @@ namespace BitterECS.Core
 
         public EcsEntity Get(ushort id) => _entities[id];
         public EcsEntity[] GetAll() => _entities.Where(x => x != null).ToArray();
+        public EcsEntity[] GetAllNotCheckNull() => _entities;
+
         public EcsFilter Filter() => new(this);
 
         public void Dispose()
