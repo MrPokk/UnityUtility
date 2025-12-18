@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using BitterECS.Utility;
 
 namespace BitterECS.Core
 {
@@ -26,7 +25,7 @@ namespace BitterECS.Core
             }
         }
 
-        public EcsPresenter GetInternal(Type type)
+        internal EcsPresenter GetInternal(Type type)
         {
             if (_ecsPresenters.TryGetValue(type, out var value))
             {
@@ -36,7 +35,7 @@ namespace BitterECS.Core
             throw new Exception($"Presenter not found");
         }
 
-        public T GetInternal<T>() where T : EcsPresenter, new()
+        internal T GetInternal<T>() where T : EcsPresenter, new()
         {
             if (_ecsPresenters.TryGetValue(typeof(T), out var value))
             {
@@ -46,7 +45,7 @@ namespace BitterECS.Core
             throw new Exception($"Presenter not found: {typeof(T)} count: {_ecsPresenters.Count}");
         }
 
-        public EcsPresenter GetToEntityTypeInternal(Type type)
+        internal EcsPresenter GetToEntityTypeInternal(Type type)
         {
             foreach (var presenter in _ecsPresenters.Values)
             {
@@ -59,7 +58,7 @@ namespace BitterECS.Core
             throw new Exception($"No presenter found that can handle type: {type} count: {_ecsPresenters.Count}");
         }
 
-        public EcsPresenter GetToEntityTypeInternal<T>() where T : EcsEntity
+        internal EcsPresenter GetToEntityTypeInternal<T>() where T : EcsEntity
         {
             foreach (var presenter in _ecsPresenters.Values)
             {
@@ -72,7 +71,7 @@ namespace BitterECS.Core
             throw new Exception($"No presenter found that can handle type: {typeof(T)} count: {_ecsPresenters.Count}");
         }
 
-        public ICollection<EcsPresenter> GetAllInternal()
+        internal ICollection<EcsPresenter> GetAllInternal()
         {
             return _ecsPresenters.Values;
         }
@@ -85,10 +84,10 @@ namespace BitterECS.Core
             }
 
             _ecsPresenters.Clear();
-            GC.SuppressFinalize(this);
             s_instance = null;
         }
 
+        public static void Clear() => Instance.Dispose();
         public static EcsPresenter Get(Type type) => Instance.GetInternal(type);
         public static T Get<T>() where T : EcsPresenter, new() => Instance.GetInternal<T>();
         public static EcsPresenter GetToEntityType(Type type) => Instance.GetToEntityTypeInternal(type);

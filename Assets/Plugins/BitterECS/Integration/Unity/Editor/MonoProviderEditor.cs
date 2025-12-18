@@ -2,7 +2,6 @@
 using UnityEditor;
 using System;
 using BitterECS.Core;
-using BitterECS.Utility;
 
 namespace BitterECS.Integration.Editor
 {
@@ -77,7 +76,7 @@ namespace BitterECS.Integration.Editor
 
         private void Select(Type type)
         {
-            _provider.presenterType = type;
+            _provider._presenterType = type;
             EditorUtility.SetDirty(_provider);
         }
     }

@@ -61,7 +61,8 @@ public class PerformanceTest
 
 
         var filterTimer = Stopwatch.StartNew();
-        var filter = _presenter.Filter()
+        var filter = Build.For<TestPresenter>()
+        .Filter()
         .Include<Position>()
         .Include<Health>();
 
@@ -123,12 +124,10 @@ public class StaleDataExample : MonoBehaviour
             entity.Add(new Position { X = i, Y = i });
         }
 
-        var filterCount = _presenter.Filter()
+        var filterCount = Build.For<TestPresenter>()
+            .Filter()
             .Include<Position>()
             .Collect();
-
-
-
     }
 }
 

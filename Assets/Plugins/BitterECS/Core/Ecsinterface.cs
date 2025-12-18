@@ -47,15 +47,11 @@ namespace BitterECS.Core
         public void PostDestroy();
     }
 
-    public interface IEcsIntegrationRoot :
-     IEcsPreInitSystem,
-     IEcsInitSystem,
-     IEcsRunSystem,
-     IEcsFixedRunSystem,
-     IEcsPostRunSystem,
-     IEcsDestroySystem,
-     IEcsPostDestroySystem
-    { }
+    internal interface IPoolDestroy
+    {
+        bool Has(int entityId);
+        void Remove(int entityId);
+    }
 
     #endregion
 
@@ -100,11 +96,13 @@ namespace BitterECS.Core
     {
         public EcsPresenter Presenter { get; }
         public ushort Id { get; }
+        public int Count;
 
         public EcsEntityProperty(EcsPresenter presenter, ushort id = 0)
         {
             Presenter = presenter;
             Id = id;
+            Count = 0;
         }
     }
 

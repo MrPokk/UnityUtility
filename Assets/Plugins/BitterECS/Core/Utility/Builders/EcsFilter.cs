@@ -1,9 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
 namespace BitterECS.Core
 {
-    public ref struct EcsFilter
+    public struct EcsFilter
     {
         private readonly EcsPresenter _presenter;
         private ICondition[] _includeConditions;
@@ -11,32 +12,27 @@ namespace BitterECS.Core
         private int _includeCount;
         private int _excludeCount;
 
-        private EcsEntity[] _filteredCache;
-        private int _filteredCount;
-        private bool _isCacheValid;
-        private int _lastEntityCount;
+        private readonly Dictionary<EcsEntity, int> _filteredCache;
 
         public readonly ReadOnlySpan<ICondition> IncludeSpan => new(_includeConditions, 0, _includeCount);
         public readonly ReadOnlySpan<ICondition> ExcludeSpan => new(_excludeConditions, 0, _excludeCount);
         public readonly ReadOnlySpan<EcsEntity> Entities => _presenter.GetAll();
+
         public EcsFilter(EcsPresenter presenter)
         {
-            _presenter = presenter;
+            _presenter = presenter ?? throw new ArgumentNullException(nameof(presenter));
             _includeConditions = new ICondition[EcsConfig.FilterConditionInclude];
             _excludeConditions = new ICondition[EcsConfig.FilterConditionExclude];
             _includeCount = 0;
             _excludeCount = 0;
-            _filteredCache = null;
-            _filteredCount = 0;
-            _isCacheValid = false;
-            _lastEntityCount = -1;
+
+            _filteredCache = new(EcsConfig.FilterCacheCapacity);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public EcsFilter Include<T>() where T : struct
         {
             AddCondition(_includeConditions, new HasComponentCondition<T>(), ref _includeCount);
-            InvalidateCache();
             return this;
         }
 
@@ -44,7 +40,6 @@ namespace BitterECS.Core
         public EcsFilter Exclude<T>() where T : struct
         {
             AddCondition(_excludeConditions, new NotHasComponentCondition<T>(), ref _excludeCount);
-            InvalidateCache();
             return this;
         }
 
@@ -52,7 +47,6 @@ namespace BitterECS.Core
         public EcsFilter Where<T>(Func<T, bool> predicate) where T : struct
         {
             AddCondition(_includeConditions, new ComponentPredicateCondition<T>(predicate), ref _includeCount);
-            InvalidateCache();
             return this;
         }
 
@@ -62,9 +56,13 @@ namespace BitterECS.Core
             {
                 Array.Resize(ref conditions, conditions.Length * 2);
                 if (conditions == _includeConditions)
+                {
                     _includeConditions = conditions;
+                }
                 else
+                {
                     _excludeConditions = conditions;
+                }
             }
 
             conditions[count] = newCondition;
@@ -72,88 +70,56 @@ namespace BitterECS.Core
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void InvalidateCache()
-        {
-            _isCacheValid = false;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private readonly bool MatchesAllConditions(EcsEntity entity)
         {
-            for (int i = 0; i < IncludeSpan.Length; i++)
+            for (var i = 0; i < IncludeSpan.Length; i++)
             {
                 if (!IncludeSpan[i].Check(entity))
+                {
                     return false;
+                }
             }
 
-            for (int i = 0; i < ExcludeSpan.Length; i++)
+            for (var i = 0; i < ExcludeSpan.Length; i++)
             {
                 if (!ExcludeSpan[i].Check(entity))
+                {
                     return false;
+                }
             }
 
             return true;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void RebuildCacheIfNeeded()
+        private readonly IReadOnlyCollection<EcsEntity> ValidationOnFilter()
         {
-            var entities = Entities;
-
-            if (_isCacheValid && _lastEntityCount == entities.Length)
-                return;
-
-            var estimatedSize = entities.Length;
-            if (_filteredCache == null || _filteredCache.Length < estimatedSize)
+            foreach (var entity in Entities)
             {
-                _filteredCache = new EcsEntity[estimatedSize];
-            }
+                _filteredCache.TryGetValue(entity, out var cachedCount);
 
-            _filteredCount = 0;
-            for (int i = 0; i < entities.Length; i++)
-            {
-                if (MatchesAllConditions(entities[i]))
+                if (cachedCount == entity.Properties.Count)
                 {
-                    _filteredCache[_filteredCount++] = entities[i];
+                    continue;
+                }
+
+                if (MatchesAllConditions(entity))
+                {
+                    _filteredCache.TryAdd(entity, entity.Properties.Count);
+                }
+                else
+                {
+                    _filteredCache.Remove(entity);
                 }
             }
 
-            _isCacheValid = true;
-            _lastEntityCount = entities.Length;
+            return _filteredCache.Keys;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public FilterEnumerator Collect()
+        public readonly IReadOnlyCollection<EcsEntity> Collect()
         {
-            RebuildCacheIfNeeded();
-            return new FilterEnumerator(_filteredCache, _filteredCount);
-        }
-
-        public ref struct FilterEnumerator
-        {
-            private readonly ReadOnlySpan<EcsEntity> _entities;
-            private int _index;
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            internal FilterEnumerator(EcsEntity[] entities, int count)
-            {
-                _entities = new ReadOnlySpan<EcsEntity>(entities, 0, count);
-                _index = -1;
-            }
-
-            public readonly EcsEntity Current => _entities[_index];
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public bool MoveNext()
-            {
-                return ++_index < _entities.Length;
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public readonly FilterEnumerator GetEnumerator() => this;
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public readonly int Count() => _entities.Length;
+            return ValidationOnFilter();
         }
     }
 

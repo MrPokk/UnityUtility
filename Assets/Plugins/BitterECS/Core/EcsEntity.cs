@@ -5,9 +5,7 @@ namespace BitterECS.Core
     public class EcsEntity : IInitialize<EcsEntityProperty>, IDisposable
     {
         public EcsEntityProperty Properties { get; private set; }
-
         public ILinkableProvider Provider => Properties?.Presenter?.GetProvider(this);
-
         void IInitialize<EcsEntityProperty>.Init(EcsEntityProperty property) => Init(property);
 
         internal void Init(EcsEntityProperty property) => Properties = property;
@@ -16,7 +14,7 @@ namespace BitterECS.Core
 
         public void Add<T>(in T component) where T : struct
         {
-            Properties.Presenter.GetPool<T>().Add(Properties.Id, component);
+            Properties.Presenter.GetPool<T>().Add(Properties.Id, component); Properties.Count++;
         }
 
         public ref T Get<T>() where T : struct
@@ -33,7 +31,7 @@ namespace BitterECS.Core
 
         public void Remove<T>() where T : struct
         {
-            Properties.Presenter.GetPool<T>().Remove(Properties.Id);
+            Properties.Presenter.GetPool<T>().Remove(Properties.Id); Properties.Count++;
         }
 
         public bool Has<T>() where T : struct
@@ -45,8 +43,6 @@ namespace BitterECS.Core
         {
             Properties?.Presenter?.Remove(this);
             Properties = null;
-
-            GC.SuppressFinalize(this);
         }
     }
 }

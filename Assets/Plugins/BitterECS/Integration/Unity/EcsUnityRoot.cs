@@ -5,10 +5,8 @@ namespace BitterECS.Integration
 {
     [DefaultExecutionOrder(int.MinValue)]
     [DisallowMultipleComponent]
-    public class EcsUnityRoot : MonoBehaviour, IEcsIntegrationRoot
+    public class EcsUnityRoot : MonoBehaviour
     {
-        public Priority PrioritySystem => Priority.FIRST_TASK;
-
         private static EcsUnityRoot s_instance;
         public static EcsUnityRoot Instance
         {
@@ -33,73 +31,40 @@ namespace BitterECS.Integration
         protected virtual void Bootstrap() { }
         protected virtual void PostBootstrap() { }
 
-        private void Awake()
+        protected virtual void Awake()
         {
-            PreInit();
+            EcsSystems.Run<IEcsPreInitSystem>(system => system.PreInit());
             Bootstrap();
         }
 
-        private void Start()
+        protected virtual void Start()
         {
-            Init();
+            EcsSystems.Run<IEcsInitSystem>(system => system.Init());
             PostBootstrap();
         }
 
-        private void Update()
-        {
-            Run();
-        }
-
-        private void FixedUpdate()
-        {
-            FixedRun();
-        }
-
-        private void LateUpdate()
-        {
-            PostRun();
-        }
-
-        private void OnDestroy()
-        {
-            Destroy();
-            PostDestroy();
-        }
-
-        public virtual void PreInit()
-        {
-            EcsSystems.Run<IEcsPreInitSystem>(system => system.PreInit());
-        }
-
-        public virtual void Init()
-        {
-            EcsSystems.Run<IEcsInitSystem>(system => system.Init());
-        }
-
-        public virtual void Run()
+        protected virtual void Update()
         {
             EcsSystems.Run<IEcsRunSystem>(system => system.Run());
         }
 
-        public virtual void FixedRun()
+        protected virtual void FixedUpdate()
         {
             EcsSystems.Run<IEcsFixedRunSystem>(system => system.FixedRun());
         }
 
-        public virtual void PostRun()
+        protected virtual void LateUpdate()
         {
             EcsSystems.Run<IEcsPostRunSystem>(system => system.PostRun());
         }
 
-        public virtual void Destroy()
+        protected virtual void OnDestroy()
         {
             EcsSystems.Run<IEcsDestroySystem>(system => system.Destroy());
-        }
-
-        public virtual void PostDestroy()
-        {
             EcsSystems.Run<IEcsPostDestroySystem>(system => system.PostDestroy());
+
+            EcsWorld.Clear();
+            EcsSystems.Clear();
         }
     }
-
 }

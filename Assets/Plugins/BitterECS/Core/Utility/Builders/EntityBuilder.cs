@@ -16,7 +16,7 @@ namespace BitterECS.Core
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal EntityBuilder(EcsPresenter presenter)
         {
-            _presenter = presenter;
+            _presenter = presenter ?? throw new ArgumentNullException(nameof(presenter));
             _postInitCallback = null;
             _preInitCallback = null;
             _componentAddOps = default;
@@ -69,7 +69,7 @@ namespace BitterECS.Core
 
         public EcsEntity Create(Type entityType)
         {
-            EcsEntity entity = _isForce
+            var entity = _isForce
                 ? _presenter.Create(entityType, _isForce)
                 : _presenter.Create(entityType);
 

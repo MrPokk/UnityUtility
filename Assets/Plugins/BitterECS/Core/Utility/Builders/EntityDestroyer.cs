@@ -15,7 +15,7 @@ namespace BitterECS.Core
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal EntityDestroyer(EcsPresenter presenter, EcsEntity entity)
         {
-            _presenter = presenter;
+            _presenter = presenter ?? throw new ArgumentNullException(nameof(presenter));
             _entity = entity;
             _preDestroyCallback = null;
             _postDestroyCallback = null;

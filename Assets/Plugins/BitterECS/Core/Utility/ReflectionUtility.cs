@@ -1,7 +1,7 @@
 using System;
 using System.Linq;
 
-namespace BitterECS.Utility
+namespace BitterECS.Core
 {
     public static class ReflectionUtility
     {
