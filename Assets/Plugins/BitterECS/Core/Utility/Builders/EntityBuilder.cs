@@ -105,10 +105,9 @@ namespace BitterECS.Core
                 public C component;
 
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                public void Execute(EcsEntity entity, EcsPresenter presenter, ref ComponentAddedCallbacks callbacks)
+                public readonly void Execute(EcsEntity entity, EcsPresenter presenter, ref ComponentAddedCallbacks callbacks)
                 {
-                    var pool = presenter.GetPool<C>();
-                    pool.Add(entity.Properties.Id, component);
+                    entity.Add(component);
                     callbacks.Invoke(entity, component);
                 }
             }
@@ -129,9 +128,9 @@ namespace BitterECS.Core
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public void Execute(EcsEntity entity, EcsPresenter presenter, ref ComponentAddedCallbacks callbacks)
+            public readonly void Execute(EcsEntity entity, EcsPresenter presenter, ref ComponentAddedCallbacks callbacks)
             {
-                for (int i = 0; i < _count; i++)
+                for (var i = 0; i < _count; i++)
                 {
                     _operations[i].Execute(entity, presenter, ref callbacks);
                 }
@@ -140,6 +139,9 @@ namespace BitterECS.Core
 
         private struct ComponentAddedCallbacks
         {
+            private IComponentCallback[] _callbacks;
+            private int _count;
+
             private interface IComponentCallback
             {
                 void Invoke(EcsEntity entity, object component);
@@ -150,14 +152,11 @@ namespace BitterECS.Core
                 public Action<EcsEntity, C> callback;
 
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                public void Invoke(EcsEntity entity, object component)
+                public readonly void Invoke(EcsEntity entity, object component)
                 {
                     callback(entity, (C)component);
                 }
             }
-
-            private IComponentCallback[] _callbacks;
-            private int _count;
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Add<C>(Action<EcsEntity, C> callback) where C : struct
@@ -175,11 +174,11 @@ namespace BitterECS.Core
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public void Invoke<C>(EcsEntity entity, C component) where C : struct
+            public readonly void Invoke<C>(EcsEntity entity, C component) where C : struct
             {
                 if (_callbacks == null) return;
 
-                for (int i = 0; i < _count; i++)
+                for (var i = 0; i < _count; i++)
                 {
                     _callbacks[i].Invoke(entity, component);
                 }
@@ -187,7 +186,7 @@ namespace BitterECS.Core
         }
     }
 
-    public struct EntityBuilder<T> where T : EcsEntity
+    public struct EntityBuilder<E> where E : EcsEntity
     {
         private EntityBuilder _builder;
 
@@ -198,50 +197,50 @@ namespace BitterECS.Core
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EntityBuilder<T> WithLink(ILinkableProvider provider)
+        public EntityBuilder<E> WithLink(ILinkableProvider provider)
         {
             _builder.WithLink(provider);
             return this;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EntityBuilder<T> WithPostInitCallback(Action<T> callback)
+        public EntityBuilder<E> WithPostInitCallback(Action<E> callback)
         {
-            _builder.WithPostInitCallback(e => callback((T)e));
+            _builder.WithPostInitCallback(e => callback((E)e));
             return this;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EntityBuilder<T> WithPreInitCallback(Action<T> initAction)
+        public EntityBuilder<E> WithPreInitCallback(Action<E> initAction)
         {
-            _builder.WithPreInitCallback(e => initAction((T)e));
+            _builder.WithPreInitCallback(e => initAction((E)e));
             return this;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EntityBuilder<T> WithComponent<C>(C component) where C : struct
+        public EntityBuilder<E> WithComponent<C>(C component) where C : struct
         {
             _builder.WithComponent(component);
             return this;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EntityBuilder<T> WithComponentAddedCallback<C>(Action<T, C> callback) where C : struct
+        public EntityBuilder<E> WithComponentAddedCallback<C>(Action<E, C> callback) where C : struct
         {
-            _builder.WithComponentAddedCallback<C>((entity, component) => callback((T)entity, component));
+            _builder.WithComponentAddedCallback<C>((entity, component) => callback((E)entity, component));
             return this;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EntityBuilder<T> WithForce()
+        public EntityBuilder<E> WithForce()
         {
             _builder.WithForce();
             return this;
         }
 
-        public T Create()
+        public E Create()
         {
-            return (T)_builder.Create(typeof(T));
+            return (E)_builder.Create(typeof(E));
         }
     }
 }

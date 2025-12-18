@@ -88,9 +88,9 @@ namespace BitterECS.Core
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public void Execute(EcsEntity entity)
+            public readonly void Execute(EcsEntity entity)
             {
-                for (int i = 0; i < _count; i++)
+                for (var i = 0; i < _count; i++)
                 {
                     ExecuteOperation(ref _operations[i], entity);
                 }
@@ -123,32 +123,32 @@ namespace BitterECS.Core
         }
     }
 
-    public struct EntityDestroyer<T> where T : EcsEntity
+    public struct EntityDestroyer<E> where E : EcsEntity
     {
         private EntityDestroyer _destroyer;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal EntityDestroyer(EcsPresenter presenter, T entity)
+        internal EntityDestroyer(EcsPresenter presenter, E entity)
         {
             _destroyer = new EntityDestroyer(presenter, entity);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EntityDestroyer<T> WithPreDestroyCallback(Action<T> callback)
+        public EntityDestroyer<E> WithPreDestroyCallback(Action<E> callback)
         {
-            _destroyer.WithPreDestroyCallback(e => callback((T)e));
+            _destroyer.WithPreDestroyCallback(e => callback((E)e));
             return this;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EntityDestroyer<T> WithPostDestroyCallback(Action<T> callback)
+        public EntityDestroyer<E> WithPostDestroyCallback(Action<E> callback)
         {
-            _destroyer.WithPostDestroyCallback(e => callback((T)e));
+            _destroyer.WithPostDestroyCallback(e => callback((E)e));
             return this;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EntityDestroyer<T> RemoveComponent<C>() where C : struct
+        public EntityDestroyer<E> RemoveComponent<C>() where C : struct
         {
             _destroyer.RemoveComponent<C>();
             return this;

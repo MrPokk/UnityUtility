@@ -14,7 +14,7 @@ namespace BitterECS.Core
         private readonly HashSet<Type> _allowedTypes;
         private readonly Dictionary<EcsEntity, ILinkableProvider> _linkedEntities;
 
-        public int EntityCount => _entitiesCount - _freeEntityIds.Count;
+        public int CountEntity => _entitiesCount - _freeEntityIds.Count;
         public int Capacity => _entities.Length;
         public IReadOnlyDictionary<Type, object> Pools => _pools;
 
@@ -64,7 +64,7 @@ namespace BitterECS.Core
             }
 
             var entityId = GetNextEntityId();
-            entity.Init(new EcsEntityProperty(this, entityId));
+            entity.Init(new EcsProperty(this, entityId));
 
             if (entityId >= _entities.Length)
             {
@@ -136,7 +136,7 @@ namespace BitterECS.Core
                 return;
             }
 
-            provider.Init(new EcsProviderProperty(this, entity.Properties.Id));
+            provider.Init(new EcsProperty(this, entity.Properties.Id));
             _linkedEntities[entity] = provider;
         }
 

@@ -2,7 +2,7 @@ using UnityEditor;
 using UnityEngine;
 using System;
 using System.Collections.Generic;
-using BitterECS.Utility;
+using BitterECS.Core;
 
 [CustomEditor(typeof(AIBehaviourTreeConfig))]
 public sealed class AIBehaviourTreeEditor : Editor

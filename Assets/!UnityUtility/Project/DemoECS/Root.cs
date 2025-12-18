@@ -24,7 +24,7 @@ public class Root : EcsUnityRoot
 
     protected override void PostBootstrap()
     {
-        PerformanceTest test = new PerformanceTest(new TestPresenter());
+        PerformanceTest test = new PerformanceTest();
         test.TestFilterPerformance();
     }
 }
@@ -37,65 +37,39 @@ public class TestPresenter : EcsPresenter
 
 public class PerformanceTest
 {
-    private EcsPresenter _presenter;
     private const int ENTITY_COUNT = 10000;
-
-    public PerformanceTest(EcsPresenter presenter)
-    {
-        _presenter = presenter;
-    }
 
     public void TestFilterPerformance()
     {
         // Создаем сущности
         for (int i = 0; i < ENTITY_COUNT; i++)
         {
-            var entity = _presenter.Add<TestEntity>();
-            entity.Add(new Position { X = i, Y = i });
-            entity.Add(new Health { Value = 100 });
+            Build.For<TestPresenter>()
+            .Add<TestEntity>()
+            .WithComponent(new Position { X = i, Y = i })
+            .WithComponent(new Health { Value = 100 })
+            .Create();
         }
 
-
-        // Создаем фильтр один раз
-
-
+        var test = EcsWorld.Get<TestPresenter>();
+        Debug.Log(test.CountEntity);
 
         var filterTimer = Stopwatch.StartNew();
-        var filter = Build.For<TestPresenter>()
+        var filter =
+        Build.For<TestPresenter>()
         .Filter()
         .Include<Position>()
-        .Include<Health>();
+        .Include<Health>()
+        .Collect();
 
-        // Выполняем 1000 итераций
-        for (int i = 0; i < 1000; i++)
+        foreach (var item in filter)
         {
-            var enumerator = filter.Collect();
-            foreach (var item in enumerator)
-            {
-            }
         }
+        
         filterTimer.Stop();
 
         Debug.Log($"Filter to iteration first  time: {filterTimer.ElapsedMilliseconds}ms");
-
-        var filterTimerDelete = Stopwatch.StartNew();
-        for (int i = ENTITY_COUNT - 1; i >= 0; i -= 2)
-        {
-            var entity = _presenter.Get((ushort)i);
-            _presenter.Remove(entity);
-        }
-
-        for (int i = 0; i < 1000; i++)
-        {
-            var enumerator = filter.Collect();
-            foreach (var item in enumerator)
-            {
-            }
-        }
-        filterTimerDelete.Stop();
-
-        Debug.Log($"Delete entity {filter.Collect().Count()}");
-        Debug.Log($"Filter to delete time: {filterTimerDelete.ElapsedMilliseconds}ms");
+        Debug.Log($"Delete entity {filter.Count()}");
     }
 
 

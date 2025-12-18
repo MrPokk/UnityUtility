@@ -13,8 +13,7 @@ namespace BitterECS.Integration
     [RequireComponent(typeof(MonoProvider)), Serializable]
     public abstract class ComponentProvider<T> : MonoBehaviour, ITypedComponentProvider where T : struct
     {
-        [SerializeField]
-        protected T _component;
+        [SerializeField] protected T _component;
         public ref T Component => ref _component;
 
         public void Apply(EcsEntity entity)
@@ -37,5 +36,4 @@ namespace BitterECS.Integration
             }
         }
     }
-
 }

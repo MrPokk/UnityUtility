@@ -98,14 +98,14 @@ namespace BitterECS.Core
             {
                 _filteredCache.TryGetValue(entity, out var cachedCount);
 
-                if (cachedCount == entity.Properties.Count)
+                if (cachedCount == entity.GetCountComponents())
                 {
                     continue;
                 }
 
                 if (MatchesAllConditions(entity))
                 {
-                    _filteredCache.TryAdd(entity, entity.Properties.Count);
+                    _filteredCache.TryAdd(entity, entity.GetCountComponents());
                 }
                 else
                 {

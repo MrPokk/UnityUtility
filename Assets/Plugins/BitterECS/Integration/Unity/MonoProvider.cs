@@ -6,11 +6,10 @@ namespace BitterECS.Integration
 {
     public class MonoProvider : MonoBehaviour, ILinkableProvider
     {
-        [SerializeField]
-        protected SerializableType _presenterType;
-        public Type PresenterType => _presenterType.Type;
+        public SerializableType presenterType;
+        public virtual Type PresenterType => presenterType.Type;
 
-        public EcsProviderProperty Properties { get; protected set; }
+        public EcsProperty Properties { get; protected set; }
         public EcsPresenter Presenter => Properties?.Presenter;
         public EcsEntity Entity => Properties?.Presenter?.Get(Properties.Id);
         public ushort Id => Properties?.Id ?? 0;
@@ -61,7 +60,7 @@ namespace BitterECS.Integration
             }
         }
 
-        public void Init(EcsProviderProperty property) => Properties ??= property;
+        public void Init(EcsProperty property) => Properties ??= property;
 
         public void Dispose()
         {
@@ -95,10 +94,6 @@ namespace BitterECS.Integration
 
     public class MonoProvider<T> : MonoProvider where T : EcsPresenter
     {
-        protected override void Awake()
-        {
-            _presenterType = new SerializableType(typeof(T));
-            base.Awake();
-        }
+        public override Type PresenterType => typeof(T);
     }
 }
