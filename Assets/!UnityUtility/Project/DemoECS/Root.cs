@@ -63,11 +63,11 @@ public class PerformanceTest
 
         for (int i = 0; i < 1000; i++)
         {
-            var ds = filter.Collect();
-            foreach (var item in ds)
+            foreach (var item in filter.Collect())
             {
             }
         }
+        
         filterTimer.Stop();
 
         for (int i = 0; i < ENTITY_COUNT; i += 2)

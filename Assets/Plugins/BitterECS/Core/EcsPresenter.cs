@@ -85,7 +85,7 @@ namespace BitterECS.Core
         {
             if (entity == null)
             {
-                throw new ArgumentNullException(nameof(entity));
+                return;
             }
 
             var entityId = entity.Properties.Id;
@@ -162,7 +162,8 @@ namespace BitterECS.Core
         public EcsEntity Get(ILinkableProvider provider)
             => _linkedEntities.FirstOrDefault(kvp => kvp.Value == provider).Key;
 
-        public EcsEntity Get(int id) => id >= _entities.Length && id < ushort.MaxValue ? null : _entities[id];
+        public EcsEntity Get(int id) => id >= 0 && id < _entities.Length ? _entities[id] : null;
+
         public EcsEntity[] GetAll() => _entities.Where(x => x != null).ToArray();
 
         public void Dispose()

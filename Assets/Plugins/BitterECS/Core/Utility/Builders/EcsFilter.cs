@@ -26,9 +26,8 @@ namespace BitterECS.Core
             _includeCount = 0;
             _excludeCount = 0;
 
-            var filteredCacheSize = presenter.CountEntity * EcsConfig.PoolGrowthFactor;
-            _filteredCache = new List<int[]>(filteredCacheSize);
-            _filteredCache.ForEach(li => li = new int[1]);
+            var filteredCacheSize = GetRequiredCapacity(presenter);
+            _filteredCache = Enumerable.Repeat(0, filteredCacheSize).Select(_ => new int[1]).ToList();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -93,11 +92,12 @@ namespace BitterECS.Core
             return true;
         }
 
+        private static int GetRequiredCapacity(EcsPresenter presenter) => presenter.CountEntity + (presenter.CountEntity / 4);
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private readonly void EnsureCacheCapacity()
         {
-            var requiredCapacity = _presenter.CountEntity * EcsConfig.PoolGrowthFactor;
-            if (_filteredCache.Count >= requiredCapacity)
+            if (_filteredCache.Count >= GetRequiredCapacity(_presenter))
             {
                 return;
             }
