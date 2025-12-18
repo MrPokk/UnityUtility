@@ -32,10 +32,6 @@ namespace BitterECS.Core
 
         public bool Has<T>() where T : struct => Properties.Presenter.GetPool<T>().Has(Properties.Id);
 
-        public void Dispose()
-        {
-            Properties.Presenter.Remove(this);
-            Properties = null;
-        }
+        public void Dispose() => Properties.Presenter.Remove(this);
     }
 }

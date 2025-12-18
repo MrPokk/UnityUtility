@@ -37,46 +37,52 @@ public class TestPresenter : EcsPresenter
 
 public class PerformanceTest
 {
-    private const int ENTITY_COUNT = ushort.MaxValue;
+    private int ENTITY_COUNT = 1000;
 
     public void TestFilterPerformance()
     {
-        // Создаем сущности
+
         for (int i = 0; i < ENTITY_COUNT; i++)
         {
             Build.For<TestPresenter>()
-            .Add<TestEntity>()
-            .WithComponent(new Position { X = i, Y = i })
-            .WithComponent(new Health { Value = 100 })
-            .Create();
+             .Add<TestEntity>()
+             .WithComponent(new Health { Value = i })
+             .WithComponent(new Damage())
+             .Create();
         }
-
-        var test = EcsWorld.Get<TestPresenter>();
-        Debug.Log(test.CountEntity);
 
         var filterTimer = Stopwatch.StartNew();
         var filter =
         Build.For<TestPresenter>()
         .Filter()
-        .Include<Position>()
-        .Include<Health>();
-        for (int i = 0; i < 1000; i++)
+        .Where<Health>(h => h.Value > 10)
+        .Include<Damage>()
+        .Collect();
+
+
+        for (int i = 0; i < 1; i++)
         {
-            foreach (var item in filter.Collect())
+            foreach (var item in filter)
             {
             }
         }
 
         filterTimer.Stop();
 
-        for (int i = 0; i < ENTITY_COUNT; i += 2)
+        var filterTimer2 = Stopwatch.StartNew();
+
+        for (int i = 0; i < 1; i++)
         {
-            var entity = EcsWorld.Get<TestPresenter>();
-            entity.Remove(entity.Get(i));
+            foreach (var item in filter)
+            {
+
+            }
         }
 
+        filterTimer2.Stop();
+
         Debug.Log($"Filter to iteration first  time: {filterTimer.ElapsedMilliseconds}ms");
-        Debug.Log($"Delete entity {filter.Collect().Count()}");
+        Debug.Log($"Filter to iteration second time: {filterTimer2.ElapsedMilliseconds}ms");
     }
 
 
@@ -114,3 +120,6 @@ public class StaleDataExample : MonoBehaviour
 
 // Компоненты
 public struct Position { public int X; public int Y; }
+
+
+public struct Damage { public int Value; }

@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.CompilerServices;
 
 namespace BitterECS.Core
@@ -13,7 +11,9 @@ namespace BitterECS.Core
         private int _includeCount;
         private int _excludeCount;
 
-        private readonly List<int[]> _filteredCache;
+        private RefWorldVersion _refWorld;
+        private EcsEntity[] _filteredCache;
+        private int _filteredLength;
 
         public readonly ReadOnlySpan<ICondition> IncludeSpan => new(_includeConditions, 0, _includeCount);
         public readonly ReadOnlySpan<ICondition> ExcludeSpan => new(_excludeConditions, 0, _excludeCount);
@@ -26,8 +26,10 @@ namespace BitterECS.Core
             _includeCount = 0;
             _excludeCount = 0;
 
-            var filteredCacheSize = GetRequiredCapacity(presenter);
-            _filteredCache = Enumerable.Repeat(0, filteredCacheSize).Select(_ => new int[1]).ToList();
+            _refWorld = new();
+
+            _filteredCache = new EcsEntity[GetRequiredCapacity(presenter)];
+            _filteredLength = 0;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -45,7 +47,7 @@ namespace BitterECS.Core
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EcsFilter Where<T>(Func<T, bool> predicate) where T : struct
+        public EcsFilter Where<T>(Predicate<T> predicate) where T : struct
         {
             AddCondition(_includeConditions, new ComponentPredicateCondition<T>(predicate), ref _includeCount);
             return this;
@@ -95,56 +97,70 @@ namespace BitterECS.Core
         private static int GetRequiredCapacity(EcsPresenter presenter) => presenter.CountEntity + (presenter.CountEntity / 4);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private readonly void EnsureCacheCapacity()
+        private void EnsureCacheCapacity()
         {
-            if (_filteredCache.Count >= GetRequiredCapacity(_presenter))
+            var requiredCapacity = GetRequiredCapacity(_presenter);
+            var requiredCapacityMax = requiredCapacity + (requiredCapacity / 2);
+            if (_filteredCache.Length >= requiredCapacity && _filteredCache.Length < requiredCapacityMax)
             {
                 return;
             }
 
-            _filteredCache.Add(new int[1]);
+            Array.Resize(ref _filteredCache, requiredCapacity);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private readonly IReadOnlyCollection<EcsEntity> ValidationCacheOnFilter()
+        private ReadOnlySpan<EcsEntity> ValidationCacheOnFilter()
         {
             EnsureCacheCapacity();
 
-            var filteredEntitiesCurrent = new Stack<EcsEntity>();
-            for (var i = 0; i < _filteredCache.Count; i++)
+            if (_refWorld != EcsWorld.GetRefWorld())
             {
-                var entity = _presenter.Get(i);
-                if (entity == null)
-                {
-                    continue;
-                }
-
-                var entityComponentCount = entity.GetCountComponents();
-                var entityComponentCountCash = _filteredCache[i][0];
-
-                if (entityComponentCountCash != entityComponentCount)
-                {
-                    if (!MatchesAllConditions(entity))
-                    {
-                        continue;
-                    }
-
-                    _filteredCache[i][0] = entity.GetCountComponents();
-                }
-                else
-                {
-                    filteredEntitiesCurrent.Push(entity);
-                    continue;
-                }
+                RebuildCache();
+                _refWorld = EcsWorld.GetRefWorld();
             }
 
-            return filteredEntitiesCurrent;
+            var filteringSpan = new ReadOnlySpan<EcsEntity>(_filteredCache, 0, _filteredLength);
+            return filteringSpan;
+        }
+
+        private void RebuildCache()
+        {
+            var aliveEntities = _presenter.GetAliveEntities();
+            ResetFilteredCache();
+
+            for (var i = 0; i < aliveEntities.Length; i++)
+            {
+                var entity = aliveEntities[i];
+                if (!MatchesAllConditions(entity))
+                {
+                    continue;
+                }
+
+                AddToFilteredCache(entity);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly IReadOnlyCollection<EcsEntity> Collect()
+        private void ResetFilteredCache() => _filteredLength = 0;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void AddToFilteredCache(EcsEntity entity = default)
         {
-            return ValidationCacheOnFilter();
+            _filteredCache[_filteredLength] = entity;
+            _filteredLength++;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly FilterEnumerator Collect() => new(this);
+        public ReadOnlySpan<EcsEntity>.Enumerator GetEnumerator() => ValidationCacheOnFilter().GetEnumerator();
+
+
+        public ref struct FilterEnumerator
+        {
+            private EcsFilter _filter;
+            public FilterEnumerator(in EcsFilter filter) => _filter = filter;
+            public ReadOnlySpan<EcsEntity>.Enumerator GetEnumerator() => _filter.ValidationCacheOnFilter().GetEnumerator();
         }
     }
 
@@ -168,17 +184,11 @@ namespace BitterECS.Core
 
     public readonly struct ComponentPredicateCondition<T> : ICondition where T : struct
     {
-        private readonly Func<T, bool> _predicate;
+        private readonly Predicate<T> _predicate;
 
-        public ComponentPredicateCondition(Func<T, bool> predicate)
-        {
-            _predicate = predicate;
-        }
+        public ComponentPredicateCondition(Predicate<T> predicate) => _predicate = predicate;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool Check(EcsEntity entity)
-        {
-            return entity.Has<T>() && _predicate(entity.Get<T>());
-        }
+        public bool Check(EcsEntity entity) => entity.Has<T>() && _predicate(entity.Get<T>());
     }
 }
