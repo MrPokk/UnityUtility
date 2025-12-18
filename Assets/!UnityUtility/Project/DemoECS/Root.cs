@@ -37,7 +37,7 @@ public class TestPresenter : EcsPresenter
 
 public class PerformanceTest
 {
-    private const int ENTITY_COUNT = 10000;
+    private const int ENTITY_COUNT = 1000;
 
     public void TestFilterPerformance()
     {
@@ -59,17 +59,25 @@ public class PerformanceTest
         Build.For<TestPresenter>()
         .Filter()
         .Include<Position>()
-        .Include<Health>()
-        .Collect();
+        .Include<Health>();
 
-        foreach (var item in filter)
+        for (int i = 0; i < 1000; i++)
         {
+            var ds = filter.Collect();
+            foreach (var item in ds)
+            {
+            }
         }
-        
         filterTimer.Stop();
 
+        for (int i = 0; i < ENTITY_COUNT; i += 2)
+        {
+            var entity = EcsWorld.Get<TestPresenter>();
+            entity.Remove(entity.Get(i));
+        }
+
         Debug.Log($"Filter to iteration first  time: {filterTimer.ElapsedMilliseconds}ms");
-        Debug.Log($"Delete entity {filter.Count()}");
+        Debug.Log($"Delete entity {filter.Collect().Count()}");
     }
 
 

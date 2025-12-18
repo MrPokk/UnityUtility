@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 
 namespace BitterECS.Core
@@ -12,11 +13,10 @@ namespace BitterECS.Core
         private int _includeCount;
         private int _excludeCount;
 
-        private readonly Dictionary<EcsEntity, int> _filteredCache;
+        private readonly List<int[]> _filteredCache;
 
         public readonly ReadOnlySpan<ICondition> IncludeSpan => new(_includeConditions, 0, _includeCount);
         public readonly ReadOnlySpan<ICondition> ExcludeSpan => new(_excludeConditions, 0, _excludeCount);
-        public readonly ReadOnlySpan<EcsEntity> Entities => _presenter.GetAll();
 
         public EcsFilter(EcsPresenter presenter)
         {
@@ -26,7 +26,9 @@ namespace BitterECS.Core
             _includeCount = 0;
             _excludeCount = 0;
 
-            _filteredCache = new(EcsConfig.FilterCacheCapacity);
+            var filteredCacheSize = presenter.CountEntity * EcsConfig.PoolGrowthFactor;
+            _filteredCache = new List<int[]>(filteredCacheSize);
+            _filteredCache.ForEach(li => li = new int[1]);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -92,34 +94,57 @@ namespace BitterECS.Core
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private readonly IReadOnlyCollection<EcsEntity> ValidationOnFilter()
+        private readonly void EnsureCacheCapacity()
         {
-            foreach (var entity in Entities)
+            var requiredCapacity = _presenter.CountEntity * EcsConfig.PoolGrowthFactor;
+            if (_filteredCache.Count >= requiredCapacity)
             {
-                _filteredCache.TryGetValue(entity, out var cachedCount);
+                return;
+            }
 
-                if (cachedCount == entity.GetCountComponents())
+            _filteredCache.Add(new int[1]);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private readonly IReadOnlyCollection<EcsEntity> ValidationCacheOnFilter()
+        {
+            EnsureCacheCapacity();
+
+            var filteredEntitiesCurrent = new Stack<EcsEntity>();
+            for (var i = 0; i < _filteredCache.Count; i++)
+            {
+                var entity = _presenter.Get(i);
+                if (entity == null)
                 {
                     continue;
                 }
 
-                if (MatchesAllConditions(entity))
+                var entityComponentCount = entity.GetCountComponents();
+                var entityComponentCountCash = _filteredCache[i][0];
+
+                if (entityComponentCountCash != entityComponentCount)
                 {
-                    _filteredCache.TryAdd(entity, entity.GetCountComponents());
+                    if (!MatchesAllConditions(entity))
+                    {
+                        continue;
+                    }
+
+                    _filteredCache[i][0] = entity.GetCountComponents();
                 }
                 else
                 {
-                    _filteredCache.Remove(entity);
+                    filteredEntitiesCurrent.Push(entity);
+                    continue;
                 }
             }
 
-            return _filteredCache.Keys;
+            return filteredEntitiesCurrent;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly IReadOnlyCollection<EcsEntity> Collect()
         {
-            return ValidationOnFilter();
+            return ValidationCacheOnFilter();
         }
     }
 

@@ -9,7 +9,6 @@ namespace BitterECS.Core
         // Filter settings
         public const ushort FilterConditionInclude = 6;
         public const ushort FilterConditionExclude = 2;
-        public const ushort FilterCacheCapacity = 128;
 
         // EntityBuilder and EntityDestroyer settings
         public const ushort EntityCallbackFactor = 4;
