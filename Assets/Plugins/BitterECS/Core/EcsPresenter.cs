@@ -7,8 +7,8 @@ namespace BitterECS.Core
     public abstract partial class EcsPresenter : IDisposable
     {
         private EcsEntity[] _entities;
-        private ushort _entitiesCount;
-        private readonly Stack<ushort> _freeEntityIds;
+        private int _entitiesCount;
+        private readonly Stack<int> _freeEntityIds;
         private readonly Dictionary<Type, Func<object>> _poolFactories;
         private readonly Dictionary<Type, object> _pools;
         private readonly HashSet<Type> _allowedTypes;
@@ -21,7 +21,7 @@ namespace BitterECS.Core
         protected EcsPresenter()
         {
             _entities = new EcsEntity[EcsConfig.InitialEntitiesCapacity];
-            _freeEntityIds = new Stack<ushort>(EcsConfig.InitialEntitiesCapacity);
+            _freeEntityIds = new Stack<int>(EcsConfig.InitialEntitiesCapacity);
             _linkedEntities = new Dictionary<EcsEntity, ILinkableProvider>(EcsConfig.InitialLinkedEntitiesCapacity);
             _pools = new Dictionary<Type, object>(EcsConfig.InitialPoolCapacity);
             _poolFactories = new Dictionary<Type, Func<object>>();
@@ -77,7 +77,7 @@ namespace BitterECS.Core
             return entity;
         }
 
-        private ushort GetNextEntityId() => _freeEntityIds.Count > 0 ? _freeEntityIds.Pop() : _entitiesCount++;
+        private int GetNextEntityId() => _freeEntityIds.Count > 0 ? _freeEntityIds.Pop() : _entitiesCount++;
 
         public void Remove(EcsEntity entity) => DestroyEntity(entity);
 
@@ -100,7 +100,7 @@ namespace BitterECS.Core
             _freeEntityIds.Push(entityId);
         }
 
-        private void RemoveAllComponents(ushort entityId)
+        private void RemoveAllComponents(int entityId)
         {
             foreach (var pool in _pools.Values)
             {

@@ -83,10 +83,10 @@ namespace BitterECS.Core
     public record EcsProperty : IInitializeProperty
     {
         public EcsPresenter Presenter { get; }
-        public ushort Id { get; }
+        public int Id { get; }
         internal int CountComponents { get; set; }
 
-        public EcsProperty(EcsPresenter presenter, ushort id)
+        public EcsProperty(EcsPresenter presenter, int id)
         {
             Presenter = presenter;
             Id = id;

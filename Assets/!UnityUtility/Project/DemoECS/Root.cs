@@ -37,7 +37,7 @@ public class TestPresenter : EcsPresenter
 
 public class PerformanceTest
 {
-    private const int ENTITY_COUNT = 1000;
+    private const int ENTITY_COUNT = ushort.MaxValue;
 
     public void TestFilterPerformance()
     {
@@ -60,14 +60,13 @@ public class PerformanceTest
         .Filter()
         .Include<Position>()
         .Include<Health>();
-
         for (int i = 0; i < 1000; i++)
         {
             foreach (var item in filter.Collect())
             {
             }
         }
-        
+
         filterTimer.Stop();
 
         for (int i = 0; i < ENTITY_COUNT; i += 2)

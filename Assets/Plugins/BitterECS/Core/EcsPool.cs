@@ -11,7 +11,7 @@ namespace BitterECS.Core
         private int[] _dataIndexToEntity;
         private bool[] _isFree;
         private int _count;
-        private Stack<int> _freeIndices;
+        private readonly Stack<int> _freeIndices;
         private readonly int _initialCapacity;
 
         public int Count => _count - _freeIndices.Count;
@@ -20,11 +20,6 @@ namespace BitterECS.Core
         public EcsPool(int initialCapacity = -1)
         {
             _initialCapacity = initialCapacity > 0 ? initialCapacity : EcsConfig.InitialPoolCapacity;
-            InitializeArrays();
-        }
-
-        private void InitializeArrays()
-        {
             _components = Array.Empty<T>();
             _entityToDataIndex = Array.Empty<int>();
             _dataIndexToEntity = Array.Empty<int>();

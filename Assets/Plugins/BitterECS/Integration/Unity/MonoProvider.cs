@@ -12,7 +12,7 @@ namespace BitterECS.Integration
         public EcsProperty Properties { get; protected set; }
         public EcsPresenter Presenter => Properties?.Presenter;
         public EcsEntity Entity => Properties?.Presenter?.Get(Properties.Id);
-        public ushort Id => Properties?.Id ?? 0;
+        public int Id => Properties?.Id ?? 0;
 
         private ITypedComponentProvider[] _componentProviders;
 
