@@ -56,10 +56,14 @@ public class PerformanceTest : IEcsRunSystem
         }
     }
 
+    private EcsEvent _event =>
+     Build.For<TestPresenter>()
+    .Event();
+
     private Enumerator Filter =>
     Build.For<TestPresenter>()
     .Filter()
-    .Where<Health>(h => h.Value % 2 == 0)
+    .Include<Health>()
     .Include<Damage>()
     .Collect();
 
@@ -70,8 +74,8 @@ public class PerformanceTest : IEcsRunSystem
         {
             Build.For<TestPresenter>()
              .Add<TestEntity>()
-             .WithComponent(new Health { Value = i })
-             .WithComponent(new Damage())
+             .With(new Health { Value = i })
+             .With(new Damage())
              .Create();
         }
         filterTimerSpawn.Stop();

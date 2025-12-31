@@ -40,16 +40,16 @@ namespace BitterECS.Core
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EcsFilter Exclude<T>() where T : struct
+        public EcsFilter Include<T>(Predicate<T> predicate) where T : struct
         {
-            AddCondition(_excludeConditions, new NotHasComponentCondition<T>(), ref _excludeCount);
+            AddCondition(_includeConditions, new ComponentPredicateCondition<T>(predicate), ref _includeCount);
             return this;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EcsFilter Where<T>(Predicate<T> predicate) where T : struct
+        public EcsFilter Exclude<T>() where T : struct
         {
-            AddCondition(_includeConditions, new ComponentPredicateCondition<T>(predicate), ref _includeCount);
+            AddCondition(_excludeConditions, new NotHasComponentCondition<T>(), ref _excludeCount);
             return this;
         }
 
