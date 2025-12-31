@@ -7,30 +7,26 @@ namespace BitterECS.Core
     public abstract partial class EcsPresenter : IDisposable
     {
         private EcsEntity[] _entities;
-        private EcsEntity[] _aliveEntities;
         private int _entitiesCount;
-        private int _aliveCount;
         private readonly Stack<int> _freeEntityIds;
         private readonly Dictionary<Type, Func<object>> _poolFactories;
         private readonly Dictionary<Type, object> _pools;
         private readonly HashSet<Type> _allowedTypes;
         private readonly Dictionary<EcsEntity, ILinkableProvider> _linkedEntities;
 
-        public int CountEntity => _aliveCount;
+        public int CountEntity => _entitiesCount - _freeEntityIds.Count;
         public int Capacity => _entities.Length;
         public IReadOnlyDictionary<Type, object> Pools => _pools;
 
         protected EcsPresenter()
         {
             _entities = new EcsEntity[EcsConfig.InitialEntitiesCapacity];
-            _aliveEntities = new EcsEntity[EcsConfig.InitialEntitiesCapacity];
             _freeEntityIds = new Stack<int>(EcsConfig.InitialEntitiesCapacity);
             _linkedEntities = new Dictionary<EcsEntity, ILinkableProvider>(EcsConfig.InitialLinkedEntitiesCapacity);
             _pools = new Dictionary<Type, object>(EcsConfig.InitialPoolCapacity);
             _poolFactories = new Dictionary<Type, Func<object>>();
             _allowedTypes = new HashSet<Type>();
             _entitiesCount = 0;
-            _aliveCount = 0;
 
             Registration();
         }
@@ -68,22 +64,14 @@ namespace BitterECS.Core
             }
 
             var entityId = GetNextEntityId();
-            entity.Init(new EcsProperty(this, entityId));
+            entity.Init(new(this, entityId));
 
             if (entityId >= _entities.Length)
             {
-                Array.Resize(ref _entities, _entities.Length * EcsConfig.PoolGrowthFactor);
+                Array.Resize(ref _entities, (_entities.Length + 1) * EcsConfig.PoolGrowthFactor);
             }
 
             _entities[entityId] = entity;
-            
-            if (_aliveCount >= _aliveEntities.Length)
-            {
-                Array.Resize(ref _aliveEntities, _aliveEntities.Length * EcsConfig.PoolGrowthFactor);
-            }
-            _aliveEntities[_aliveCount] = entity;
-            _aliveCount++;
-            
             entity.Registration();
             EcsWorld.IncreaseVersion();
 
@@ -109,27 +97,10 @@ namespace BitterECS.Core
 
             Unlink(entity);
             RemoveAllComponents(entityId);
-            RemoveToAlive(entity);
             EcsWorld.IncreaseVersion();
 
             _entities[entityId] = null;
             _freeEntityIds.Push(entityId);
-        }
-
-        private void RemoveToAlive(EcsEntity entity)
-        {
-            for (int i = 0; i < _aliveCount; i++)
-            {
-                if (_aliveEntities[i] != entity)
-                {
-                    continue;
-                }
-                
-                _aliveEntities[i] = _aliveEntities[_aliveCount - 1];
-                _aliveEntities[_aliveCount - 1] = null;
-                _aliveCount--;
-                break;
-            }
         }
 
         private void RemoveAllComponents(int entityId)
@@ -196,14 +167,12 @@ namespace BitterECS.Core
 
         public EcsEntity Get(int id) => id >= 0 && id < _entities.Length ? _entities[id] : null;
 
-        public EcsEntity[] GetAll() 
+        public List<EcsEntity> GetAliveEntities()
         {
-            var result = new EcsEntity[_aliveCount];
-            Array.Copy(_aliveEntities, result, _aliveCount);
-            return result;
+            return new ArraySegment<EcsEntity>(_entities, 0, _entitiesCount)
+                .Where(entity => entity != null)
+                .ToList();
         }
-
-        public ReadOnlySpan<EcsEntity> GetAliveEntities() => new(_aliveEntities, 0, _aliveCount);
 
         public void Dispose()
         {
@@ -212,8 +181,8 @@ namespace BitterECS.Core
                 ((IDisposable)pool)?.Dispose();
             }
 
-            _entities = null;
-            _aliveEntities = null;
+            _entitiesCount = 0;
+            _entities = Array.Empty<EcsEntity>();
             _freeEntityIds.Clear();
             _pools.Clear();
             _allowedTypes.Clear();

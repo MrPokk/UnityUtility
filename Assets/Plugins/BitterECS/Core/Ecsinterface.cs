@@ -94,5 +94,4 @@ namespace BitterECS.Core
     }
 
     #endregion
-
 }

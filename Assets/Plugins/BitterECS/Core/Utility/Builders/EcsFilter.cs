@@ -129,7 +129,7 @@ namespace BitterECS.Core
             var aliveEntities = _presenter.GetAliveEntities();
             ResetFilteredCache();
 
-            for (var i = 0; i < aliveEntities.Length; i++)
+            for (var i = 0; i < aliveEntities.Count; i++)
             {
                 var entity = aliveEntities[i];
                 if (!MatchesAllConditions(entity))
@@ -152,16 +152,16 @@ namespace BitterECS.Core
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly FilterEnumerator Collect() => new(this);
+        public readonly Enumerator Collect() => new(this);
         public ReadOnlySpan<EcsEntity>.Enumerator GetEnumerator() => ValidationCacheOnFilter().GetEnumerator();
         public readonly int Count() => _filteredLength;
         
-        public ref struct FilterEnumerator
+        public ref struct Enumerator
         {
             private EcsFilter _filter;
-            public FilterEnumerator(in EcsFilter filter) => _filter = filter;
+            public Enumerator(in EcsFilter filter) => _filter = filter;
             public ReadOnlySpan<EcsEntity>.Enumerator GetEnumerator() => _filter.ValidationCacheOnFilter().GetEnumerator();
-            public readonly int Count() => _filter._filteredLength;
+            public readonly int Count() => _filter.ValidationCacheOnFilter().Length;
         }
     }
 

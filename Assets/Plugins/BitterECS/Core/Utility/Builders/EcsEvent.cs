@@ -7,7 +7,7 @@ namespace BitterECS.Core
     {
         private readonly EcsPresenter _presenter;
         private readonly Dictionary<Guid, IConditionalEvent> _conditionalSubscriptions;
-        
+
         public readonly int Count => _conditionalSubscriptions.Count;
 
         public EcsEvent(EcsPresenter presenter)
@@ -21,7 +21,7 @@ namespace BitterECS.Core
             return SubscribeWhere<T>(entity => entity.Has<T>(), added, removed);
         }
 
-        public readonly EcsEvent SubscribeWhere<T>(Func<EcsEntity, bool> condition, Action<EcsEntity> added, Action<EcsEntity> removed = null) 
+        public readonly EcsEvent SubscribeWhere<T>(Func<EcsEntity, bool> condition, Action<EcsEntity> added, Action<EcsEntity> removed = null)
             where T : struct
         {
             var subscriptionId = Guid.NewGuid();
@@ -30,7 +30,7 @@ namespace BitterECS.Core
             return this;
         }
 
-        public readonly EcsEvent SubscribeWhere<T1, T2>(Func<EcsEntity, bool> condition, Action<EcsEntity> added, Action<EcsEntity> removed = null) 
+        public readonly EcsEvent SubscribeWhere<T1, T2>(Func<EcsEntity, bool> condition, Action<EcsEntity> added, Action<EcsEntity> removed = null)
             where T1 : struct
             where T2 : struct
         {
@@ -40,7 +40,7 @@ namespace BitterECS.Core
             return this;
         }
 
-        public readonly EcsEvent SubscribeWhere<T1, T2, T3>(Func<EcsEntity, bool> condition, Action<EcsEntity> added, Action<EcsEntity> removed = null) 
+        public readonly EcsEvent SubscribeWhere<T1, T2, T3>(Func<EcsEntity, bool> condition, Action<EcsEntity> added, Action<EcsEntity> removed = null)
             where T1 : struct
             where T2 : struct
             where T3 : struct
@@ -51,7 +51,7 @@ namespace BitterECS.Core
             return this;
         }
 
-        public readonly EcsEvent SubscribeWhere<T1, T2, T3, T4>(Func<EcsEntity, bool> condition, Action<EcsEntity> added, Action<EcsEntity> removed = null) 
+        public readonly EcsEvent SubscribeWhere<T1, T2, T3, T4>(Func<EcsEntity, bool> condition, Action<EcsEntity> added, Action<EcsEntity> removed = null)
             where T1 : struct
             where T2 : struct
             where T3 : struct
@@ -95,7 +95,7 @@ namespace BitterECS.Core
             _added = added;
             _removed = removed;
             _activeEntities = new HashSet<int>();
-            
+
             _subscription1 = new ComponentSubscription<T1>(presenter, OnComponentChanged);
 
             CheckAllEntities();
@@ -114,7 +114,7 @@ namespace BitterECS.Core
             var conditionSatisfied = _condition(entity);
 
             var wasActive = _activeEntities.Contains(entityId);
-            
+
             if (conditionSatisfied && !wasActive)
             {
                 _activeEntities.Add(entityId);
@@ -129,7 +129,7 @@ namespace BitterECS.Core
 
         private void CheckAllEntities()
         {
-            var allEntities = _presenter.GetAll();
+            var allEntities = _presenter.GetAliveEntities();
             foreach (var entity in allEntities)
             {
                 CheckEntity(entity);
@@ -143,7 +143,7 @@ namespace BitterECS.Core
         }
     }
 
-    internal class ConditionalEvent<T1, T2> : IConditionalEvent 
+    internal class ConditionalEvent<T1, T2> : IConditionalEvent
         where T1 : struct
         where T2 : struct
     {
@@ -186,7 +186,7 @@ namespace BitterECS.Core
             var conditionSatisfied = _condition(entity);
 
             var wasActive = _activeEntities.Contains(entityId);
-            
+
             if (conditionSatisfied && !wasActive)
             {
                 _activeEntities.Add(entityId);
@@ -201,7 +201,7 @@ namespace BitterECS.Core
 
         private void CheckAllEntities()
         {
-            var allEntities = _presenter.GetAll();
+            var allEntities = _presenter.GetAliveEntities();
             foreach (var entity in allEntities)
             {
                 CheckEntity(entity);
@@ -216,7 +216,7 @@ namespace BitterECS.Core
         }
     }
 
-    internal class ConditionalEvent<T1, T2, T3> : IConditionalEvent 
+    internal class ConditionalEvent<T1, T2, T3> : IConditionalEvent
         where T1 : struct
         where T2 : struct
         where T3 : struct
@@ -264,7 +264,7 @@ namespace BitterECS.Core
             var conditionSatisfied = _condition(entity);
 
             var wasActive = _activeEntities.Contains(entityId);
-            
+
             if (conditionSatisfied && !wasActive)
             {
                 _activeEntities.Add(entityId);
@@ -279,7 +279,7 @@ namespace BitterECS.Core
 
         private void CheckAllEntities()
         {
-            var allEntities = _presenter.GetAll();
+            var allEntities = _presenter.GetAliveEntities();
             foreach (var entity in allEntities)
             {
                 CheckEntity(entity);
@@ -295,7 +295,7 @@ namespace BitterECS.Core
         }
     }
 
-    internal class ConditionalEvent<T1, T2, T3, T4> : IConditionalEvent 
+    internal class ConditionalEvent<T1, T2, T3, T4> : IConditionalEvent
         where T1 : struct
         where T2 : struct
         where T3 : struct
@@ -344,7 +344,7 @@ namespace BitterECS.Core
             var conditionSatisfied = _condition(entity);
 
             var wasActive = _activeEntities.Contains(entityId);
-            
+
             if (conditionSatisfied && !wasActive)
             {
                 _activeEntities.Add(entityId);
@@ -359,7 +359,7 @@ namespace BitterECS.Core
 
         private void CheckAllEntities()
         {
-            var allEntities = _presenter.GetAll();
+            var allEntities = _presenter.GetAliveEntities();
             foreach (var entity in allEntities)
             {
                 CheckEntity(entity);
@@ -385,7 +385,7 @@ namespace BitterECS.Core
         {
             presenter.AddCheckEvent<T>();
             _pool = presenter.GetPool<T>() as EcsEventPool<T> ?? throw new InvalidOperationException($"Pool for {typeof(T)} is not an event pool");
-            
+
             _eventObject = new ObjectEvent<T>(presenter, onChanged, onChanged);
             _pool.Subscribe(_eventObject);
         }
@@ -419,5 +419,72 @@ namespace BitterECS.Core
         EcsPresenter Presenter { get; }
         Action<EcsEntity> Added { get; }
         Action<EcsEntity> Removed { get; }
+    }
+
+
+    public static class EcsConditions
+    {
+        public static bool HasAll<T1, T2>(EcsEntity entity)
+            where T1 : struct
+            where T2 : struct
+        {
+            return entity.Has<T1>() && entity.Has<T2>();
+        }
+
+        public static bool HasAll<T1, T2, T3>(EcsEntity entity)
+            where T1 : struct
+            where T2 : struct
+            where T3 : struct
+        {
+            return entity.Has<T1>() && entity.Has<T2>() && entity.Has<T3>();
+        }
+
+        public static bool HasAll<T1, T2, T3, T4>(EcsEntity entity)
+            where T1 : struct
+            where T2 : struct
+            where T3 : struct
+            where T4 : struct
+        {
+            return entity.Has<T1>() && entity.Has<T2>() && entity.Has<T3>() && entity.Has<T4>();
+        }
+
+        public static bool HasAny<T1, T2>(EcsEntity entity)
+            where T1 : struct
+            where T2 : struct
+        {
+            return entity.Has<T1>() || entity.Has<T2>();
+        }
+
+        public static bool ComponentValue<T>(EcsEntity entity, Func<T, bool> predicate) where T : struct
+        {
+            return entity.Has<T>() && predicate(entity.Get<T>());
+        }
+
+        public static bool AllComponentsValue<T1, T2>(
+            EcsEntity entity,
+            Func<T1, bool> predicate1,
+            Func<T2, bool> predicate2)
+            where T1 : struct
+            where T2 : struct
+        {
+            return entity.Has<T1>() && entity.Has<T2>()
+                && predicate1(entity.Get<T1>())
+                && predicate2(entity.Get<T2>());
+        }
+
+        public static bool AllComponentsValue<T1, T2, T3>(
+            EcsEntity entity,
+            Func<T1, bool> predicate1,
+            Func<T2, bool> predicate2,
+            Func<T3, bool> predicate3)
+            where T1 : struct
+            where T2 : struct
+            where T3 : struct
+        {
+            return entity.Has<T1>() && entity.Has<T2>() && entity.Has<T3>()
+                && predicate1(entity.Get<T1>())
+                && predicate2(entity.Get<T2>())
+                && predicate3(entity.Get<T3>());
+        }
     }
 }

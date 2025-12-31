@@ -6,6 +6,7 @@ using BitterECS.Core;
 using BitterECS.Extra;
 using BitterECS.Integration;
 using UnityEngine;
+using static BitterECS.Core.EcsFilter;
 using Debug = UnityEngine.Debug;
 
 public class Root : EcsUnityRoot
@@ -55,47 +56,32 @@ public class PerformanceTest : IEcsRunSystem
         }
     }
 
+    private Enumerator Filter =>
+    Build.For<TestPresenter>()
+    .Filter()
+    .Where<Health>(h => h.Value % 2 == 0)
+    .Include<Damage>()
+    .Collect();
+
     public void TestFilterPerformance()
     {
         var filterTimerSpawn = Stopwatch.StartNew();
-
-        Build.For<TestPresenter>()
-        .Event()
-        .SubscribeWhere<Health>(e =>
-            EcsConditions.ComponentValue<Health>(e, h => h.Value % 2 == 0),
-            OnAddHealth,
-            OnRemoveHealth
-        );
-
         for (int i = 0; i < ENTITY_COUNT; i++)
         {
-            var entity = Build.For<TestPresenter>()
-               .Add<TestEntity>()
-               .WithComponent(new Damage())
-               .Create();
+            Build.For<TestPresenter>()
+             .Add<TestEntity>()
+             .WithComponent(new Health { Value = i })
+             .WithComponent(new Damage())
+             .Create();
         }
         filterTimerSpawn.Stop();
 
         var filterTimer = Stopwatch.StartNew();
-        var filter =
-        Build.For<TestPresenter>()
-        .Filter()
-        .Where<Health>(h => h.Value % 2 == 0)
-        .Include<Damage>()
-        .Collect();
-
-        Build.For<TestPresenter>()
-        .Event()
-        .SubscribeWhere<Health>(e =>
-            EcsConditions.ComponentValue<Health>(e, h => h.Value % 2 == 0),
-            OnAddHealth
-        );
-
 
         for (int i = 0; i < 1; i++)
         {
             var count = 0;
-            foreach (var item in filter)
+            foreach (var item in Filter)
             {
                 if (count % 2 == 0)
                 {
@@ -111,27 +97,18 @@ public class PerformanceTest : IEcsRunSystem
 
         for (int i = 0; i < 1; i++)
         {
-            foreach (var item in filter)
+            foreach (var item in Filter)
             {
+
             }
         }
 
         filterTimer2.Stop();
-        Debug.Log(filter.Count());
+        Debug.Log(Filter.Count());
 
         Debug.Log($"Filter to iteration first Spawn  time: {filterTimerSpawn.ElapsedMilliseconds}ms");
         Debug.Log($"Filter to iteration first  time: {filterTimer.ElapsedMilliseconds}ms");
         Debug.Log($"Filter to iteration second time: {filterTimer2.ElapsedMilliseconds}ms");
-    }
-
-    private void OnRemoveHealth(EcsEntity entity)
-    {
-        
-    }
-
-    private void OnAddHealth(EcsEntity entity)
-    {
-        
     }
 
     private struct Position { public int X, Y; }
