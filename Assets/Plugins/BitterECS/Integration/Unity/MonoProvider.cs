@@ -31,7 +31,7 @@ namespace BitterECS.Integration
             {
                 Build.For(PresenterType)
                    .Add<EcsEntity>()
-                   .WithPreInitCallback(ApplyComponent)
+                   .WithPre(ApplyComponent)
                    .WithLink(this)
                    .WithForce()
                    .Create();

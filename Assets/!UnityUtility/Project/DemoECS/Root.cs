@@ -63,8 +63,14 @@ public class PerformanceTest : IEcsRunSystem
     private Enumerator Filter =>
     Build.For<TestPresenter>()
     .Filter()
-    .Include<Health>()
     .Include<Damage>()
+    .Collect();
+
+    private Enumerator Filter2 =>
+    Build.For<TestPresenter>()
+    .Filter()
+    .Include<Health>() 
+    .Exclude<Damage>()
     .Collect();
 
     public void TestFilterPerformance()
@@ -101,7 +107,7 @@ public class PerformanceTest : IEcsRunSystem
 
         for (int i = 0; i < 1; i++)
         {
-            foreach (var item in Filter)
+            foreach (var item in Filter2)
             {
 
             }
@@ -109,6 +115,7 @@ public class PerformanceTest : IEcsRunSystem
 
         filterTimer2.Stop();
         Debug.Log(Filter.Count());
+        Debug.Log(Filter2.)
 
         Debug.Log($"Filter to iteration first Spawn  time: {filterTimerSpawn.ElapsedMilliseconds}ms");
         Debug.Log($"Filter to iteration first  time: {filterTimer.ElapsedMilliseconds}ms");
