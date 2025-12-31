@@ -33,7 +33,9 @@ namespace BitterECS.Core
             EnsureEntityCapacity(entityId);
 
             if (HasComponentForEntity(entityId))
+            {
                 return;
+            }
 
             var dataIndex = GetOrCreateDataIndex();
             AssignComponentToEntity(entityId, dataIndex, component);
@@ -60,7 +62,9 @@ namespace BitterECS.Core
         private int CalculateNewSize(int oldSize, int requiredSize)
         {
             if (oldSize == 0)
+            {
                 return Math.Max(requiredSize, _initialCapacity);
+            }
 
             return Math.Max(requiredSize, oldSize * EcsConfig.PoolGrowthFactor);
         }
@@ -81,7 +85,9 @@ namespace BitterECS.Core
         private int GetOrCreateDataIndex()
         {
             if (_freeIndices.Count > 0)
+            {
                 return GetRecycledIndex();
+            }
 
             EnsureComponentCapacity();
             return CreateNewIndex();
@@ -164,15 +170,22 @@ namespace BitterECS.Core
         public virtual void Remove(int entityId)
         {
             if (!CanRemove(entityId))
+            {
                 return;
+            }
 
             var dataIndex = _entityToDataIndex[entityId];
             _entityToDataIndex[entityId] = -1;
 
             if (dataIndex < _count - 1)
+            {
                 SwapWithLastElement(dataIndex);
+            }
             else
+            {
                 ClearLastElement(dataIndex);
+            }
+
             MarkIndexAsFree(dataIndex);
             EcsWorld.IncreaseVersion();
         }
@@ -313,11 +326,6 @@ namespace BitterECS.Core
         }
 
         public virtual void Dispose()
-        {
-            ClearAllData();
-        }
-
-        private void ClearAllData()
         {
             ClearComponentArrays();
             ResetEntityMappings();

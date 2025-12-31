@@ -7,7 +7,7 @@ namespace BitterECS.Core
     public abstract partial class EcsPresenter : IDisposable
     {
         private EcsEntity[] _entities;
-        private EcsEntity[] _aliveEntities; 
+        private EcsEntity[] _aliveEntities;
         private int _entitiesCount;
         private int _aliveCount;
         private readonly Stack<int> _freeEntityIds;

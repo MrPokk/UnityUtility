@@ -127,7 +127,6 @@ namespace BitterECS.Core
             s_instance = null;
         }
 
-
         public static void Clear() => Instance.Dispose();
         public static void AddSystem(IEcsSystem system) => Instance.AddSystemInternal(system);
         public static void AddSystems(params IEcsSystem[] systems) => Instance.AddSystemsInternal(systems);

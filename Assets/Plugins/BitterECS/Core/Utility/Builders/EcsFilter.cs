@@ -154,13 +154,14 @@ namespace BitterECS.Core
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly FilterEnumerator Collect() => new(this);
         public ReadOnlySpan<EcsEntity>.Enumerator GetEnumerator() => ValidationCacheOnFilter().GetEnumerator();
-
-
+        public readonly int Count() => _filteredLength;
+        
         public ref struct FilterEnumerator
         {
             private EcsFilter _filter;
             public FilterEnumerator(in EcsFilter filter) => _filter = filter;
             public ReadOnlySpan<EcsEntity>.Enumerator GetEnumerator() => _filter.ValidationCacheOnFilter().GetEnumerator();
+            public readonly int Count() => _filter._filteredLength;
         }
     }
 

@@ -24,7 +24,7 @@ public class Root : EcsUnityRoot
 
     protected override void PostBootstrap()
     {
-        PerformanceTest test = new PerformanceTest();
+        var test = new PerformanceTest();
         test.TestFilterPerformance();
     }
 }
@@ -35,35 +35,73 @@ public class TestPresenter : EcsPresenter
     { }
 }
 
-public class PerformanceTest
+public class PerformanceTest : IEcsRunSystem
 {
-    private int ENTITY_COUNT = 1000;
+    private int ENTITY_COUNT = ushort.MaxValue;
+
+    public Priority PrioritySystem => Priority.FIRST_TASK;
+
+    public void Run()
+    {
+
+        if (Input.GetKeyDown(KeyCode.C))
+        {
+            EcsWorld.Get<TestPresenter>().Dispose();
+        }
+
+        if (Input.GetKeyDown(KeyCode.T))
+        {
+            TestFilterPerformance();
+        }
+    }
 
     public void TestFilterPerformance()
     {
+        var filterTimerSpawn = Stopwatch.StartNew();
+
+        Build.For<TestPresenter>()
+        .Event()
+        .SubscribeWhere<Health>(e =>
+            EcsConditions.ComponentValue<Health>(e, h => h.Value % 2 == 0),
+            OnAddHealth,
+            OnRemoveHealth
+        );
 
         for (int i = 0; i < ENTITY_COUNT; i++)
         {
-            Build.For<TestPresenter>()
-             .Add<TestEntity>()
-             .WithComponent(new Health { Value = i })
-             .WithComponent(new Damage())
-             .Create();
+            var entity = Build.For<TestPresenter>()
+               .Add<TestEntity>()
+               .WithComponent(new Damage())
+               .Create();
         }
+        filterTimerSpawn.Stop();
 
         var filterTimer = Stopwatch.StartNew();
         var filter =
         Build.For<TestPresenter>()
         .Filter()
-        .Where<Health>(h => h.Value > 10)
+        .Where<Health>(h => h.Value % 2 == 0)
         .Include<Damage>()
         .Collect();
+
+        Build.For<TestPresenter>()
+        .Event()
+        .SubscribeWhere<Health>(e =>
+            EcsConditions.ComponentValue<Health>(e, h => h.Value % 2 == 0),
+            OnAddHealth
+        );
 
 
         for (int i = 0; i < 1; i++)
         {
+            var count = 0;
             foreach (var item in filter)
             {
+                if (count % 2 == 0)
+                {
+                    item.Dispose();
+                }
+                count++;
             }
         }
 
@@ -75,17 +113,26 @@ public class PerformanceTest
         {
             foreach (var item in filter)
             {
-
             }
         }
 
         filterTimer2.Stop();
+        Debug.Log(filter.Count());
 
+        Debug.Log($"Filter to iteration first Spawn  time: {filterTimerSpawn.ElapsedMilliseconds}ms");
         Debug.Log($"Filter to iteration first  time: {filterTimer.ElapsedMilliseconds}ms");
         Debug.Log($"Filter to iteration second time: {filterTimer2.ElapsedMilliseconds}ms");
     }
 
+    private void OnRemoveHealth(EcsEntity entity)
+    {
+        
+    }
 
+    private void OnAddHealth(EcsEntity entity)
+    {
+        
+    }
 
     private struct Position { public int X, Y; }
     private struct Health { public int Value; }
