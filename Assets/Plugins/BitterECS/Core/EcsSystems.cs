@@ -37,7 +37,9 @@ namespace BitterECS.Core
         internal void AddSystemInternal(IEcsSystem system)
         {
             if (system == null)
+            {
                 throw new ArgumentNullException(nameof(system));
+            }
 
             AddToSystemInternal(system);
             _cachedInstanceSystems.Clear();
@@ -46,7 +48,9 @@ namespace BitterECS.Core
         internal void AddSystemsInternal(params IEcsSystem[] systems)
         {
             if (systems == null)
+            {
                 throw new ArgumentNullException(nameof(systems));
+            }
 
             foreach (var system in systems)
             {

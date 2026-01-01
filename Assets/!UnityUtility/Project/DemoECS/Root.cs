@@ -8,6 +8,7 @@ using BitterECS.Integration;
 using UnityEngine;
 using static BitterECS.Core.EcsFilter;
 using Debug = UnityEngine.Debug;
+using Random = UnityEngine.Random;
 
 public class Root : EcsUnityRoot
 {
@@ -36,9 +37,9 @@ public class TestPresenter : EcsPresenter
     { }
 }
 
-public class PerformanceTest : IEcsRunSystem
+public class PerformanceTest
 {
-    private int ENTITY_COUNT = ushort.MaxValue;
+    private int ENTITY_COUNT = ushort.MaxValue * 100;
 
     public Priority PrioritySystem => Priority.FIRST_TASK;
 
@@ -56,22 +57,25 @@ public class PerformanceTest : IEcsRunSystem
         }
     }
 
-    private EcsEvent _event =>
+    private EcsEvent _event =
      Build.For<TestPresenter>()
-    .Event();
+        .Event()
+        .SubscribeWhere<Damage>(components => components.value > 10, AddedDamage);
 
-    private Enumerator Filter =>
-    Build.For<TestPresenter>()
-    .Filter()
-    .Include<Damage>()
-    .Collect();
+    private static void AddedDamage(EcsEntity entity)
+    {
+    }
 
-    private Enumerator Filter2 =>
+    private EcsFilter Filter =>
     Build.For<TestPresenter>()
-    .Filter()
-    .Include<Health>() 
-    .Exclude<Damage>()
-    .Collect();
+        .Filter()
+        .Include<Damage>();
+
+    private EcsFilter Filter2 =>
+    Build.For<TestPresenter>()
+        .Filter()
+        .Include<Health>()
+        .Exclude<Damage>();
 
     public void TestFilterPerformance()
     {
@@ -115,7 +119,6 @@ public class PerformanceTest : IEcsRunSystem
 
         filterTimer2.Stop();
         Debug.Log(Filter.Count());
-        Debug.Log(Filter2.)
 
         Debug.Log($"Filter to iteration first Spawn  time: {filterTimerSpawn.ElapsedMilliseconds}ms");
         Debug.Log($"Filter to iteration first  time: {filterTimer.ElapsedMilliseconds}ms");
@@ -125,36 +128,12 @@ public class PerformanceTest : IEcsRunSystem
     private struct Position { public int X, Y; }
     private struct Health { public int Value; }
 }
-public class StaleDataExample : MonoBehaviour
+public struct Damage
 {
-    private TestPresenter _presenter;
+    public int value;
 
-    public void Start()
+    public Damage(int value)
     {
-        _presenter = new TestPresenter();
-        DemonstrateStaleData();
-    }
-
-    void DemonstrateStaleData()
-    {
-        Debug.Log("=== ДЕМОНСТРАЦИЯ УСТАРЕВШИХ ДАННЫХ В Query ===");
-
-        Debug.Log("Создаем 5 сущностей...");
-        for (int i = 0; i < 5; i++)
-        {
-            var entity = _presenter.Add<TestEntity>();
-            entity.Add(new Position { X = i, Y = i });
-        }
-
-        var filterCount = Build.For<TestPresenter>()
-            .Filter()
-            .Include<Position>()
-            .Collect();
+        this.value = value;
     }
 }
-
-// Компоненты
-public struct Position { public int X; public int Y; }
-
-
-public struct Damage { public int Value; }

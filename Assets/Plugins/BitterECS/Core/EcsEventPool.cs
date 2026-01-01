@@ -23,7 +23,7 @@ namespace BitterECS.Core
             base.Add(entityId, in component);
             foreach (var subscription in _subscriptions)
             {
-                subscription.Added?.Invoke(subscription.Presenter?.Get(entityId));
+                subscription.Added?.Invoke(subscription.Presenter.Get(entityId));
             }
         }
 
@@ -33,14 +33,14 @@ namespace BitterECS.Core
             base.Remove(entityId);
             foreach (var subscription in _subscriptions)
             {
-                subscription.Removed?.Invoke(subscription.Presenter?.Get(entityId));
+                subscription.Removed?.Invoke(subscription.Presenter.Get(entityId));
             }
         }
 
         public override void Dispose()
         {
-            _subscriptions.Clear();
             base.Dispose();
+            _subscriptions.Clear();
         }
     }
 }
