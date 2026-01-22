@@ -18,15 +18,15 @@ public class Root : EcsUnityRoot
     private EcsUnityRoot _world;
 
     [SerializeField]
-    private MonoProvider _monoProvider;
     protected override void Bootstrap()
     {
-
     }
 
 
     protected override void PostBootstrap()
     {
+        TestProvider provider = new Loader<TestProvider>(PlayablePathPrefab.TEST);
+        Debug.Log(provider.Entity.Get<TestComponent>());
     }
 }
 
@@ -38,7 +38,7 @@ public class TestPresenter : EcsPresenter
 
 public class PerformanceTest : IEcsInitSystem
 {
-    private int ENTITY_COUNT = ushort.MaxValue;
+    private int ENTITY_COUNT = 10000;
 
     public Priority Priority => Priority.FIRST_TASK;
 
@@ -80,14 +80,7 @@ public class PerformanceTest : IEcsInitSystem
     public void TestFilterPerformance()
     {
         var filterTimerSpawn = Stopwatch.StartNew();
-        for (int i = 0; i < ENTITY_COUNT; i++)
-        {
-            Build.For<TestPresenter>()
-             .Add<TestEntity>()
-             .With(new Health { Value = i })
-             .With(new Damage())
-             .Create();
-        }
+
         filterTimerSpawn.Stop();
 
         var filterTimer = Stopwatch.StartNew();

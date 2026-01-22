@@ -9,8 +9,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1232957000427423324}
-  - component: {fileID: 1499636261418540299}
-  - component: {fileID: 2838795661621846164}
+  - component: {fileID: 6262409178764696813}
+  - component: {fileID: 5702682957636141471}
   m_Layer: 0
   m_Name: TEST
   m_TagString: Untagged
@@ -33,7 +33,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1499636261418540299
+--- !u!114 &6262409178764696813
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -42,13 +42,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 4898453818435682401}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 85540825c77fca3a692acbe32ffade07, type: 3}
+  m_Script: {fileID: 11500000, guid: a9a4ddaeff40046779094f849b5b9856, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  presenterType:
-    _typeName: TestPresenter
-    _assemblyName: Assembly-CSharp, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
---- !u!114 &2838795661621846164
+--- !u!114 &5702682957636141471
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -61,4 +58,4 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _value:
-    value: 0
+    value: 98

@@ -1,3 +1,3 @@
-using BitterECS.Integration;
+﻿using BitterECS.Integration;
 
-public class TestComponentProvider : ComponentProvider<TestComponent> { }
+public class TestComponentProvider : ProviderEcs<TestComponent> { }

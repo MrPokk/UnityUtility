@@ -18,7 +18,6 @@ namespace BitterECS.Editor
     public class EntitiesView
     {
         private BitterECSControlPanel _owner;
-        // Adjusted path to be safer if PathProject isn't fully generated yet
         private string TargetPath
         {
             get
@@ -30,7 +29,6 @@ namespace BitterECS.Editor
 
         private enum SortMode { Name, ComponentCount, Subfolder }
 
-        // [Fix] Added Serializable so the list structure can be maintained by Unity serialization if needed
         [Serializable]
         private class PrefabData
         {
@@ -69,13 +67,18 @@ namespace BitterECS.Editor
             RefreshData();
         }
 
-        public void OnBeforeSerialize()
+        // Вызывается из главного окна перед сериализацией
+        public void SaveState()
         {
             if (_owner == null) return;
+
             _owner.expandedEntityKeys.Clear();
-            foreach (var kvp in _entityFoldouts) if (kvp.Value) _owner.expandedEntityKeys.Add(kvp.Key);
+            foreach (var kvp in _entityFoldouts)
+                if (kvp.Value) _owner.expandedEntityKeys.Add(kvp.Key);
+
             _owner.expandedComponentKeys.Clear();
-            foreach (var kvp in _componentFoldouts) if (kvp.Value) _owner.expandedComponentKeys.Add(kvp.Key);
+            foreach (var kvp in _componentFoldouts)
+                if (kvp.Value) _owner.expandedComponentKeys.Add(kvp.Key);
         }
 
         public void Draw()
@@ -211,11 +214,10 @@ namespace BitterECS.Editor
         private void DrawCardContent(GameObject prefab, string assetPath)
         {
             if (prefab == null) return;
-            // Assuming MonoProvider is defined in your project
-            if (prefab.GetComponent<MonoProvider>() == null)
+            if (prefab.GetComponent<ProviderEcs>() == null)
             {
-                EditorGUILayout.HelpBox("Missing Root MonoProvider!", MessageType.Error);
-                if (GUILayout.Button("Fix Now")) AddComponentSafe(prefab, typeof(MonoProvider));
+                EditorGUILayout.HelpBox("Missing Root ProviderEcs!", MessageType.Error);
+                if (GUILayout.Button("Fix Now")) AddComponentSafe(prefab, typeof(ProviderEcs));
                 EditorGUILayout.Space(5);
             }
 
@@ -296,7 +298,6 @@ namespace BitterECS.Editor
             _allPrefabs.Clear();
             _serializedObjects.Clear();
             var sysPath = TargetPath;
-            // Check if folder exists before searching
             if (Directory.Exists(sysPath) || AssetDatabase.IsValidFolder(sysPath))
             {
                 var guids = AssetDatabase.FindAssets("t:Prefab", new[] { sysPath.TrimEnd('/') });
@@ -321,7 +322,6 @@ namespace BitterECS.Editor
                     }
                 }
             }
-            // Populate available types safely
             _availableProviderTypes = AppDomain.CurrentDomain.GetAssemblies()
                 .SelectMany(a => a.GetTypes())
                 .Where(t => !t.IsAbstract && !t.IsInterface && typeof(ITypedComponentProvider).IsAssignableFrom(t))
@@ -361,15 +361,27 @@ namespace BitterECS.Editor
 
         private void ShowAddMenu(GameObject prefab)
         {
-            GenericMenu menu = new GenericMenu();
-            var existing = new HashSet<Type>(prefab.GetComponents<ITypedComponentProvider>().Select(c => c.GetType()));
+            var menu = new GenericMenu();
+
+            var collection = prefab.GetComponents<ITypedComponentProvider>().Select(c => c.GetType());
+            var existing = new HashSet<Type>(collection);
+
             var sortedTypes = _availableProviderTypes.OrderBy(t => t.Name);
+
             foreach (var type in sortedTypes)
             {
                 if (existing.Contains(type)) continue;
+
+                if (type.IsAbstract) continue;
+
+                if (type.IsGenericTypeDefinition) continue;
+
                 menu.AddItem(new GUIContent(type.Name), false, () => AddComponentSafe(prefab, type));
             }
-            if (menu.GetItemCount() == 0) menu.AddDisabledItem(new GUIContent("No available components"));
+
+            if (menu.GetItemCount() == 0)
+                menu.AddDisabledItem(new GUIContent("No available components"));
+
             menu.ShowAsContext();
         }
 
@@ -386,8 +398,21 @@ namespace BitterECS.Editor
 
     public class PathsView
     {
-        private EditorWindow _owner;
-        [Serializable] class PathNode { public string path; public List<PathNode> children = new(); public bool expanded; public PathNode(string path) => this.path = path; }
+        private BitterECSControlPanel _owner;
+        [Serializable]
+        class PathNode
+        {
+            public string path;
+            public string fullPath; // Added to track unique path for expansion
+            public List<PathNode> children = new();
+            public bool expanded;
+            public PathNode(string path, string parentPath)
+            {
+                this.path = path;
+                this.fullPath = string.IsNullOrEmpty(parentPath) ? path : parentPath + "/" + path;
+            }
+        }
+
         [Serializable]
         class PathDefinition
         {
@@ -404,12 +429,27 @@ namespace BitterECS.Editor
         private List<PathDefinition> _pathDefinitions = new();
         private Vector2 _scrollPos;
 
-        public PathsView(EditorWindow owner) => _owner = owner;
+        public PathsView(BitterECSControlPanel owner) => _owner = owner;
 
         public void OnEnable()
         {
             LoadCurrentConstants();
             RefreshTree();
+        }
+
+        // Сохранение состояния раскрытых папок
+        public void SaveState()
+        {
+            if (_owner == null) return;
+            _owner.expandedPathKeys.Clear();
+            if (_rootNode != null)
+                CollectExpandedNodes(_rootNode, _owner.expandedPathKeys);
+        }
+
+        private void CollectExpandedNodes(PathNode node, List<string> expandedList)
+        {
+            if (node.expanded) expandedList.Add(node.fullPath);
+            foreach (var child in node.children) CollectExpandedNodes(child, expandedList);
         }
 
         public void Draw()
@@ -443,19 +483,17 @@ namespace BitterECS.Editor
 
             GUILayout.Space(10);
 
-            // Section 2: Definitions Table
             using (new EditorGUILayout.VerticalScope(BitterStyle.Card))
             {
                 GUILayout.Label("Constants Definition", BitterStyle.HeaderLabel);
                 GUILayout.Space(5);
 
-                // Table Header
                 using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
                 {
                     GUILayout.Label("Const Name", GUILayout.Width(140));
                     GUILayout.Label("Parent", GUILayout.Width(100));
                     GUILayout.Label("Value / Suffix");
-                    GUILayout.Space(30); // for delete button
+                    GUILayout.Space(30);
                 }
 
                 for (int i = 0; i < _pathDefinitions.Count; i++) DrawDefinitionRow(i);
@@ -467,7 +505,6 @@ namespace BitterECS.Editor
 
             GUILayout.Space(10);
 
-            // Section 3: Preview & Actions
             using (new EditorGUILayout.VerticalScope(BitterStyle.Card))
             {
                 GUILayout.Label("Hierarchy Preview", BitterStyle.HeaderLabel);
@@ -485,7 +522,6 @@ namespace BitterECS.Editor
                     if (GUILayout.Button("Refresh Preview", GUILayout.Height(30))) RefreshTree();
                     if (GUILayout.Button("Create Directories on Disk", GUILayout.Height(30)))
                     {
-                        // Assuming PathUtility exists in BitterECS.Extra
                         PathUtility.GenerationConstPath();
                         AssetDatabase.Refresh();
                         EditorUtility.DisplayDialog("Success", "Directories generated!", "OK");
@@ -525,7 +561,9 @@ namespace BitterECS.Editor
         private void RefreshTree()
         {
             var paths = _pathDefinitions.Select(p => p.GetFinalValue(_pathDefinitions)).Where(p => !string.IsNullOrEmpty(p));
-            _rootNode = new PathNode("ROOT");
+            _rootNode = new PathNode("ROOT", "");
+            // Restore root state
+            if (_owner.expandedPathKeys.Contains(_rootNode.fullPath)) _rootNode.expanded = true;
             BuildTree(_rootNode, paths);
         }
 
@@ -534,7 +572,10 @@ namespace BitterECS.Editor
             var groups = paths.Select(p => p.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries)).GroupBy(parts => parts[0]);
             foreach (var group in groups.OrderBy(g => g.Key))
             {
-                var node = new PathNode(group.Key);
+                var node = new PathNode(group.Key, parent.fullPath);
+                // Restore expansion state
+                if (_owner.expandedPathKeys.Contains(node.fullPath)) node.expanded = true;
+
                 parent.children.Add(node);
                 var subPaths = group.Where(parts => parts.Length > 1).Select(parts => string.Join("/", parts, 1, parts.Length - 1));
                 if (subPaths.Any()) BuildTree(node, subPaths);
@@ -622,7 +663,7 @@ namespace BitterECS.Editor
 
     public class SystemsView
     {
-        private readonly EditorWindow _owner;
+        private readonly BitterECSControlPanel _owner;
         private Vector2 _scrollPosition;
         private bool _autoRefresh = true;
         private float _lastRefreshTime;
@@ -632,12 +673,29 @@ namespace BitterECS.Editor
         private bool _showAllPriorities = true;
         private readonly Dictionary<string, bool> _foldouts = new Dictionary<string, bool>();
 
-        public SystemsView(EditorWindow owner) => _owner = owner;
+        public SystemsView(BitterECSControlPanel owner) => _owner = owner;
 
         public void OnEnable()
         {
-            foreach (Priority p in Enum.GetValues(typeof(Priority)))
-                _foldouts[p.ToString()] = true;
+            if (_owner.expandedSystemKeys != null && _owner.expandedSystemKeys.Count > 0)
+            {
+                foreach (var key in _owner.expandedSystemKeys) _foldouts[key] = true;
+            }
+            else
+            {
+                foreach (Priority p in Enum.GetValues(typeof(Priority)))
+                    _foldouts[p.ToString()] = true;
+            }
+        }
+
+        public void SaveState()
+        {
+            if (_owner == null) return;
+            _owner.expandedSystemKeys.Clear();
+            foreach (var kvp in _foldouts)
+            {
+                if (kvp.Value) _owner.expandedSystemKeys.Add(kvp.Key);
+            }
         }
 
         public void Update()
@@ -819,13 +877,16 @@ namespace BitterECS.Editor
         }
     }
 
-    public class BitterECSControlPanel : EditorWindow
+    public class BitterECSControlPanel : EditorWindow, ISerializationCallbackReceiver
     {
         private enum Tab { Entities, Systems, Settings }
 
         [SerializeField] private Tab _currentTab = Tab.Systems;
-        [SerializeField] public List<string> expandedEntityKeys = new();
-        [SerializeField] public List<string> expandedComponentKeys = new();
+
+        public List<string> expandedEntityKeys = new();
+        public List<string> expandedComponentKeys = new();
+        public List<string> expandedSystemKeys = new();
+        public List<string> expandedPathKeys = new();
 
         private EntitiesView _entitiesView;
         private SystemsView _systemsView;
@@ -849,10 +910,21 @@ namespace BitterECS.Editor
             _pathsView.OnEnable();
         }
 
+        // Сохраняем состояние до того, как Unity сериализует окно перед рекомпиляцией
+        public void OnBeforeSerialize()
+        {
+            _entitiesView?.SaveState();
+            _systemsView?.SaveState();
+            _pathsView?.SaveState();
+        }
+
+        public void OnAfterDeserialize()
+        {
+            // Ничего не требуется
+        }
+
         private void OnGUI()
         {
-            // Assuming BitterStyle is a static helper class available in the project
-            // If it is missing, you need to add the BitterStyle definition file.
             BitterStyle.Init();
             EditorGUI.DrawRect(new Rect(0, 0, position.width, position.height), BitterStyle.MainBgColor);
             DrawToolbar();

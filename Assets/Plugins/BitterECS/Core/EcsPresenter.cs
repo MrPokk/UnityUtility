@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -163,6 +163,8 @@ namespace BitterECS.Core
             => _linkedEntities.FirstOrDefault(kvp => kvp.Value == provider).Key;
 
         public EcsEntity Get(int id) => id >= 0 && id < _entities.Length ? _entities[id] : null;
+
+        public bool Has(int id) => id >= 0 && id < _entities.Length && _entities[id] != null;
 
         public List<EcsEntity> GetAliveEntities()
         {
