@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -12,6 +12,7 @@ public readonly ref struct Loader<T> where T : Object
         _path = path;
     }
 
-    public T GetAsset() => Asset;
+    public T GetPrefab() => Asset;
+    public T GetInstance() => Object.Instantiate(GetPrefab());
     public static implicit operator T(Loader<T> loader) => loader.Asset;
 }

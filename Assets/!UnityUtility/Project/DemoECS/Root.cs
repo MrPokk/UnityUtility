@@ -25,7 +25,8 @@ public class Root : EcsUnityRoot
 
     protected override void PostBootstrap()
     {
-        TestProvider provider = new Loader<TestProvider>(PlayablePathPrefab.TEST);
+
+        var provider = new Loader<TestProvider>(EntitiesPaths.TEST).GetInstance();
         Debug.Log(provider.Entity.Get<TestComponent>());
     }
 }
@@ -122,7 +123,7 @@ public class PerformanceTest : IEcsInitSystem
 
     public void Init()
     {
-        TestFilterPerformance();
+        //     TestFilterPerformance();
     }
 
     private struct Position { public int X, Y; }

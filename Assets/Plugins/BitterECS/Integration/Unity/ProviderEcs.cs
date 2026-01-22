@@ -66,7 +66,6 @@ namespace BitterECS.Integration
         private EcsProperty _properties;
         private ProviderEcs _cachedRootProvider;
 
-
         public override bool IsPresenter => s_isPresenterType;
 
         public override EcsProperty Properties => s_isPresenterType ? _properties : base.Properties;

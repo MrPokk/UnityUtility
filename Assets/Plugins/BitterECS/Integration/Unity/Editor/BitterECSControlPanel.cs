@@ -12,6 +12,7 @@ using System.Text.RegularExpressions;
 using BitterECS.Integration;
 using BitterECS.Extra;
 using BitterECS.Core;
+using BitterECS.Extra.Editor;
 
 namespace BitterECS.Editor
 {
@@ -170,17 +171,17 @@ namespace BitterECS.Editor
 
                 if (Event.current.type == EventType.Repaint)
                 {
-                    Rect iconRect = new Rect(headerRect.x, headerRect.y + 4, 16, 16);
+                    var iconRect = new Rect(headerRect.x, headerRect.y + 4, 16, 16);
                     var icon = AssetDatabase.GetCachedIcon(entry.Path);
                     GUI.DrawTexture(iconRect, icon ? icon : BitterStyle.IconPrefab.image);
 
                     if (entry.ComponentCount == 0)
                     {
-                        Rect warnRect = new Rect(headerRect.xMax - 20, headerRect.y + 4, 16, 16);
+                        var warnRect = new Rect(headerRect.xMax - 20, headerRect.y + 4, 16, 16);
                         GUI.DrawTexture(warnRect, BitterStyle.IconWarn.image);
                     }
 
-                    Rect arrowRect = new Rect(headerRect.xMax - 50, headerRect.y + 4, 16, 16);
+                    var arrowRect = new Rect(headerRect.xMax - 50, headerRect.y + 4, 16, 16);
                     EditorStyles.foldout.Draw(arrowRect, false, false, isExpanded, false);
                 }
 
@@ -196,7 +197,7 @@ namespace BitterECS.Editor
                 {
                     if (Event.current.type == EventType.Repaint)
                     {
-                        Rect badgeRect = new Rect(headerRect.xMax - 30, headerRect.y + 4, 30, 16);
+                        var badgeRect = new Rect(headerRect.xMax - 30, headerRect.y + 4, 30, 16);
                         BitterStyle.MiniBadge.Draw(badgeRect, new GUIContent(entry.ComponentCount.ToString()), false, false, false, false);
                     }
                 }
@@ -258,7 +259,7 @@ namespace BitterECS.Editor
                 so.Update();
                 EditorGUI.BeginChangeCheck();
 
-                bool isExpanded = _componentFoldouts[persistentKey];
+                var isExpanded = _componentFoldouts[persistentKey];
 
                 isExpanded = EditorGUILayout.InspectorTitlebar(isExpanded, component);
                 _componentFoldouts[persistentKey] = isExpanded;
@@ -395,7 +396,6 @@ namespace BitterECS.Editor
                 _entityFoldouts[AssetDatabase.GetAssetPath(prefabAsset)] = true;
         }
     }
-
     public class PathsView
     {
         private BitterECSControlPanel _owner;
@@ -437,7 +437,6 @@ namespace BitterECS.Editor
             RefreshTree();
         }
 
-        // Сохранение состояния раскрытых папок
         public void SaveState()
         {
             if (_owner == null) return;
@@ -468,7 +467,7 @@ namespace BitterECS.Editor
                 PathProject.DataPath = EditorGUILayout.TextField("Data Path", PathProject.DataPath);
                 if (GUILayout.Button(BitterStyle.IconFolder, GUILayout.Width(30), GUILayout.Height(19)))
                 {
-                    string rawPath = EditorUtility.OpenFolderPanel("Select Data Path", PathProject.DataPath, "");
+                    var rawPath = EditorUtility.OpenFolderPanel("Select Data Path", PathProject.DataPath, "");
                     if (!string.IsNullOrEmpty(rawPath)) { PathProject.DataPath = rawPath; GUI.FocusControl(null); }
                 }
                 if (GUILayout.Button(new GUIContent("R", "Reset to Assets"), GUILayout.Width(25), GUILayout.Height(19)))
@@ -496,12 +495,30 @@ namespace BitterECS.Editor
                     GUILayout.Space(30);
                 }
 
-                for (int i = 0; i < _pathDefinitions.Count; i++) DrawDefinitionRow(i);
+                for (var i = 0; i < _pathDefinitions.Count; i++) DrawDefinitionRow(i);
 
                 GUILayout.Space(5);
                 if (GUILayout.Button("+ Add New Path Constant", GUILayout.Height(24)))
+                {
                     _pathDefinitions.Add(new PathDefinition { Name = "NEW_PATH", ParentName = "None", Suffix = "New/" });
+                    SortDefinitions();
+                }
             }
+
+            using (new EditorGUILayout.VerticalScope(BitterStyle.Card))
+            {
+                GUILayout.Label("Generated Constants Prefabs", BitterStyle.HeaderLabel);
+                GUILayout.Space(5);
+
+                GUILayout.Label("This will generate paths for all prefabs to load them via the [new Loader].", EditorStyles.wordWrappedMiniLabel);
+
+                if (GUILayout.Button("Create Paths Prefab", GUILayout.Height(24)))
+                {
+                    AutoPathConstantsGenerator.GenerateAll();
+                    AssetDatabase.Refresh();
+                }
+            }
+
 
             GUILayout.Space(10);
 
@@ -519,7 +536,11 @@ namespace BitterECS.Editor
 
                 using (new EditorGUILayout.HorizontalScope())
                 {
-                    if (GUILayout.Button("Refresh Preview", GUILayout.Height(30))) RefreshTree();
+                    if (GUILayout.Button("Refresh Preview", GUILayout.Height(30)))
+                    {
+                        SortDefinitions();
+                        RefreshTree();
+                    }
                     if (GUILayout.Button("Create Directories on Disk", GUILayout.Height(30)))
                     {
                         PathUtility.GenerationConstPath();
@@ -542,27 +563,51 @@ namespace BitterECS.Editor
             _pathDefinitions.Clear();
             var rawFields = typeof(PathProject).GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy)
                 .Where(f => f.IsLiteral && !f.IsInitOnly && f.FieldType == typeof(string))
-                .Select(f => new { Name = f.Name, Value = (string)f.GetValue(null) })
+                .Select(f => new { f.Name, Value = (string)f.GetValue(null) })
                 .OrderBy(x => x.Value.Length).ToList();
+
 
             foreach (var field in rawFields)
             {
-                var def = new PathDefinition { Name = field.Name };
-                var possibleParent = _pathDefinitions
-                    .Where(p => field.Value.StartsWith(p.GetFinalValue(_pathDefinitions)) && field.Value != p.GetFinalValue(_pathDefinitions))
-                    .OrderByDescending(p => p.GetFinalValue(_pathDefinitions).Length).FirstOrDefault();
+                var normalizedName = Regex.Replace(field.Name, @"[^a-zA-Z0-9_]", "").ToUpper();
 
-                if (possibleParent != null) { def.ParentName = possibleParent.Name; def.Suffix = field.Value.Substring(possibleParent.GetFinalValue(_pathDefinitions).Length); }
-                else { def.ParentName = "None"; def.Suffix = field.Value; }
+                var def = new PathDefinition { Name = normalizedName };
+
+                var possibleParent = _pathDefinitions
+                    .Where(p => field.Value.StartsWith(p.GetFinalValue(_pathDefinitions))
+                                && field.Value != p.GetFinalValue(_pathDefinitions))
+                    .OrderByDescending(p => p.GetFinalValue(_pathDefinitions).Length)
+                    .FirstOrDefault();
+
+                if (possibleParent != null)
+                {
+                    def.ParentName = possibleParent.Name;
+                    def.Suffix = field.Value.Substring(possibleParent.GetFinalValue(_pathDefinitions).Length);
+                }
+                else
+                {
+                    def.ParentName = "None";
+                    def.Suffix = field.Value;
+                }
                 _pathDefinitions.Add(def);
             }
+
+            SortDefinitions();
+        }
+
+        private void SortDefinitions()
+        {
+            _pathDefinitions = _pathDefinitions
+                .OrderBy(x => x.ParentName == "None" ? 0 : 1)
+                .ThenBy(x => x.ParentName)
+                .ThenBy(x => x.Name)
+                .ToList();
         }
 
         private void RefreshTree()
         {
             var paths = _pathDefinitions.Select(p => p.GetFinalValue(_pathDefinitions)).Where(p => !string.IsNullOrEmpty(p));
             _rootNode = new PathNode("ROOT", "");
-            // Restore root state
             if (_owner.expandedPathKeys.Contains(_rootNode.fullPath)) _rootNode.expanded = true;
             BuildTree(_rootNode, paths);
         }
@@ -573,7 +618,6 @@ namespace BitterECS.Editor
             foreach (var group in groups.OrderBy(g => g.Key))
             {
                 var node = new PathNode(group.Key, parent.fullPath);
-                // Restore expansion state
                 if (_owner.expandedPathKeys.Contains(node.fullPath)) node.expanded = true;
 
                 parent.children.Add(node);
@@ -584,22 +628,41 @@ namespace BitterECS.Editor
 
         private void DrawDefinitionRow(int index)
         {
+            if (index >= _pathDefinitions.Count) return;
+
             var def = _pathDefinitions[index];
             using (new EditorGUILayout.HorizontalScope())
             {
-                string newName = EditorGUILayout.TextField(def.Name, GUILayout.Width(140));
+                var newName = EditorGUILayout.TextField(def.Name, GUILayout.Width(140));
                 def.Name = Regex.Replace(newName, @"[^a-zA-Z0-9_]", "").ToUpper();
 
                 var options = new List<string> { "None" };
-                options.AddRange(_pathDefinitions.Where(x => x != def).Select(x => x.Name));
-                int currentIndex = options.IndexOf(def.ParentName);
-                if (currentIndex == -1) currentIndex = 0;
-                int newIndex = EditorGUILayout.Popup(currentIndex, options.ToArray(), GUILayout.Width(100));
-                def.ParentName = options[newIndex];
+                options.AddRange(_pathDefinitions
+                    .Where(x => x != def)
+                    .Select(x => x.Name)
+                    .OrderBy(n => n));
+
+                var currentIndex = options.IndexOf(def.ParentName);
+
+                if (currentIndex == -1)
+                {
+                    currentIndex = 0;
+                }
+
+                EditorGUI.BeginChangeCheck();
+                var newIndex = EditorGUILayout.Popup(currentIndex, options.ToArray(), GUILayout.Width(100));
+                if (EditorGUI.EndChangeCheck())
+                {
+                    def.ParentName = options[newIndex];
+                }
 
                 def.Suffix = EditorGUILayout.TextField(def.Suffix);
 
-                if (GUILayout.Button("X", GUILayout.Width(25))) { _pathDefinitions.RemoveAt(index); GUIUtility.ExitGUI(); }
+                if (GUILayout.Button("X", GUILayout.Width(25)))
+                {
+                    _pathDefinitions.RemoveAt(index);
+                    GUIUtility.ExitGUI();
+                }
             }
         }
 
@@ -625,9 +688,10 @@ namespace BitterECS.Editor
 
         private void GenerateScript()
         {
-            string scriptPath = FindPathProjectScript();
+            var scriptPath = FindPathProjectScript();
             if (string.IsNullOrEmpty(scriptPath)) { Debug.LogError("Could not find PathProject.cs"); return; }
             StringBuilder sb = new StringBuilder();
+            sb.AppendLine("using System;");
             sb.AppendLine("namespace BitterECS.Extra");
             sb.AppendLine("{");
             sb.AppendLine("    public static class PathProject");
@@ -642,11 +706,16 @@ namespace BitterECS.Editor
             sb.AppendLine("        public static string ProductName { get; set; } = \"App\";");
             sb.AppendLine("#endif");
             sb.AppendLine("");
+
+            SortDefinitions(); // Сортируем перед записью
+
             foreach (var def in _pathDefinitions)
             {
                 sb.Append($"        public const string {def.Name} = ");
-                if (def.ParentName == "None" || string.IsNullOrEmpty(def.ParentName)) sb.AppendLine($"\"{def.Suffix}\";");
-                else sb.AppendLine($"{def.ParentName} + \"{def.Suffix}\";");
+                if (def.ParentName == "None" || string.IsNullOrEmpty(def.ParentName))
+                    sb.AppendLine($"\"{def.Suffix}\";");
+                else
+                    sb.AppendLine($"{def.ParentName} + \"{def.Suffix}\";");
             }
             sb.AppendLine("    }");
             sb.AppendLine("}");
@@ -656,7 +725,7 @@ namespace BitterECS.Editor
 
         private string FindPathProjectScript()
         {
-            string[] guids = AssetDatabase.FindAssets("PathProject t:MonoScript");
+            var guids = AssetDatabase.FindAssets("PathProject t:MonoScript");
             return guids.Length > 0 ? AssetDatabase.GUIDToAssetPath(guids[0]) : null;
         }
     }
@@ -794,7 +863,7 @@ namespace BitterECS.Editor
             EditorGUI.DrawRect(headerRect, GetPriorityColor(priority) * 0.3f); // Subtle BG
 
             // Triangle & Label
-            Rect foldoutRect = new Rect(headerRect.x + 5, headerRect.y, headerRect.width - 5, headerRect.height);
+            var foldoutRect = new Rect(headerRect.x + 5, headerRect.y, headerRect.width - 5, headerRect.height);
             _foldouts[key] = EditorGUI.Foldout(foldoutRect, _foldouts[key], $"{priority} ({systems.Count})", true, EditorStyles.boldLabel);
 
             if (_foldouts[key])
@@ -910,7 +979,6 @@ namespace BitterECS.Editor
             _pathsView.OnEnable();
         }
 
-        // Сохраняем состояние до того, как Unity сериализует окно перед рекомпиляцией
         public void OnBeforeSerialize()
         {
             _entitiesView?.SaveState();
@@ -920,7 +988,6 @@ namespace BitterECS.Editor
 
         public void OnAfterDeserialize()
         {
-            // Ничего не требуется
         }
 
         private void OnGUI()

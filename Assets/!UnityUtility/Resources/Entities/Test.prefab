@@ -10,8 +10,8 @@ GameObject:
   m_Component:
   - component: {fileID: 8009385442423043194}
   - component: {fileID: 1846424044610962048}
-  - component: {fileID: 4146979116044995646}
-  - component: {fileID: 3409107595206191788}
+  - component: {fileID: 7214517655775161262}
+  - component: {fileID: 1251518341666915875}
   m_Layer: 0
   m_Name: Test
   m_TagString: Untagged
@@ -89,7 +89,7 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
---- !u!114 &4146979116044995646
+--- !u!114 &7214517655775161262
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -98,13 +98,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 5224373079719909971}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 85540825c77fca3a692acbe32ffade07, type: 3}
+  m_Script: {fileID: 11500000, guid: a9a4ddaeff40046779094f849b5b9856, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  entityType:
-    _typeName: TestEntity
-    _assemblyName: Assembly-CSharp, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
---- !u!114 &3409107595206191788
+--- !u!114 &1251518341666915875
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -116,5 +113,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 18831c41dcb65401fbe5b398d0ee627c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  component:
-    value: 95
+  _value:
+    value: 0
