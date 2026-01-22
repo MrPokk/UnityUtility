@@ -59,7 +59,7 @@ namespace BitterECS.Extra
                 .ToArray();
         }
 
-        private static string GetFullPath(string pathBase)
+        public static string GetFullPath(string pathBase)
         {
             var allBasePath = GetAllPaths();
 

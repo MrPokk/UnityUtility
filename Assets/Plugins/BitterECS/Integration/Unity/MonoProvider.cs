@@ -9,12 +9,13 @@ namespace BitterECS.Integration
         public SerializableType presenterType;
         public virtual Type PresenterType => presenterType.Type;
 
-        public EcsProperty Properties { get; protected set; }
-        public EcsPresenter Presenter => Properties?.Presenter;
-        public EcsEntity Entity => Properties?.Presenter?.Get(Properties.Id);
-        public int Id => Properties?.Id ?? 0;
+        private EcsProperty _properties;
+        public EcsProperty Properties => _properties;
+        public EcsEntity Entity => Properties?.Presenter.Get(Properties.Id) ?? UnLinkingRegistrationEntity();
 
         private ITypedComponentProvider[] _componentProviders;
+
+        private void Init(EcsProperty property) => _properties ??= property;
 
         protected virtual void Registration() { }
 
@@ -24,58 +25,68 @@ namespace BitterECS.Integration
             {
                 throw new Exception($"Invalid entity type: null from {gameObject.name}");
             }
-
-            _componentProviders = GetComponents<ITypedComponentProvider>();
-
             try
             {
-                Build.For(PresenterType)
-                   .Add<EcsEntity>()
-                   .WithPre(ApplyComponent)
-                   .WithLink(this)
-                   .WithForce()
-                   .Create();
+                LinkingRegistrationEntity();
             }
             catch (Exception ex)
             {
                 throw new Exception($"Error while creating entity: {ex.Message}");
             }
-
-            Registration();
         }
 
-        protected void ApplyComponent(EcsEntity entity)
-        {
-            foreach (var provider in _componentProviders)
+        private EcsEntity UnLinkingRegistrationEntity() => Build.For(PresenterType)
+            .Add<EcsEntity>()
+            .WithPost(entity =>
             {
-                provider.Apply(entity);
-            }
-        }
+                RegistrationComponent(entity);
+            })
+            .Create();
 
-        protected void SyncComponent(EcsEntity entity)
+        private EcsEntity LinkingRegistrationEntity() => Build.For(PresenterType)
+            .Add<EcsEntity>()
+            .WithPost(entity =>
+            {
+                Registration();
+                RegistrationComponent(entity);
+            })
+            .WithLink(this)
+            .Create();
+
+        protected void RegistrationComponent(EcsEntity entity)
         {
+            _componentProviders = GetComponents<ITypedComponentProvider>();
+            if (_componentProviders == null)
+            {
+                return;
+            }
+
             foreach (var provider in _componentProviders)
             {
                 provider.Sync(entity);
+                provider.Registration();
             }
         }
 
-        public void Init(EcsProperty property) => Properties ??= property;
 
-        public void Dispose()
+        private void Dispose()
         {
             if (this == null || gameObject == null)
+            {
                 return;
+            }
 
-            if (Properties == null)
+            if (_properties == null)
+            {
                 return;
+            }
 
             try
             {
                 var entity = Entity;
                 if (entity != null)
                 {
-                    Properties.Presenter?.Remove(entity);
+                    _properties.Presenter?.Remove(entity);
                 }
             }
             catch (Exception ex)
@@ -84,12 +95,15 @@ namespace BitterECS.Integration
             }
             finally
             {
-                Properties = null;
+                _properties = null;
                 Destroy(gameObject);
             }
 
             GC.SuppressFinalize(this);
         }
+
+        void IInitialize<EcsProperty>.Init(EcsProperty property) => Init(property);
+        void IDisposable.Dispose() => Dispose();
     }
 
     public class MonoProvider<T> : MonoProvider where T : EcsPresenter

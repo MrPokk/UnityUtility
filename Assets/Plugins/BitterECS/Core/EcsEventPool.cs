@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
@@ -5,7 +6,7 @@ namespace BitterECS.Core
 {
     public class EcsEventPool<T> : EcsPool<T> where T : struct
     {
-        private readonly HashSet<IEcsEvent> _subscriptions = new();
+        private readonly SortedSet<IEcsEvent> _subscriptions = new(PriorityUtility.Sort());
 
         public void Subscribe(IEcsEvent eventTo)
         {

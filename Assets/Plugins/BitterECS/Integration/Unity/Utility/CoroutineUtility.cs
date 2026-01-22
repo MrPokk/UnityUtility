@@ -43,6 +43,17 @@ public sealed class CoroutineUtility : MonoBehaviour
         return Instance.StartNewCoroutine(coroutine);
     }
 
+    public static CoroutineHandle RunAfter(IEnumerator coroutine, CoroutineHandle previousHandle)
+    {
+        if (coroutine == null)
+        {
+            Debug.LogWarning("Attempted to start a null coroutine.");
+            return CoroutineHandle.Invalid;
+        }
+
+        return Instance.StartCoroutineAfter(previousHandle, coroutine);
+    }
+
     public static void Stop(CoroutineHandle handle)
     {
         if (!handle.IsValid)
@@ -75,7 +86,40 @@ public sealed class CoroutineUtility : MonoBehaviour
         Instance.OnAllCoroutinesStopped += callback;
     }
 
+    public static bool IsCoroutineActive(CoroutineHandle handle)
+    {
+        if (!handle.IsValid) return false;
+        return Instance._activeCoroutines.ContainsKey(handle.Id);
+    }
+
     public static bool HasActiveCoroutines() => Instance._activeCoroutines.Count > 0;
+
+    private CoroutineHandle StartCoroutineAfter(CoroutineHandle previousHandle, IEnumerator coroutine)
+    {
+        if (!previousHandle.IsValid || !IsCoroutineActive(previousHandle))
+        {
+            return StartNewCoroutine(coroutine);
+        }
+
+        var id = _nextCoroutineId++;
+        var handle = new CoroutineHandle(id);
+
+        Action<CoroutineHandle> onPreviousStopped = null;
+        onPreviousStopped = (stoppedHandle) =>
+        {
+            if (stoppedHandle == previousHandle)
+            {
+                var unityCoroutine = StartCoroutine(RunCoroutineWrapper(id, coroutine));
+                _activeCoroutines.Add(id, new ActiveCoroutine(unityCoroutine, handle));
+
+                OnCoroutineStopped -= (stopId) => onPreviousStopped?.Invoke(new CoroutineHandle(stopId));
+            }
+        };
+
+        SubscribeToStop(onPreviousStopped);
+
+        return handle;
+    }
 
     private CoroutineHandle StartNewCoroutine(IEnumerator coroutine)
     {

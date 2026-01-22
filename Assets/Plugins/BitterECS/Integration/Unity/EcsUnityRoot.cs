@@ -17,7 +17,7 @@ namespace BitterECS.Integration
                     var instanceFind = FindFirstObjectByType<EcsUnityRoot>();
                     if (instanceFind == null)
                     {
-                        s_instance = new GameObject("[EcsUnityRoot]").AddComponent<EcsUnityRoot>();
+                        s_instance = new GameObject($"[EcsUnityRoot]").AddComponent<EcsUnityRoot>();
                     }
                     else
                     {

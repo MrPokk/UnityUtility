@@ -4,10 +4,8 @@ namespace BitterECS.Core
 {
     #region IEcsSystems
 
-    public interface IEcsSystem
-    {
-        public Priority PrioritySystem { get; }
-    }
+    public interface IEcsSystem : IEcsPriority
+    { }
 
     public interface IEcsAutoImplement : IEcsSystem
     { }
@@ -57,6 +55,18 @@ namespace BitterECS.Core
 
     #region Helper
 
+    public interface IEcsPriority
+    {
+        public Priority Priority { get; }
+    }
+
+    public interface IEcsEvent : IEcsPriority, IDisposable
+    {
+        EcsPresenter Presenter { get; }
+        Action<EcsEntity> Added { get; }
+        Action<EcsEntity> Removed { get; }
+    }
+
     public interface ILinkableProvider : IInitialize<EcsProperty>, IDisposable
     {
         public EcsEntity Entity { get; }
@@ -84,7 +94,7 @@ namespace BitterECS.Core
     {
         public EcsPresenter Presenter { get; }
         public int Id { get; }
-        internal int CountComponents { get; set; }
+        public int CountComponents { get; internal set; }
 
         public EcsProperty(EcsPresenter presenter, int id)
         {

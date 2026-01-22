@@ -1,4 +1,4 @@
-#if UNITY_EDITOR
+﻿#if UNITY_EDITOR
 using UnityEditor;
 using UnityEngine;
 using BitterECS.Core;
@@ -8,339 +8,303 @@ using System.Reflection;
 
 namespace BitterECS.Integration.Editor
 {
+    public static class EcsReflectionHelper
+    {
+        private static FieldInfo _systemsField;
+
+        public static IReadOnlyCollection<IEcsSystem> GetSystems()
+        {
+            if (!Application.isPlaying || EcsSystems.Instance == null)
+                return System.Array.Empty<IEcsSystem>();
+
+            if (_systemsField == null)
+            {
+                _systemsField = typeof(EcsSystems).GetField("_systems",
+                    BindingFlags.NonPublic | BindingFlags.Instance);
+            }
+
+            if (_systemsField == null)
+                return System.Array.Empty<IEcsSystem>();
+
+            var set = _systemsField.GetValue(EcsSystems.Instance) as SortedSet<IEcsSystem>;
+            return set ?? (IReadOnlyCollection<IEcsSystem>)System.Array.Empty<IEcsSystem>();
+        }
+
+        public static int GetSystemsCount()
+        {
+            return GetSystems().Count;
+        }
+    }
+
     public class EcsSystemsEditor : EditorWindow
     {
         private Vector2 _scrollPosition;
         private bool _autoRefresh = true;
         private float _lastRefreshTime;
-        private const float REFRESH_INTERVAL = 1.0f;
+        private const float REFRESH_RATE = 0.5f;
 
-        // Foldout states
-        private Dictionary<Priority, bool> _priorityFoldouts = new Dictionary<Priority, bool>();
-        private Dictionary<string, bool> _systemFoldouts = new Dictionary<string, bool>();
-
-        // Search and filter
-        private string _searchString = "";
-        private bool _showSearch = false;
+        private string _searchFilter = "";
+        private bool _isSearchExpanded = false;
         private bool _showAllPriorities = true;
 
-        [MenuItem("Tools/BitterECS/Systems Diagnostic")]
-        public static void ShowWindow()
+        private readonly Dictionary<string, bool> _foldouts = new Dictionary<string, bool>();
+
+        [MenuItem("BitterECS/Tools/Systems Diagnostic")]
+        public static void OpenWindow()
         {
-            var window = GetWindow<EcsSystemsEditor>("ECS Systems Diagnostic");
+            var window = GetWindow<EcsSystemsEditor>("ECS Systems");
             window.minSize = new Vector2(400, 500);
         }
 
         private void OnEnable()
         {
-            // Initialize foldout states for all priorities
-            foreach (Priority priority in System.Enum.GetValues(typeof(Priority)))
+            foreach (Priority p in System.Enum.GetValues(typeof(Priority)))
             {
-                _priorityFoldouts[priority] = true;
+                _foldouts[p.ToString()] = true;
             }
         }
 
         private void OnGUI()
         {
+            Styles.Initialize();
+
             DrawHeader();
             DrawToolbar();
-            DrawSystemsList();
+            DrawContent();
+        }
+
+        private void Update()
+        {
+            if (Application.isPlaying && _autoRefresh &&
+                Time.realtimeSinceStartup - _lastRefreshTime > REFRESH_RATE)
+            {
+                Repaint();
+                _lastRefreshTime = Time.realtimeSinceStartup;
+            }
         }
 
         private void DrawHeader()
         {
-            EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
-
-            var systemsCount = GetSystemsCount();
-            var activeSystems = GetActiveSystemsCount();
-
-            GUILayout.Label($"Systems: {activeSystems}/{systemsCount}", EditorStyles.miniLabel);
-
-            GUILayout.FlexibleSpace();
-
-            if (GUILayout.Button(_showSearch ? "▼ Search" : "▲ Search", EditorStyles.miniButton, GUILayout.Width(80)))
+            using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
             {
-                _showSearch = !_showSearch;
+                var systems = EcsReflectionHelper.GetSystems();
+                GUILayout.Label($"Active Systems: {systems.Count}", EditorStyles.miniLabel);
+
+                GUILayout.FlexibleSpace();
+
+                if (GUILayout.Button(_isSearchExpanded ? "▼ Search" : "▲ Search", EditorStyles.toolbarDropDown, GUILayout.Width(70)))
+                {
+                    _isSearchExpanded = !_isSearchExpanded;
+                }
             }
 
-            EditorGUILayout.EndHorizontal();
-
-            if (_showSearch)
+            if (_isSearchExpanded)
             {
-                DrawSearchPanel();
+                DrawSearchSettings();
             }
         }
 
-        private void DrawSearchPanel()
+        private void DrawSearchSettings()
         {
-            EditorGUILayout.BeginVertical("HelpBox");
-
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.Label("Search:", GUILayout.Width(60));
-            _searchString = EditorGUILayout.TextField(_searchString);
-            if (GUILayout.Button("X", GUILayout.Width(20)) && !string.IsNullOrEmpty(_searchString))
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
             {
-                _searchString = "";
-            }
-            EditorGUILayout.EndHorizontal();
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    GUILayout.Label("Filter:", GUILayout.Width(50));
+                    _searchFilter = EditorGUILayout.TextField(_searchFilter);
 
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.Label("Show All:", GUILayout.Width(60));
-            _showAllPriorities = EditorGUILayout.Toggle(_showAllPriorities);
-            if (!_showAllPriorities)
-            {
-                GUILayout.Label("(Showing only High/Medium/Low)", EditorStyles.miniLabel);
-            }
-            EditorGUILayout.EndHorizontal();
+                    if (GUILayout.Button("Clear", EditorStyles.miniButton, GUILayout.Width(45)))
+                    {
+                        _searchFilter = "";
+                        GUI.FocusControl(null);
+                    }
+                }
 
-            EditorGUILayout.EndVertical();
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    _showAllPriorities = EditorGUILayout.ToggleLeft("Show All Priorities", _showAllPriorities);
+                }
+            }
         }
 
         private void DrawToolbar()
         {
-            EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
-
-            // Auto refresh toggle with icon
-            var autoRefreshContent = new GUIContent(" Auto Refresh", EditorGUIUtility.IconContent("d_RotateTool On").image);
-            _autoRefresh = GUILayout.Toggle(_autoRefresh, autoRefreshContent, EditorStyles.toolbarButton, GUILayout.Width(120));
-            // Refresh button with icon
-            var refreshContent = new GUIContent(" Refresh", EditorGUIUtility.IconContent("d_Refresh").image);
-            if (GUILayout.Button(refreshContent, EditorStyles.toolbarButton, GUILayout.Width(100)))
+            using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
             {
-                RefreshSystems();
+                _autoRefresh = GUILayout.Toggle(_autoRefresh, Styles.IconAutoRefresh, EditorStyles.toolbarButton, GUILayout.Width(40));
+
+                if (GUILayout.Button(Styles.IconRefresh, EditorStyles.toolbarButton, GUILayout.Width(40)))
+                {
+                    _lastRefreshTime = Time.realtimeSinceStartup;
+                }
+
+                GUILayout.FlexibleSpace();
+
+                if (GUILayout.Button("Expand All", EditorStyles.toolbarButton)) ExpandCollapseAll(true);
+                if (GUILayout.Button("Collapse All", EditorStyles.toolbarButton)) ExpandCollapseAll(false);
+
+                var memory = System.GC.GetTotalMemory(false) / 1048576f;
+                GUILayout.Label($"{memory:F2} MB", EditorStyles.miniLabel, GUILayout.Width(60));
             }
-
-            // Expand/Collapse all buttons
-            if (GUILayout.Button("Expand All", EditorStyles.toolbarButton, GUILayout.Width(80)))
-            {
-                ExpandAll();
-            }
-
-            if (GUILayout.Button("Collapse All", EditorStyles.toolbarButton, GUILayout.Width(80)))
-            {
-                CollapseAll();
-            }
-
-            GUILayout.FlexibleSpace();
-
-            // Stats
-            var memory = System.GC.GetTotalMemory(false) / 1024f / 1024f;
-            GUILayout.Label($"Memory: {memory:F2} MB", EditorStyles.miniLabel, GUILayout.Width(100));
-
-            EditorGUILayout.EndHorizontal();
         }
 
-        private void DrawSystemsList()
+        private void DrawContent()
         {
             if (!Application.isPlaying)
             {
-                EditorGUILayout.HelpBox("Enter Play Mode to view ECS systems hierarchy", MessageType.Info);
+                EditorGUILayout.HelpBox("Enter Play Mode to inspect systems.", MessageType.Info);
                 return;
             }
 
-            var systems = GetAllSystems();
-
-            if (systems.Count == 0)
+            var allSystems = EcsReflectionHelper.GetSystems();
+            if (allSystems.Count == 0)
             {
-                EditorGUILayout.HelpBox("No ECS systems found. Systems will appear here when they are registered.", MessageType.Warning);
+                EditorGUILayout.HelpBox("No active systems found.", MessageType.Warning);
                 return;
             }
 
-            // Apply search filter
-            var filteredSystems = systems
-                .Where(s => string.IsNullOrEmpty(_searchString) ||
-                           s.GetType().Name.IndexOf(_searchString, System.StringComparison.OrdinalIgnoreCase) >= 0)
-                .ToList();
+            var filtered = allSystems
+                .Where(s => string.IsNullOrEmpty(_searchFilter) ||
+                           s.GetType().Name.IndexOf(_searchFilter, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                .GroupBy(s => s.Priority)
+                .OrderBy(g => (int)g.Key);
 
-            _scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition);
-
-            EditorGUILayout.Space();
-
-            // Group by priority with custom ordering
-            var groupedSystems = filteredSystems
-                .GroupBy(s => s.PrioritySystem)
-                .OrderBy(g => GetPriorityOrder(g.Key));
-
-            foreach (var priorityGroup in groupedSystems)
+            using (var scroll = new EditorGUILayout.ScrollViewScope(_scrollPosition))
             {
-                // Skip FIRST_TASK and LAST_TASK if not showing all priorities
-                if (!_showAllPriorities &&
-                    (priorityGroup.Key == Priority.FIRST_TASK || priorityGroup.Key == Priority.LAST_TASK))
+                _scrollPosition = scroll.scrollPosition;
+                EditorGUILayout.Space(5);
+
+                foreach (var group in filtered)
                 {
-                    continue;
+                    if (!_showAllPriorities && IsEdgePriority(group.Key)) continue;
+                    DrawPriorityGroup(group.Key, group.ToList());
                 }
-
-                DrawPriorityGroup(priorityGroup.Key, priorityGroup.ToList());
             }
-
-            EditorGUILayout.EndScrollView();
-        }
-
-        private int GetPriorityOrder(Priority priority)
-        {
-            // Custom ordering to match the enum values
-            return (int)priority;
-        }
-
-        private string GetPriorityDisplayName(Priority priority)
-        {
-            return priority switch
-            {
-                Priority.FIRST_TASK => "FIRST TASK",
-                Priority.LAST_TASK => "LAST TASK",
-                _ => priority.ToString()
-            };
-        }
-
-        private Color GetPriorityColor(Priority priority)
-        {
-            return priority switch
-            {
-                Priority.FIRST_TASK => new Color(0.8f, 0.2f, 0.2f, 0.8f),
-                Priority.High => new Color(0.8f, 0.4f, 0.2f, 0.8f),
-                Priority.Medium => new Color(0.8f, 0.8f, 0.2f, 0.8f),
-                Priority.Low => new Color(0.4f, 0.8f, 0.2f, 0.8f),
-                Priority.LAST_TASK => new Color(0.2f, 0.2f, 0.8f, 0.8f),
-                _ => new Color(0.6f, 0.6f, 0.6f, 0.8f)
-            };
         }
 
         private void DrawPriorityGroup(Priority priority, List<IEcsSystem> systems)
         {
-            if (!_priorityFoldouts.ContainsKey(priority))
+            var key = priority.ToString();
+            if (!_foldouts.ContainsKey(key)) _foldouts[key] = true;
+
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
             {
-                _priorityFoldouts[priority] = true;
-            }
-
-            EditorGUILayout.BeginVertical("HelpBox");
-
-            // Priority header with foldout and color coding
-            EditorGUILayout.BeginHorizontal();
-
-            var priorityColor = GetPriorityColor(priority);
-            var originalColor = GUI.color;
-            GUI.color = priorityColor;
-
-            var foldoutContent = new GUIContent($" {GetPriorityDisplayName(priority)} ({systems.Count} systems)");
-            _priorityFoldouts[priority] = EditorGUILayout.Foldout(_priorityFoldouts[priority], foldoutContent, true, EditorStyles.foldoutHeader);
-
-            GUI.color = originalColor;
-
-            GUILayout.FlexibleSpace();
-
-            // Priority value badge
-            var badgeStyle = new GUIStyle(EditorStyles.miniLabel)
-            {
-                normal = { textColor = Color.gray },
-                alignment = TextAnchor.MiddleRight,
-                padding = new RectOffset(4, 4, 0, 0)
-            };
-            GUILayout.Label($"Value: {(int)priority}", badgeStyle);
-
-            EditorGUILayout.EndHorizontal();
-
-            if (_priorityFoldouts[priority])
-            {
-                EditorGUI.indentLevel++;
-
-                foreach (var system in systems.OrderBy(s => s.GetType().Name))
+                using (new EditorGUILayout.HorizontalScope())
                 {
-                    DrawSystem(system);
+                    GUI.backgroundColor = GetPriorityColor(priority);
+
+                    var title = $"{priority} ({systems.Count})";
+                    _foldouts[key] = EditorGUILayout.Foldout(_foldouts[key], title, true, Styles.BoldFoldout);
+
+                    GUI.backgroundColor = Color.white;
+                    GUILayout.FlexibleSpace();
+                    GUILayout.Label($"Order: {(int)priority}", EditorStyles.miniLabel);
                 }
 
-                EditorGUI.indentLevel--;
-            }
-
-            EditorGUILayout.EndVertical();
-            EditorGUILayout.Space();
-        }
-
-        private void DrawSystem(IEcsSystem system)
-        {
-            var systemType = system.GetType();
-            var systemKey = systemType.FullName;
-
-            if (!_systemFoldouts.ContainsKey(systemKey))
-            {
-                _systemFoldouts[systemKey] = false;
-            }
-
-            EditorGUILayout.BeginVertical("Box");
-
-            // System header
-            EditorGUILayout.BeginHorizontal();
-
-            // System icon based on interface type
-            var interfaces = systemType.GetInterfaces();
-            var primaryInterface = interfaces.FirstOrDefault();
-            Texture2D icon = GetSystemIcon(primaryInterface);
-
-            if (icon != null)
-            {
-                GUILayout.Label(new GUIContent(icon), GUILayout.Width(28), GUILayout.Height(28));
-            }
-
-            // System name with foldout
-            var systemName = systemType.Name;
-            _systemFoldouts[systemKey] = EditorGUILayout.Foldout(_systemFoldouts[systemKey], systemName, true);
-
-            GUILayout.FlexibleSpace();
-
-            // Interface badge
-            if (primaryInterface != null)
-            {
-                var interfaceName = primaryInterface.Name.Replace("IEcs", "");
-                var badgeContent = new GUIContent(interfaceName);
-                var badgeStyle = new GUIStyle(EditorStyles.miniButton)
+                if (_foldouts[key])
                 {
-                    margin = new RectOffset(2, 2, 2, 2)
-                };
-
-                GUI.color = GetInterfaceColor(primaryInterface);
-                if (GUILayout.Button(badgeContent, badgeStyle, GUILayout.Width(80)))
-                {
-                    _systemFoldouts[systemKey] = !_systemFoldouts[systemKey];
+                    EditorGUI.indentLevel++;
+                    foreach (var system in systems)
+                    {
+                        DrawSystemItem(system);
+                    }
+                    EditorGUI.indentLevel--;
                 }
-                GUI.color = Color.white;
             }
-
-            EditorGUILayout.EndHorizontal();
-
-            // System details when expanded
-            if (_systemFoldouts[systemKey])
-            {
-                EditorGUI.indentLevel++;
-
-                DrawSystemDetails(systemType, interfaces);
-
-                EditorGUI.indentLevel--;
-            }
-
-            EditorGUILayout.EndVertical();
-            EditorGUILayout.Space();
         }
 
-        private void DrawSystemDetails(System.Type systemType, System.Type[] interfaces)
+        private void DrawSystemItem(IEcsSystem system)
         {
-            // Full type name
-            EditorGUILayout.LabelField($"Type: {systemType.FullName}", EditorStyles.miniBoldLabel);
+            var type = system.GetType();
+            var key = type.FullName;
+            if (!_foldouts.ContainsKey(key)) _foldouts[key] = false;
 
-            // Assembly info
-            EditorGUILayout.LabelField($"Assembly: {systemType.Assembly.GetName().Name}", EditorStyles.miniLabel);
+            using (new EditorGUILayout.VerticalScope("Box"))
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    var interfaceType = type.GetInterfaces().FirstOrDefault();
+                    var icon = GetSystemIcon(interfaceType);
 
-            // Interfaces
+                    if (icon != null)
+                    {
+                        GUILayout.Label(icon, GUILayout.Width(20), GUILayout.Height(20));
+                    }
+
+                    _foldouts[key] = EditorGUILayout.Foldout(_foldouts[key], type.Name, true);
+
+                    GUILayout.FlexibleSpace();
+
+                    if (interfaceType != null)
+                    {
+                        DrawInterfaceBadge(interfaceType);
+                    }
+                }
+
+                if (_foldouts[key])
+                {
+                    DrawSystemInfo(type);
+                }
+            }
+        }
+
+        private void DrawSystemInfo(System.Type type)
+        {
+            EditorGUI.indentLevel++;
+            EditorGUILayout.LabelField("Namespace", type.Namespace, EditorStyles.miniLabel);
+            EditorGUILayout.LabelField("Assembly", type.Assembly.GetName().Name, EditorStyles.miniLabel);
+
+            var interfaces = type.GetInterfaces();
             if (interfaces.Length > 0)
             {
-                var interfaceNames = string.Join(", ", interfaces.Select(i => i.Name));
-                EditorGUILayout.LabelField($"Interfaces: {interfaceNames}", EditorStyles.miniLabel);
+                var list = string.Join(", ", interfaces.Select(i => i.Name));
+                EditorGUILayout.LabelField("Implements", list, EditorStyles.miniLabel);
             }
+            EditorGUI.indentLevel--;
         }
 
-        private Texture2D GetSystemIcon(System.Type interfaceType)
+        private void DrawInterfaceBadge(System.Type type)
         {
-            if (interfaceType == null) return null;
+            var color = GetInterfaceColor(type);
+            var oldColor = GUI.backgroundColor;
+            GUI.backgroundColor = color;
 
-            string iconName = interfaceType.Name switch
+            var name = type.Name.Replace("IEcs", "");
+            GUILayout.Label(name, EditorStyles.miniButton, GUILayout.Width(80));
+
+            GUI.backgroundColor = oldColor;
+        }
+
+        private void ExpandCollapseAll(bool expand)
+        {
+            var keys = _foldouts.Keys.ToList();
+            foreach (var key in keys) _foldouts[key] = expand;
+        }
+
+        private bool IsEdgePriority(Priority p) => p == Priority.FIRST_TASK || p == Priority.LAST_TASK;
+
+        private Color GetPriorityColor(Priority p) => p switch
+        {
+            Priority.High => new Color(1f, 0.6f, 0.2f),
+            Priority.Medium => new Color(1f, 1f, 0.4f),
+            Priority.Low => new Color(0.4f, 1f, 0.4f),
+            Priority.FIRST_TASK => new Color(1f, 0.4f, 0.4f),
+            Priority.LAST_TASK => new Color(0.4f, 0.6f, 1f),
+            _ => Color.white
+        };
+
+        private Color GetInterfaceColor(System.Type t) => t?.Name switch
+        {
+            "IEcsInitSystem" => new Color(0.5f, 1f, 0.5f),
+            "IEcsRunSystem" => new Color(0.5f, 0.8f, 1f),
+            "IEcsDestroySystem" => new Color(1f, 0.5f, 0.5f),
+            "IEcsFixedRunSystem" => new Color(1f, 0.8f, 0.4f),
+            _ => Color.white
+        };
+
+        private Texture2D GetSystemIcon(System.Type t)
+        {
+            var name = t?.Name switch
             {
                 "IEcsInitSystem" => "d_PlayButton",
                 "IEcsRunSystem" => "d_Animation.Play",
@@ -348,243 +312,87 @@ namespace BitterECS.Integration.Editor
                 "IEcsFixedRunSystem" => "d_Animation.FixedFrame",
                 _ => "d_ScriptableObject Icon"
             };
-
-            return EditorGUIUtility.IconContent(iconName).image as Texture2D;
+            return EditorGUIUtility.IconContent(name).image as Texture2D;
         }
 
-        private Color GetInterfaceColor(System.Type interfaceType)
+        private static class Styles
         {
-            return interfaceType.Name switch
+            public static GUIContent IconRefresh;
+            public static GUIContent IconAutoRefresh;
+            public static GUIStyle BoldFoldout;
+
+            public static void Initialize()
             {
-                "IEcsInitSystem" => new Color(0.2f, 0.8f, 0.2f, 0.8f),
-                "IEcsRunSystem" => new Color(0.2f, 0.5f, 0.8f, 0.8f),
-                "IEcsDestroySystem" => new Color(0.8f, 0.2f, 0.2f, 0.8f),
-                "IEcsFixedRunSystem" => new Color(0.8f, 0.6f, 0.2f, 0.8f),
-                _ => new Color(0.6f, 0.6f, 0.6f, 0.8f)
-            };
-        }
+                if (IconRefresh != null) return;
 
-        private List<IEcsSystem> GetAllSystems()
-        {
-            if (!Application.isPlaying)
-                return new List<IEcsSystem>();
+                IconRefresh = EditorGUIUtility.IconContent("d_Refresh");
+                IconAutoRefresh = EditorGUIUtility.IconContent("d_RotateTool On");
 
-            try
-            {
-                // Получаем экземпляр синглтона
-                var instance = EcsSystems.Instance;
-                if (instance == null)
-                    return new List<IEcsSystem>();
-
-                // Получаем приватное поле _systems через рефлексию
-                var systemsField = typeof(EcsSystems).GetField("_systems",
-                    BindingFlags.NonPublic | BindingFlags.Instance);
-
-                if (systemsField == null)
-                    return new List<IEcsSystem>();
-
-                // Теперь _systems это SortedSet<IEcsSystem>, а не List<IEcsSystem>
-                var systemsSet = systemsField.GetValue(instance) as System.Collections.Generic.SortedSet<IEcsSystem>;
-                if (systemsSet == null)
-                    return new List<IEcsSystem>();
-
-                return systemsSet.ToList();
-            }
-            catch
-            {
-                return new List<IEcsSystem>();
-            }
-        }
-
-        private int GetSystemsCount()
-        {
-            if (!Application.isPlaying)
-                return 0;
-
-            try
-            {
-                // Получаем экземпляр синглтона
-                var instance = EcsSystems.Instance;
-                if (instance == null)
-                    return 0;
-
-                // Получаем приватное поле _systems через рефлексию
-                var systemsField = typeof(EcsSystems).GetField("_systems",
-                    BindingFlags.NonPublic | BindingFlags.Instance);
-
-                if (systemsField == null)
-                    return 0;
-
-                // Теперь _systems это SortedSet<IEcsSystem>
-                var systemsSet = systemsField.GetValue(instance) as System.Collections.Generic.SortedSet<IEcsSystem>;
-                return systemsSet?.Count ?? 0;
-            }
-            catch
-            {
-                return 0;
-            }
-        }
-
-        private int GetActiveSystemsCount()
-        {
-            return GetAllSystems().Count(s => s != null);
-        }
-
-        private void RefreshSystems()
-        {
-            Repaint();
-            _lastRefreshTime = Time.realtimeSinceStartup;
-        }
-
-        private void ExpandAll()
-        {
-            foreach (var key in _priorityFoldouts.Keys.ToList())
-            {
-                _priorityFoldouts[key] = true;
-            }
-            foreach (var key in _systemFoldouts.Keys.ToList())
-            {
-                _systemFoldouts[key] = true;
-            }
-        }
-
-        private void CollapseAll()
-        {
-            foreach (var key in _priorityFoldouts.Keys.ToList())
-            {
-                _priorityFoldouts[key] = false;
-            }
-            foreach (var key in _systemFoldouts.Keys.ToList())
-            {
-                _systemFoldouts[key] = false;
-            }
-        }
-
-        private void Update()
-        {
-            if (Application.isPlaying && _autoRefresh &&
-                Time.realtimeSinceStartup - _lastRefreshTime > REFRESH_INTERVAL)
-            {
-                RefreshSystems();
+                BoldFoldout = new GUIStyle(EditorStyles.foldoutHeader)
+                {
+                    fontStyle = FontStyle.Bold,
+                    fixedHeight = 22
+                };
             }
         }
     }
 
     [InitializeOnLoad]
-    public static class EcsSystemsHierarchyViewer
+    public static class EcsHierarchyOverlay
     {
-        private static bool _isSubscribed = false;
+        private static bool _isListening;
+        private static GUIStyle _badgeStyle;
 
-        static EcsSystemsHierarchyViewer()
+        static EcsHierarchyOverlay()
         {
-            Subscribe();
+            EditorApplication.playModeStateChanged -= OnPlayStateChanged;
+            EditorApplication.playModeStateChanged += OnPlayStateChanged;
+
+            if (Application.isPlaying) StartListening();
         }
 
-        private static void Subscribe()
+        private static void OnPlayStateChanged(PlayModeStateChange state)
         {
-            if (!_isSubscribed)
-            {
-                EditorApplication.hierarchyWindowItemOnGUI += OnHierarchyItemGUI;
-                _isSubscribed = true;
-
-                // Отпишемся при перекомпиляции или выходе из play mode
-                AssemblyReloadEvents.beforeAssemblyReload += Unsubscribe;
-                EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
-            }
+            if (state == PlayModeStateChange.EnteredPlayMode) StartListening();
+            else if (state == PlayModeStateChange.ExitingPlayMode) StopListening();
         }
 
-        private static void Unsubscribe()
+        private static void StartListening()
         {
-            if (_isSubscribed)
-            {
-                EditorApplication.hierarchyWindowItemOnGUI -= OnHierarchyItemGUI;
-                _isSubscribed = false;
-
-                // Убираем обработчики отписки
-                AssemblyReloadEvents.beforeAssemblyReload -= Unsubscribe;
-                EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
-            }
+            if (_isListening) return;
+            EditorApplication.hierarchyWindowItemOnGUI += DrawOverlay;
+            _isListening = true;
         }
 
-        private static void OnPlayModeStateChanged(PlayModeStateChange state)
+        private static void StopListening()
         {
-            // Отписываемся при выходе из play mode
-            if (state == PlayModeStateChange.ExitingPlayMode)
-            {
-                Unsubscribe();
-            }
-            // Подписываемся при входе в play mode
-            else if (state == PlayModeStateChange.EnteredPlayMode)
-            {
-                Subscribe();
-            }
+            if (!_isListening) return;
+            EditorApplication.hierarchyWindowItemOnGUI -= DrawOverlay;
+            _isListening = false;
         }
 
-        private static void OnHierarchyItemGUI(int instanceID, Rect selectionRect)
+        private static void DrawOverlay(int instanceID, Rect rect)
         {
-            if (!Application.isPlaying)
-            {
-                // Если не в play mode, отписываемся
-                Unsubscribe();
-                return;
-            }
-
             var gameObject = EditorUtility.InstanceIDToObject(instanceID) as GameObject;
-            if (gameObject != null && gameObject.name == "ECS Systems")
+
+            if (gameObject == null || gameObject.name != "ECS Systems") return;
+
+            var count = EcsReflectionHelper.GetSystemsCount();
+            if (count <= 0) return;
+
+            if (_badgeStyle == null)
             {
-                var systemsCount = GetSystemsCount();
-                if (systemsCount > 0)
+                _badgeStyle = new GUIStyle(EditorStyles.miniLabel)
                 {
-                    // Create style here to avoid static constructor issues
-                    var badgeStyle = new GUIStyle(EditorStyles.miniLabel)
-                    {
-                        normal = { textColor = new Color(0.7f, 0.7f, 0.7f) },
-                        alignment = TextAnchor.MiddleRight,
-                        padding = new RectOffset(4, 4, 0, 0),
-                        margin = new RectOffset(0, 0, 1, 1)
-                    };
-
-                    var rect = new Rect(selectionRect);
-                    rect.x = rect.width - 100;
-                    rect.width = 90;
-
-                    // Draw badge background
-                    EditorGUI.DrawRect(new Rect(rect.x - 2, rect.y + 1, rect.width + 4, rect.height - 2),
-                        new Color(0.1f, 0.1f, 0.1f, 0.8f));
-
-                    // Draw systems count
-                    GUI.Label(rect, $"{systemsCount} systems", badgeStyle);
-                }
+                    alignment = TextAnchor.MiddleRight,
+                    normal = { textColor = new Color(0.8f, 0.8f, 0.8f) }
+                };
             }
-        }
 
-        private static int GetSystemsCount()
-        {
-            if (!Application.isPlaying)
-                return 0;
+            var labelRect = new Rect(rect);
+            labelRect.xMax -= 20;
 
-            try
-            {
-                // Получаем экземпляр синглтона
-                var instance = EcsSystems.Instance;
-                if (instance == null)
-                    return 0;
-
-                // Получаем приватное поле _systems через рефлексию
-                var systemsField = typeof(EcsSystems).GetField("_systems",
-                    BindingFlags.NonPublic | BindingFlags.Instance);
-
-                if (systemsField == null)
-                    return 0;
-
-                // Теперь _systems это SortedSet<IEcsSystem>
-                var systemsSet = systemsField.GetValue(instance) as System.Collections.Generic.SortedSet<IEcsSystem>;
-                return systemsSet?.Count ?? 0;
-            }
-            catch
-            {
-                return 0;
-            }
+            GUI.Label(labelRect, $"{count} systems", _badgeStyle);
         }
     }
 }

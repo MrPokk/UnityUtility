@@ -6,34 +6,29 @@ namespace BitterECS.Integration
 {
     public interface ITypedComponentProvider
     {
-        public void Apply(EcsEntity entity);
         public void Sync(EcsEntity entity);
+        public void Registration();
     }
 
     [RequireComponent(typeof(MonoProvider)), Serializable]
     public abstract class ComponentProvider<T> : MonoBehaviour, ITypedComponentProvider where T : struct
     {
-        [SerializeField] protected T _component;
-        public ref T Component => ref _component;
+        [SerializeField] protected T _value;
+        public ref T Value => ref _value;
 
-        public void Apply(EcsEntity entity)
+        private void OnValidate()
         {
-            if (entity.Has<T>())
-            {
-                entity.Set((ref T comp) => comp = _component);
-            }
-            else
-            {
-                entity.Add(_component);
-            }
+            var entity = GetComponent<MonoProvider>().Entity;
+            if (entity != null)
+                Sync(entity);
         }
 
         public void Sync(EcsEntity entity)
         {
-            if (entity.Has<T>())
-            {
-                _component = entity.Get<T>();
-            }
+            entity.AddOrReplace(_value);
         }
+
+        public virtual void Registration()
+        { }
     }
 }

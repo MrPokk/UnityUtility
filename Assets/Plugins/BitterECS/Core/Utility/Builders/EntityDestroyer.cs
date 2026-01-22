@@ -109,9 +109,9 @@ namespace BitterECS.Core
             private static void RemoveComponentInternal<C>(EcsEntity entity, EcsPresenter presenter) where C : struct
             {
                 var pool = presenter.GetPool<C>();
-                if (pool.Has(entity.Properties.Id))
+                if (pool.Has(entity.GetID()))
                 {
-                    pool.Remove(entity.Properties.Id);
+                    pool.Remove(entity.GetID());
                 }
             }
 

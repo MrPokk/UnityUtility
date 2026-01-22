@@ -89,7 +89,7 @@ namespace BitterECS.Core
                 return;
             }
 
-            var entityId = entity.Properties.Id;
+            var entityId = entity.GetID();
             if (entityId >= _entities.Length || _entities[entityId] != entity)
             {
                 return;
@@ -139,8 +139,8 @@ namespace BitterECS.Core
                 return;
             }
 
-            provider.Init(new EcsProperty(this, entity.Properties.Id));
-            _linkedEntities[entity] = provider;
+            _linkedEntities.TryAdd(entity, provider);
+            provider.Init(entity.Properties);
         }
 
         public void Unlink(EcsEntity entity)
@@ -158,9 +158,6 @@ namespace BitterECS.Core
 
         public ILinkableProvider GetProvider(EcsEntity entity)
             => entity != null && _linkedEntities.TryGetValue(entity, out var provider) ? provider : null;
-
-        public T GetProvider<T>(EcsEntity entity) where T : class, ILinkableProvider
-            => GetProvider(entity) as T;
 
         public EcsEntity Get(ILinkableProvider provider)
             => _linkedEntities.FirstOrDefault(kvp => kvp.Value == provider).Key;

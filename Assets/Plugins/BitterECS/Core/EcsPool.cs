@@ -154,19 +154,6 @@ namespace BitterECS.Core
             return entityId < _entityToDataIndex.Length && _entityToDataIndex[entityId] != -1;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryGet(int entityId, out T component)
-        {
-            if (entityId < _entityToDataIndex.Length && _entityToDataIndex[entityId] != -1)
-            {
-                component = _components[_entityToDataIndex[entityId]];
-                return true;
-            }
-
-            component = default;
-            return false;
-        }
-
         public virtual void Remove(int entityId)
         {
             if (!CanRemove(entityId))

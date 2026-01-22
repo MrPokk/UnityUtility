@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -24,10 +24,9 @@ public class Root : EcsUnityRoot
 
     }
 
+
     protected override void PostBootstrap()
     {
-        var test = new PerformanceTest();
-        test.TestFilterPerformance();
     }
 }
 
@@ -37,11 +36,11 @@ public class TestPresenter : EcsPresenter
     { }
 }
 
-public class PerformanceTest
+public class PerformanceTest : IEcsInitSystem
 {
-    private int ENTITY_COUNT = ushort.MaxValue * 100;
+    private int ENTITY_COUNT = ushort.MaxValue;
 
-    public Priority PrioritySystem => Priority.FIRST_TASK;
+    public Priority Priority => Priority.FIRST_TASK;
 
     public void Run()
     {
@@ -77,6 +76,7 @@ public class PerformanceTest
         .Include<Health>()
         .Exclude<Damage>();
 
+
     public void TestFilterPerformance()
     {
         var filterTimerSpawn = Stopwatch.StartNew();
@@ -105,6 +105,8 @@ public class PerformanceTest
             }
         }
 
+
+
         filterTimer.Stop();
 
         var filterTimer2 = Stopwatch.StartNew();
@@ -123,6 +125,11 @@ public class PerformanceTest
         Debug.Log($"Filter to iteration first Spawn  time: {filterTimerSpawn.ElapsedMilliseconds}ms");
         Debug.Log($"Filter to iteration first  time: {filterTimer.ElapsedMilliseconds}ms");
         Debug.Log($"Filter to iteration second time: {filterTimer2.ElapsedMilliseconds}ms");
+    }
+
+    public void Init()
+    {
+        TestFilterPerformance();
     }
 
     private struct Position { public int X, Y; }

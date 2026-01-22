@@ -3,12 +3,13 @@ using System.Collections.Generic;
 
 namespace BitterECS.Core
 {
+
     public sealed class EcsSystems : IDisposable
     {
         private static EcsSystems s_instance;
         public static EcsSystems Instance => s_instance ??= new EcsSystems();
 
-        private readonly SortedSet<IEcsSystem> _systems = new(Sort());
+        private readonly SortedSet<IEcsSystem> _systems = new(PriorityUtility.Sort());
         private readonly Dictionary<Type, IEcsSystem[]> _cachedInstanceSystems = new(EcsConfig.InitialSystemsCapacity);
 
         private EcsSystems() => LoadAllSystems();
@@ -101,19 +102,6 @@ namespace BitterECS.Core
             _cachedInstanceSystems[type] = cachedResult;
 
             return cachedResult;
-        }
-
-        private static string GetName(IEcsSystem system) => system.ToString();
-        private static Comparer<IEcsSystem> Sort() => Comparer<IEcsSystem>.Create(Comparison());
-        private static Comparison<IEcsSystem> Comparison()
-        {
-            return (left, right) =>
-            {
-                var priorityComparison = left.PrioritySystem.CompareTo(right.PrioritySystem);
-                return priorityComparison != 0
-                ? priorityComparison
-                : GetName(left).CompareTo(GetName(right));
-            };
         }
 
         public void Dispose()
