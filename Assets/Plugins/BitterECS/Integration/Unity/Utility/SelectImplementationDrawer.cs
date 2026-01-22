@@ -1,9 +1,13 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using UnityEditor;
 using UnityEngine;
 
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
+
+#if UNITY_EDITOR
 [CustomPropertyDrawer(typeof(SelectImplementationAttribute))]
 public class SelectImplementationDrawer : PropertyDrawer
 {
@@ -144,3 +148,4 @@ public class SelectImplementationDrawer : PropertyDrawer
         }
     }
 }
+#endif

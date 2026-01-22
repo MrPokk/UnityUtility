@@ -1,7 +1,9 @@
-#if UNITY_EDITOR
-using UnityEngine;
-using UnityEditor;
+﻿using UnityEngine;
 using System.Collections.Generic;
+
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 public class GridEditorSetting : MonoBehaviour
 {
@@ -37,7 +39,9 @@ public class GridEditorSetting : MonoBehaviour
 
     public void RefreshGrid()
     {
+#if UNITY_EDITOR
         SceneView.RepaintAll();
+#endif
     }
 
     public IEnumerable<Vector2Int> FindAdjacentPositions()
@@ -83,4 +87,3 @@ public class GridEditorSetting : MonoBehaviour
         return config.RotationQuaternion * localCellCenter + config.Position;
     }
 }
-#endif

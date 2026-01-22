@@ -20,8 +20,8 @@ public class Root : EcsUnityRoot
     [SerializeField]
     protected override void Bootstrap()
     {
-    }
 
+    }
 
     protected override void PostBootstrap()
     {

@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -11,13 +11,12 @@ public class GridVisualizerSetting : MonoBehaviour
     [SerializeField] private Color _fontColor = Color.yellow;
     [SerializeField] private int _fontSize = 12;
 
-
-#if UNITY_EDITOR
     public void Initialized(GridConfig gridConfig)
     {
         _gridConfig = gridConfig;
     }
 
+#if UNITY_EDITOR
     public void DrawGridGizmos()
     {
         if (_gridConfig == null) return;

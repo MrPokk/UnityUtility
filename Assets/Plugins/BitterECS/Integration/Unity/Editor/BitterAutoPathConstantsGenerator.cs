@@ -7,9 +7,10 @@ using System.Text;
 using UnityEditor;
 using UnityEngine;
 using BitterECS.Integration;
+
 namespace BitterECS.Extra.Editor
 {
-    public static class AutoPathConstantsGenerator
+    public static class BitterAutoPathConstantsGenerator
     {
         private const string GENERATED_SCRIPTS_FOLDER = "Assets/GeneratedConstants";
 

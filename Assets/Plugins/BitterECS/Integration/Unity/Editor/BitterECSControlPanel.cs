@@ -8,7 +8,6 @@ using System.IO;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
-// Ensure these namespaces exist in your project or are removed if not needed
 using BitterECS.Integration;
 using BitterECS.Extra;
 using BitterECS.Core;
@@ -514,7 +513,7 @@ namespace BitterECS.Editor
 
                 if (GUILayout.Button("Create Paths Prefab", GUILayout.Height(24)))
                 {
-                    AutoPathConstantsGenerator.GenerateAll();
+                    BitterAutoPathConstantsGenerator.GenerateAll();
                     AssetDatabase.Refresh();
                 }
             }

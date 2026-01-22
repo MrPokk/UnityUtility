@@ -9,7 +9,6 @@ public class GridModel<T>
     public Dictionary<Vector2Int, GridNode> GridNodes { get; private set; }
     public Vector3 PositionOrigin { get; private set; }
     public Quaternion Rotation { get; private set; }
-    public Vector3 CellCenter => Rotation * new Vector3(CellSize, CellSize, 0) * 0.5f;
     public static Vector2Int[] Directions = new Vector2Int[]
     {
         new(1, 1),

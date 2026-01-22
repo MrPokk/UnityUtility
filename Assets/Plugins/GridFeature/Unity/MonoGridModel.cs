@@ -1,6 +1,7 @@
+﻿using BitterECS.Integration;
 using UnityEngine;
 
-public class MonoGridModel<T> : GridModel<T> where T : MonoBehaviour
+public class MonoGridModel : GridModel<ProviderEcs>
 {
     public MonoGridModel(GridConfig gridConfig) : base(gridConfig)
     { }
