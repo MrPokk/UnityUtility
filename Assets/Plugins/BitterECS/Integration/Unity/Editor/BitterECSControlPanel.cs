@@ -3,11 +3,822 @@ using UnityEditor;
 using UnityEngine;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.IO;
 using System.Reflection;
+using System.Text;
+using System.Text.RegularExpressions;
+// Ensure these namespaces exist in your project or are removed if not needed
+using BitterECS.Integration;
+using BitterECS.Extra;
 using BitterECS.Core;
 
 namespace BitterECS.Editor
 {
+    public class EntitiesView
+    {
+        private BitterECSControlPanel _owner;
+        // Adjusted path to be safer if PathProject isn't fully generated yet
+        private string TargetPath
+        {
+            get
+            {
+                try { return $"Assets/!{PathProject.ProductName}/{PathProject.RootPath}/{PathProject.ENTITIES}".Replace("//", "/").Replace("\\", "/"); }
+                catch { return "Assets/"; }
+            }
+        }
+
+        private enum SortMode { Name, ComponentCount, Subfolder }
+
+        // [Fix] Added Serializable so the list structure can be maintained by Unity serialization if needed
+        [Serializable]
+        private class PrefabData
+        {
+            public string Name;
+            public string Path;
+            public string Subfolder;
+            public int ComponentCount;
+            public GameObject Asset;
+        }
+
+        private Vector2 _scrollPosition;
+        private string _searchFilter = "";
+        private SortMode _currentSortMode = SortMode.Subfolder;
+        private bool _sortAscending = true;
+
+        private List<PrefabData> _allPrefabs = new();
+        private List<PrefabData> _displayedPrefabs = new();
+        private List<Type> _availableProviderTypes = new();
+
+        private Dictionary<string, bool> _entityFoldouts = new();
+        private Dictionary<string, bool> _componentFoldouts = new();
+        private Dictionary<int, SerializedObject> _serializedObjects = new();
+
+        public EntitiesView(BitterECSControlPanel owner) => _owner = owner;
+
+        public void OnEnable()
+        {
+            _entityFoldouts.Clear();
+            if (_owner.expandedEntityKeys != null)
+                foreach (var key in _owner.expandedEntityKeys) _entityFoldouts[key] = true;
+
+            _componentFoldouts.Clear();
+            if (_owner.expandedComponentKeys != null)
+                foreach (var key in _owner.expandedComponentKeys) _componentFoldouts[key] = true;
+
+            RefreshData();
+        }
+
+        public void OnBeforeSerialize()
+        {
+            if (_owner == null) return;
+            _owner.expandedEntityKeys.Clear();
+            foreach (var kvp in _entityFoldouts) if (kvp.Value) _owner.expandedEntityKeys.Add(kvp.Key);
+            _owner.expandedComponentKeys.Clear();
+            foreach (var kvp in _componentFoldouts) if (kvp.Value) _owner.expandedComponentKeys.Add(kvp.Key);
+        }
+
+        public void Draw()
+        {
+            DrawToolbar();
+
+            if (_displayedPrefabs.Count == 0 && _allPrefabs.Count == 0)
+            {
+                DrawEmptyState();
+                return;
+            }
+
+            DrawPrefabList();
+        }
+
+        private void DrawToolbar()
+        {
+            using (new EditorGUILayout.HorizontalScope(BitterStyle.Toolbar))
+            {
+                if (GUILayout.Button(BitterStyle.IconRefresh, BitterStyle.ToolbarButton, GUILayout.Width(30)))
+                    RefreshData();
+
+                var newSearch = EditorGUILayout.TextField(_searchFilter, BitterStyle.SearchField, GUILayout.ExpandWidth(true));
+                if (newSearch != _searchFilter)
+                {
+                    _searchFilter = newSearch;
+                    ApplySortAndFilter();
+                }
+
+                if (GUILayout.Button(EditorGUIUtility.IconContent("FilterByLabel"), BitterStyle.ToolbarButton, GUILayout.Width(30)))
+                    ShowSortMenu();
+
+                GUILayout.Label($"{_displayedPrefabs.Count} Items", BitterStyle.SubHeaderLabel, GUILayout.MaxWidth(50));
+            }
+        }
+
+        private void DrawEmptyState()
+        {
+            GUILayout.FlexibleSpace();
+            var style = new GUIStyle(EditorStyles.label) { alignment = TextAnchor.MiddleCenter };
+            GUILayout.Label("No entities found in:", style);
+            GUILayout.Label(TargetPath, EditorStyles.centeredGreyMiniLabel);
+            if (GUILayout.Button("Force Refresh", GUILayout.Width(120))) RefreshData();
+            GUILayout.FlexibleSpace();
+        }
+
+        private void DrawPrefabList()
+        {
+            _scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition);
+            EditorGUILayout.Space(5);
+
+            string currentSubfolder = null;
+            foreach (var entry in _displayedPrefabs)
+            {
+                if (_currentSortMode == SortMode.Subfolder && entry.Subfolder != currentSubfolder)
+                {
+                    currentSubfolder = entry.Subfolder;
+                    GUILayout.Label(currentSubfolder.ToUpper(), BitterStyle.SubHeaderLabel);
+                    EditorGUI.DrawRect(EditorGUILayout.GetControlRect(false, 1), Color.gray);
+                    GUILayout.Space(3);
+                }
+                DrawEntityCard(entry);
+            }
+
+            EditorGUILayout.EndScrollView();
+        }
+
+        private void DrawEntityCard(PrefabData entry)
+        {
+            if (!_entityFoldouts.ContainsKey(entry.Path)) _entityFoldouts[entry.Path] = false;
+            var isExpanded = _entityFoldouts[entry.Path];
+
+            using (new EditorGUILayout.VerticalScope(BitterStyle.Card))
+            {
+                var headerRect = EditorGUILayout.GetControlRect(false, 24);
+
+                if (Event.current.type == EventType.MouseDown && headerRect.Contains(Event.current.mousePosition))
+                {
+                    if (Event.current.button == 0) { _entityFoldouts[entry.Path] = !isExpanded; Event.current.Use(); }
+                    else if (Event.current.button == 1)
+                    {
+                        var menu = new GenericMenu();
+                        menu.AddItem(new GUIContent("Ping Asset"), false, () => EditorGUIUtility.PingObject(entry.Asset));
+                        menu.AddItem(new GUIContent("Select Asset"), false, () => Selection.activeObject = entry.Asset);
+                        menu.ShowAsContext();
+                        Event.current.Use();
+                    }
+                }
+
+                if (Event.current.type == EventType.Repaint)
+                {
+                    Rect iconRect = new Rect(headerRect.x, headerRect.y + 4, 16, 16);
+                    var icon = AssetDatabase.GetCachedIcon(entry.Path);
+                    GUI.DrawTexture(iconRect, icon ? icon : BitterStyle.IconPrefab.image);
+
+                    if (entry.ComponentCount == 0)
+                    {
+                        Rect warnRect = new Rect(headerRect.xMax - 20, headerRect.y + 4, 16, 16);
+                        GUI.DrawTexture(warnRect, BitterStyle.IconWarn.image);
+                    }
+
+                    Rect arrowRect = new Rect(headerRect.xMax - 50, headerRect.y + 4, 16, 16);
+                    EditorStyles.foldout.Draw(arrowRect, false, false, isExpanded, false);
+                }
+
+                var labelRect = new Rect(headerRect.x + 24, headerRect.y, headerRect.width - 80, headerRect.height);
+                var displayName = _currentSortMode == SortMode.Subfolder ? entry.Name : $"{entry.Subfolder} / {entry.Name}";
+
+                var orgColor = GUI.color;
+                if (entry.ComponentCount == 0) GUI.color = new Color(1, 1, 1, 0.5f);
+                GUI.Label(labelRect, displayName, EditorStyles.boldLabel);
+                GUI.color = orgColor;
+
+                if (entry.ComponentCount > 0)
+                {
+                    if (Event.current.type == EventType.Repaint)
+                    {
+                        Rect badgeRect = new Rect(headerRect.xMax - 30, headerRect.y + 4, 30, 16);
+                        BitterStyle.MiniBadge.Draw(badgeRect, new GUIContent(entry.ComponentCount.ToString()), false, false, false, false);
+                    }
+                }
+
+                if (isExpanded)
+                {
+                    GUILayout.Space(5);
+                    EditorGUI.DrawRect(EditorGUILayout.GetControlRect(false, 1), new Color(0, 0, 0, 0.1f)); // Separator
+                    GUILayout.Space(5);
+                    DrawCardContent(entry.Asset, entry.Path);
+                }
+            }
+        }
+
+        private void DrawCardContent(GameObject prefab, string assetPath)
+        {
+            if (prefab == null) return;
+            // Assuming MonoProvider is defined in your project
+            if (prefab.GetComponent<MonoProvider>() == null)
+            {
+                EditorGUILayout.HelpBox("Missing Root MonoProvider!", MessageType.Error);
+                if (GUILayout.Button("Fix Now")) AddComponentSafe(prefab, typeof(MonoProvider));
+                EditorGUILayout.Space(5);
+            }
+
+            var providers = prefab.GetComponents<ITypedComponentProvider>();
+            foreach (var provider in providers) DrawCleanInspector(provider as MonoBehaviour, prefab, assetPath);
+
+            EditorGUILayout.Space(8);
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                if (GUILayout.Button("Select Asset", EditorStyles.miniButton))
+                {
+                    Selection.activeObject = prefab;
+                    EditorGUIUtility.PingObject(prefab);
+                }
+                GUI.backgroundColor = new Color(0.7f, 1f, 0.7f);
+                if (GUILayout.Button("+ Add Component", EditorStyles.miniButton)) ShowAddMenu(prefab);
+                GUI.backgroundColor = Color.white;
+            }
+        }
+
+        private void DrawCleanInspector(MonoBehaviour component, GameObject prefab, string assetPath)
+        {
+            if (component == null) return;
+
+            var persistentKey = $"{assetPath}::{component.GetType().FullName}";
+            var runtimeId = component.GetInstanceID();
+
+            if (!_componentFoldouts.ContainsKey(persistentKey)) _componentFoldouts[persistentKey] = false;
+
+            if (!_serializedObjects.TryGetValue(runtimeId, out var so) || so.targetObject == null)
+            {
+                so = new SerializedObject(component);
+                _serializedObjects[runtimeId] = so;
+            }
+
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                so.Update();
+                EditorGUI.BeginChangeCheck();
+
+                bool isExpanded = _componentFoldouts[persistentKey];
+
+                isExpanded = EditorGUILayout.InspectorTitlebar(isExpanded, component);
+                _componentFoldouts[persistentKey] = isExpanded;
+
+                if (isExpanded)
+                {
+                    using (new EditorGUILayout.VerticalScope(new GUIStyle { padding = new RectOffset(12, 5, 5, 5) }))
+                    {
+                        var prop = so.GetIterator();
+                        var enterChildren = true;
+                        var hasProps = false;
+                        while (prop.NextVisible(enterChildren))
+                        {
+                            if (prop.name != "m_Script")
+                            {
+                                EditorGUILayout.PropertyField(prop, true);
+                                hasProps = true;
+                            }
+                            enterChildren = false;
+                        }
+                        if (!hasProps) EditorGUILayout.HelpBox("Empty Component", MessageType.None);
+                    }
+                }
+
+                if (EditorGUI.EndChangeCheck())
+                {
+                    so.ApplyModifiedProperties();
+                    EditorUtility.SetDirty(component);
+                    EditorUtility.SetDirty(prefab);
+                }
+            }
+            GUILayout.Space(2);
+        }
+
+        private void RefreshData()
+        {
+            _allPrefabs.Clear();
+            _serializedObjects.Clear();
+            var sysPath = TargetPath;
+            // Check if folder exists before searching
+            if (Directory.Exists(sysPath) || AssetDatabase.IsValidFolder(sysPath))
+            {
+                var guids = AssetDatabase.FindAssets("t:Prefab", new[] { sysPath.TrimEnd('/') });
+                foreach (var guid in guids)
+                {
+                    var path = AssetDatabase.GUIDToAssetPath(guid);
+                    var asset = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                    if (asset != null)
+                    {
+                        var dir = Path.GetDirectoryName(path).Replace("\\", "/");
+                        var folderName = dir.Replace(sysPath, "").Trim('/');
+                        if (string.IsNullOrEmpty(folderName)) folderName = "Root";
+
+                        _allPrefabs.Add(new PrefabData
+                        {
+                            Name = asset.name,
+                            Path = path,
+                            Subfolder = folderName,
+                            ComponentCount = asset.GetComponents<ITypedComponentProvider>().Length,
+                            Asset = asset
+                        });
+                    }
+                }
+            }
+            // Populate available types safely
+            _availableProviderTypes = AppDomain.CurrentDomain.GetAssemblies()
+                .SelectMany(a => a.GetTypes())
+                .Where(t => !t.IsAbstract && !t.IsInterface && typeof(ITypedComponentProvider).IsAssignableFrom(t))
+                .ToList();
+            ApplySortAndFilter();
+        }
+
+        private void ApplySortAndFilter()
+        {
+            var query = _allPrefabs.AsEnumerable();
+            if (!string.IsNullOrEmpty(_searchFilter))
+                query = query.Where(p => p.Name.Contains(_searchFilter, StringComparison.OrdinalIgnoreCase));
+
+            var orderedQuery = query.OrderBy(p => p.ComponentCount == 0);
+            switch (_currentSortMode)
+            {
+                case SortMode.Name: orderedQuery = _sortAscending ? orderedQuery.ThenBy(p => p.Name) : orderedQuery.ThenByDescending(p => p.Name); break;
+                case SortMode.ComponentCount: orderedQuery = _sortAscending ? orderedQuery.ThenBy(p => p.ComponentCount) : orderedQuery.ThenByDescending(p => p.ComponentCount); break;
+                case SortMode.Subfolder: orderedQuery = _sortAscending ? orderedQuery.ThenBy(p => p.Subfolder).ThenBy(p => p.Name) : orderedQuery.ThenByDescending(p => p.Subfolder).ThenByDescending(p => p.Name); break;
+            }
+            _displayedPrefabs = orderedQuery.ToList();
+        }
+
+        private void ShowSortMenu()
+        {
+            var menu = new GenericMenu();
+            menu.AddItem(new GUIContent("Name"), _currentSortMode == SortMode.Name, () => SetSort(SortMode.Name));
+            menu.AddItem(new GUIContent("Subfolder"), _currentSortMode == SortMode.Subfolder, () => SetSort(SortMode.Subfolder));
+            menu.AddItem(new GUIContent("Count"), _currentSortMode == SortMode.ComponentCount, () => SetSort(SortMode.ComponentCount));
+            menu.AddSeparator("");
+            menu.AddItem(new GUIContent("Ascending"), _sortAscending, () => { _sortAscending = true; ApplySortAndFilter(); });
+            menu.AddItem(new GUIContent("Descending"), !_sortAscending, () => { _sortAscending = false; ApplySortAndFilter(); });
+            menu.ShowAsContext();
+        }
+
+        private void SetSort(SortMode mode) { _currentSortMode = mode; ApplySortAndFilter(); }
+
+        private void ShowAddMenu(GameObject prefab)
+        {
+            GenericMenu menu = new GenericMenu();
+            var existing = new HashSet<Type>(prefab.GetComponents<ITypedComponentProvider>().Select(c => c.GetType()));
+            var sortedTypes = _availableProviderTypes.OrderBy(t => t.Name);
+            foreach (var type in sortedTypes)
+            {
+                if (existing.Contains(type)) continue;
+                menu.AddItem(new GUIContent(type.Name), false, () => AddComponentSafe(prefab, type));
+            }
+            if (menu.GetItemCount() == 0) menu.AddDisabledItem(new GUIContent("No available components"));
+            menu.ShowAsContext();
+        }
+
+        private void AddComponentSafe(GameObject prefabAsset, Type type)
+        {
+            Undo.AddComponent(prefabAsset, type);
+            EditorUtility.SetDirty(prefabAsset);
+            AssetDatabase.SaveAssets();
+            RefreshData();
+            if (!_entityFoldouts.ContainsKey(AssetDatabase.GetAssetPath(prefabAsset)))
+                _entityFoldouts[AssetDatabase.GetAssetPath(prefabAsset)] = true;
+        }
+    }
+
+    public class PathsView
+    {
+        private EditorWindow _owner;
+        [Serializable] class PathNode { public string path; public List<PathNode> children = new(); public bool expanded; public PathNode(string path) => this.path = path; }
+        [Serializable]
+        class PathDefinition
+        {
+            public string Name; public string Suffix; public string ParentName;
+            public string GetFinalValue(List<PathDefinition> allDefs)
+            {
+                if (string.IsNullOrEmpty(ParentName) || ParentName == "None") return Suffix;
+                var parent = allDefs.FirstOrDefault(x => x.Name == ParentName);
+                return parent != null ? parent.GetFinalValue(allDefs) + Suffix : Suffix;
+            }
+        }
+
+        private PathNode _rootNode;
+        private List<PathDefinition> _pathDefinitions = new();
+        private Vector2 _scrollPos;
+
+        public PathsView(EditorWindow owner) => _owner = owner;
+
+        public void OnEnable()
+        {
+            LoadCurrentConstants();
+            RefreshTree();
+        }
+
+        public void Draw()
+        {
+            _scrollPos = EditorGUILayout.BeginScrollView(_scrollPos);
+
+            using (new EditorGUILayout.VerticalScope(BitterStyle.Card))
+            {
+                GUILayout.Label("Core Configuration", BitterStyle.HeaderLabel);
+                GUILayout.Space(5);
+
+                EditorGUI.BeginChangeCheck();
+                PathProject.RootPath = EditorGUILayout.TextField("Root Path", PathProject.RootPath);
+
+                EditorGUILayout.BeginHorizontal();
+                PathProject.DataPath = EditorGUILayout.TextField("Data Path", PathProject.DataPath);
+                if (GUILayout.Button(BitterStyle.IconFolder, GUILayout.Width(30), GUILayout.Height(19)))
+                {
+                    string rawPath = EditorUtility.OpenFolderPanel("Select Data Path", PathProject.DataPath, "");
+                    if (!string.IsNullOrEmpty(rawPath)) { PathProject.DataPath = rawPath; GUI.FocusControl(null); }
+                }
+                if (GUILayout.Button(new GUIContent("R", "Reset to Assets"), GUILayout.Width(25), GUILayout.Height(19)))
+                {
+                    PathProject.DataPath = Application.dataPath; GUI.FocusControl(null);
+                }
+                EditorGUILayout.EndHorizontal();
+
+                PathProject.ProductName = EditorGUILayout.TextField("Product Name", PathProject.ProductName);
+                if (EditorGUI.EndChangeCheck()) { }
+            }
+
+            GUILayout.Space(10);
+
+            // Section 2: Definitions Table
+            using (new EditorGUILayout.VerticalScope(BitterStyle.Card))
+            {
+                GUILayout.Label("Constants Definition", BitterStyle.HeaderLabel);
+                GUILayout.Space(5);
+
+                // Table Header
+                using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
+                {
+                    GUILayout.Label("Const Name", GUILayout.Width(140));
+                    GUILayout.Label("Parent", GUILayout.Width(100));
+                    GUILayout.Label("Value / Suffix");
+                    GUILayout.Space(30); // for delete button
+                }
+
+                for (int i = 0; i < _pathDefinitions.Count; i++) DrawDefinitionRow(i);
+
+                GUILayout.Space(5);
+                if (GUILayout.Button("+ Add New Path Constant", GUILayout.Height(24)))
+                    _pathDefinitions.Add(new PathDefinition { Name = "NEW_PATH", ParentName = "None", Suffix = "New/" });
+            }
+
+            GUILayout.Space(10);
+
+            // Section 3: Preview & Actions
+            using (new EditorGUILayout.VerticalScope(BitterStyle.Card))
+            {
+                GUILayout.Label("Hierarchy Preview", BitterStyle.HeaderLabel);
+                GUILayout.Space(5);
+                using (new EditorGUILayout.VerticalScope(BitterStyle.Container))
+                {
+                    if (_rootNode != null) DrawNode(_rootNode, 0);
+                    else GUILayout.Label("No paths defined", EditorStyles.centeredGreyMiniLabel);
+                }
+
+                GUILayout.Space(10);
+
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    if (GUILayout.Button("Refresh Preview", GUILayout.Height(30))) RefreshTree();
+                    if (GUILayout.Button("Create Directories on Disk", GUILayout.Height(30)))
+                    {
+                        // Assuming PathUtility exists in BitterECS.Extra
+                        PathUtility.GenerationConstPath();
+                        AssetDatabase.Refresh();
+                        EditorUtility.DisplayDialog("Success", "Directories generated!", "OK");
+                    }
+                }
+
+                GUILayout.Space(5);
+                GUI.backgroundColor = new Color(0.7f, 1f, 0.7f);
+                if (GUILayout.Button("SAVE & GENERATE SCRIPT", GUILayout.Height(35))) GenerateScript();
+                GUI.backgroundColor = Color.white;
+            }
+
+            EditorGUILayout.EndScrollView();
+        }
+
+        private void LoadCurrentConstants()
+        {
+            _pathDefinitions.Clear();
+            var rawFields = typeof(PathProject).GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy)
+                .Where(f => f.IsLiteral && !f.IsInitOnly && f.FieldType == typeof(string))
+                .Select(f => new { Name = f.Name, Value = (string)f.GetValue(null) })
+                .OrderBy(x => x.Value.Length).ToList();
+
+            foreach (var field in rawFields)
+            {
+                var def = new PathDefinition { Name = field.Name };
+                var possibleParent = _pathDefinitions
+                    .Where(p => field.Value.StartsWith(p.GetFinalValue(_pathDefinitions)) && field.Value != p.GetFinalValue(_pathDefinitions))
+                    .OrderByDescending(p => p.GetFinalValue(_pathDefinitions).Length).FirstOrDefault();
+
+                if (possibleParent != null) { def.ParentName = possibleParent.Name; def.Suffix = field.Value.Substring(possibleParent.GetFinalValue(_pathDefinitions).Length); }
+                else { def.ParentName = "None"; def.Suffix = field.Value; }
+                _pathDefinitions.Add(def);
+            }
+        }
+
+        private void RefreshTree()
+        {
+            var paths = _pathDefinitions.Select(p => p.GetFinalValue(_pathDefinitions)).Where(p => !string.IsNullOrEmpty(p));
+            _rootNode = new PathNode("ROOT");
+            BuildTree(_rootNode, paths);
+        }
+
+        private void BuildTree(PathNode parent, IEnumerable<string> paths)
+        {
+            var groups = paths.Select(p => p.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries)).GroupBy(parts => parts[0]);
+            foreach (var group in groups.OrderBy(g => g.Key))
+            {
+                var node = new PathNode(group.Key);
+                parent.children.Add(node);
+                var subPaths = group.Where(parts => parts.Length > 1).Select(parts => string.Join("/", parts, 1, parts.Length - 1));
+                if (subPaths.Any()) BuildTree(node, subPaths);
+            }
+        }
+
+        private void DrawDefinitionRow(int index)
+        {
+            var def = _pathDefinitions[index];
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                string newName = EditorGUILayout.TextField(def.Name, GUILayout.Width(140));
+                def.Name = Regex.Replace(newName, @"[^a-zA-Z0-9_]", "").ToUpper();
+
+                var options = new List<string> { "None" };
+                options.AddRange(_pathDefinitions.Where(x => x != def).Select(x => x.Name));
+                int currentIndex = options.IndexOf(def.ParentName);
+                if (currentIndex == -1) currentIndex = 0;
+                int newIndex = EditorGUILayout.Popup(currentIndex, options.ToArray(), GUILayout.Width(100));
+                def.ParentName = options[newIndex];
+
+                def.Suffix = EditorGUILayout.TextField(def.Suffix);
+
+                if (GUILayout.Button("X", GUILayout.Width(25))) { _pathDefinitions.RemoveAt(index); GUIUtility.ExitGUI(); }
+            }
+        }
+
+        private void DrawNode(PathNode node, int indent)
+        {
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                GUILayout.Space(indent * 15);
+                var icon = node.expanded ? BitterStyle.IconFolderOpen : BitterStyle.IconFolder;
+                var content = new GUIContent($" {node.path}", icon.image);
+
+                if (node.children.Count > 0)
+                    node.expanded = EditorGUILayout.Foldout(node.expanded, content, true);
+                else
+                    GUILayout.Label(content, GUILayout.Height(20));
+            }
+
+            if (node.expanded && node.children.Count > 0)
+            {
+                foreach (var child in node.children) DrawNode(child, indent + 1);
+            }
+        }
+
+        private void GenerateScript()
+        {
+            string scriptPath = FindPathProjectScript();
+            if (string.IsNullOrEmpty(scriptPath)) { Debug.LogError("Could not find PathProject.cs"); return; }
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine("namespace BitterECS.Extra");
+            sb.AppendLine("{");
+            sb.AppendLine("    public static class PathProject");
+            sb.AppendLine("    {");
+            sb.AppendLine("#if UNITY_EDITOR || UNITY_2017_1_OR_NEWER");
+            sb.AppendLine($"        public static string RootPath {{ get; set; }} = \"{PathProject.RootPath}\";");
+            sb.AppendLine("        public static string DataPath { get; set; } = UnityEngine.Application.dataPath;");
+            sb.AppendLine("        public static string ProductName { get; set; } = UnityEngine.Application.productName;");
+            sb.AppendLine("#else");
+            sb.AppendLine($"        public static string RootPath {{ get; set; }} = \"{PathProject.RootPath}\";");
+            sb.AppendLine("        public static string DataPath { get; set; } = AppDomain.CurrentDomain.BaseDirectory;");
+            sb.AppendLine("        public static string ProductName { get; set; } = \"App\";");
+            sb.AppendLine("#endif");
+            sb.AppendLine("");
+            foreach (var def in _pathDefinitions)
+            {
+                sb.Append($"        public const string {def.Name} = ");
+                if (def.ParentName == "None" || string.IsNullOrEmpty(def.ParentName)) sb.AppendLine($"\"{def.Suffix}\";");
+                else sb.AppendLine($"{def.ParentName} + \"{def.Suffix}\";");
+            }
+            sb.AppendLine("    }");
+            sb.AppendLine("}");
+            try { File.WriteAllText(scriptPath, sb.ToString()); AssetDatabase.Refresh(); Debug.Log("PathProject.cs updated."); }
+            catch (Exception e) { Debug.LogError($"Failed to write script: {e.Message}"); }
+        }
+
+        private string FindPathProjectScript()
+        {
+            string[] guids = AssetDatabase.FindAssets("PathProject t:MonoScript");
+            return guids.Length > 0 ? AssetDatabase.GUIDToAssetPath(guids[0]) : null;
+        }
+    }
+
+    public class SystemsView
+    {
+        private readonly EditorWindow _owner;
+        private Vector2 _scrollPosition;
+        private bool _autoRefresh = true;
+        private float _lastRefreshTime;
+        private const float REFRESH_RATE = 0.5f;
+
+        private string _searchFilter = "";
+        private bool _showAllPriorities = true;
+        private readonly Dictionary<string, bool> _foldouts = new Dictionary<string, bool>();
+
+        public SystemsView(EditorWindow owner) => _owner = owner;
+
+        public void OnEnable()
+        {
+            foreach (Priority p in Enum.GetValues(typeof(Priority)))
+                _foldouts[p.ToString()] = true;
+        }
+
+        public void Update()
+        {
+            if (Application.isPlaying && _autoRefresh &&
+                Time.realtimeSinceStartup - _lastRefreshTime > REFRESH_RATE)
+            {
+                _owner.Repaint();
+                _lastRefreshTime = Time.realtimeSinceStartup;
+            }
+        }
+
+        public void Draw()
+        {
+            DrawHeader();
+            DrawSystemList();
+        }
+
+        private void DrawHeader()
+        {
+            using (new EditorGUILayout.HorizontalScope(BitterStyle.Toolbar))
+            {
+                var systems = EcsReflectionHelper.GetSystems();
+                GUILayout.Label($"Active: {systems.Count}", BitterStyle.SubHeaderLabel);
+
+                GUILayout.FlexibleSpace();
+
+                _autoRefresh = GUILayout.Toggle(_autoRefresh, BitterStyle.IconAutoRefresh, BitterStyle.ToolbarButton, GUILayout.Width(30));
+                if (GUILayout.Button(BitterStyle.IconRefresh, BitterStyle.ToolbarButton, GUILayout.Width(30)))
+                    _lastRefreshTime = Time.realtimeSinceStartup;
+
+                GUILayout.Space(10);
+
+                // Search Bar
+                _searchFilter = EditorGUILayout.TextField(_searchFilter, BitterStyle.SearchField, GUILayout.Width(200));
+            }
+
+            // Sub-toolbar for filters
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                _showAllPriorities = EditorGUILayout.ToggleLeft("Show Empty Priorities", _showAllPriorities, GUILayout.Width(150));
+                GUILayout.FlexibleSpace();
+                if (GUILayout.Button("Expand All", EditorStyles.miniButtonLeft)) ExpandCollapseAll(true);
+                if (GUILayout.Button("Collapse All", EditorStyles.miniButtonRight)) ExpandCollapseAll(false);
+            }
+        }
+
+        private void DrawSystemList()
+        {
+            if (!Application.isPlaying)
+            {
+                DrawEmptyState("Enter Play Mode to inspect systems.");
+                return;
+            }
+
+            var allSystems = EcsReflectionHelper.GetSystems();
+            if (allSystems.Count == 0)
+            {
+                DrawEmptyState("No active systems found.");
+                return;
+            }
+
+            var filtered = allSystems
+                .Where(s => string.IsNullOrEmpty(_searchFilter) ||
+                           s.GetType().Name.IndexOf(_searchFilter, StringComparison.OrdinalIgnoreCase) >= 0)
+                .GroupBy(s => s.Priority)
+                .OrderBy(g => (int)g.Key);
+
+            using (var scroll = new EditorGUILayout.ScrollViewScope(_scrollPosition))
+            {
+                _scrollPosition = scroll.scrollPosition;
+                EditorGUILayout.Space(5);
+                foreach (var group in filtered)
+                {
+                    if (!_showAllPriorities && (group.Key == Priority.FIRST_TASK || group.Key == Priority.LAST_TASK)) continue;
+                    DrawPriorityGroup(group.Key, group.ToList());
+                }
+            }
+        }
+
+        private void DrawEmptyState(string msg)
+        {
+            GUILayout.FlexibleSpace();
+            var style = new GUIStyle(EditorStyles.label) { alignment = TextAnchor.MiddleCenter, fontSize = 14, normal = { textColor = Color.gray } };
+            GUILayout.Label(msg, style);
+            GUILayout.FlexibleSpace();
+        }
+
+        private void DrawPriorityGroup(Priority priority, List<IEcsSystem> systems)
+        {
+            var key = priority.ToString();
+            if (!_foldouts.ContainsKey(key)) _foldouts[key] = true;
+
+            // Header for Priority
+            Rect headerRect = EditorGUILayout.GetControlRect(false, 24);
+            EditorGUI.DrawRect(headerRect, GetPriorityColor(priority) * 0.3f); // Subtle BG
+
+            // Triangle & Label
+            Rect foldoutRect = new Rect(headerRect.x + 5, headerRect.y, headerRect.width - 5, headerRect.height);
+            _foldouts[key] = EditorGUI.Foldout(foldoutRect, _foldouts[key], $"{priority} ({systems.Count})", true, EditorStyles.boldLabel);
+
+            if (_foldouts[key])
+            {
+                foreach (var system in systems) DrawSystemItem(system);
+                GUILayout.Space(4); // Gap between groups
+            }
+        }
+
+        private void DrawSystemItem(IEcsSystem system)
+        {
+            var type = system.GetType();
+
+            using (new EditorGUILayout.VerticalScope(BitterStyle.Card))
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    var interfaceType = type.GetInterfaces().FirstOrDefault();
+                    var icon = GetSystemIcon(interfaceType);
+
+                    if (icon != null) GUILayout.Label(icon, GUILayout.Width(20), GUILayout.Height(20));
+                    else GUILayout.Space(20);
+
+                    using (new EditorGUILayout.VerticalScope())
+                    {
+                        GUILayout.Label(type.Name, EditorStyles.boldLabel);
+                        GUILayout.Label(type.Namespace ?? "No Namespace", EditorStyles.miniLabel);
+                    }
+
+                    GUILayout.FlexibleSpace();
+
+                    if (interfaceType != null) DrawInterfaceBadge(interfaceType);
+                }
+            }
+        }
+
+        private void DrawInterfaceBadge(Type type)
+        {
+            var color = GetInterfaceColor(type);
+            var name = type.Name.Replace("IEcs", "");
+            BitterStyle.DrawBadge(name, color);
+        }
+
+        private void ExpandCollapseAll(bool expand)
+        {
+            var keys = _foldouts.Keys.ToList();
+            foreach (var key in keys) _foldouts[key] = expand;
+        }
+
+        private Color GetPriorityColor(Priority p) => p switch
+        {
+            Priority.High => new Color(1f, 0.4f, 0.2f),
+            Priority.Medium => new Color(1f, 0.9f, 0.3f),
+            Priority.Low => new Color(0.4f, 0.9f, 0.4f),
+            Priority.FIRST_TASK => new Color(1f, 0.3f, 0.3f),
+            Priority.LAST_TASK => new Color(0.3f, 0.5f, 1f),
+            _ => Color.white
+        };
+
+        private Color GetInterfaceColor(Type t) => t?.Name switch
+        {
+            "IEcsInitSystem" => new Color(0.5f, 1f, 0.6f),
+            "IEcsRunSystem" => new Color(0.6f, 0.8f, 1f),
+            "IEcsDestroySystem" => new Color(1f, 0.5f, 0.5f),
+            "IEcsFixedRunSystem" => new Color(1f, 0.8f, 0.4f),
+            _ => Color.white
+        };
+
+        private Texture2D GetSystemIcon(Type t)
+        {
+            var name = t?.Name switch
+            {
+                "IEcsInitSystem" => "d_PlayButton",
+                "IEcsRunSystem" => "d_Animation.Play",
+                "IEcsDestroySystem" => "d_winbtn_win_close",
+                "IEcsFixedRunSystem" => "d_Animation.FixedFrame",
+                _ => "cs Script Icon"
+            };
+            return EditorGUIUtility.IconContent(name).image as Texture2D;
+        }
+    }
+
     public class BitterECSControlPanel : EditorWindow
     {
         private enum Tab { Entities, Systems, Settings }
@@ -40,6 +851,8 @@ namespace BitterECS.Editor
 
         private void OnGUI()
         {
+            // Assuming BitterStyle is a static helper class available in the project
+            // If it is missing, you need to add the BitterStyle definition file.
             BitterStyle.Init();
             EditorGUI.DrawRect(new Rect(0, 0, position.width, position.height), BitterStyle.MainBgColor);
             DrawToolbar();
