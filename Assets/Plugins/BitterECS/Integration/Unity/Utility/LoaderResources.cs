@@ -14,5 +14,5 @@ public readonly ref struct Loader<T> where T : Object
 
     public T GetPrefab() => Asset;
     public T GetInstance() => Object.Instantiate(GetPrefab());
-    public static implicit operator T(Loader<T> loader) => loader.Asset;
+    public static implicit operator T(Loader<T> loader) => Object.Instantiate(loader.Asset);
 }

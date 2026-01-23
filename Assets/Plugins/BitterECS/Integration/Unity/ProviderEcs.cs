@@ -11,6 +11,7 @@ namespace BitterECS.Integration
         void Sync(EcsEntity entity);
     }
 
+    [DisallowMultipleComponent]
     public abstract class ProviderEcs : MonoBehaviour, ITypedComponentProvider, ILinkableProvider
     {
         public abstract bool IsPresenter { get; }
@@ -23,7 +24,7 @@ namespace BitterECS.Integration
         protected abstract void DisposeInternal();
 
         void IInitialize<EcsProperty>.Init(EcsProperty property) => InitInternal(property);
-        void IDisposable.Dispose() => DisposeInternal();
+        public void Dispose() => DisposeInternal();
     }
 
     public class ProviderEcs<T> : ProviderEcs
@@ -63,6 +64,8 @@ namespace BitterECS.Integration
 
         public ref T Value => ref _value;
 
+        private bool _isDestroying = false;
+
         private EcsProperty _properties;
         private ProviderEcs _cachedRootProvider;
 
@@ -76,7 +79,7 @@ namespace BitterECS.Integration
             {
                 if (s_isPresenterType)
                 {
-                    if (_properties?.Presenter != null && _properties.Id != 0)
+                    if (_properties?.Presenter != null)
                         return _properties.Presenter.Get(_properties.Id);
 
                     return UnLinkingRegistrationEntity();
@@ -109,11 +112,7 @@ namespace BitterECS.Integration
 
         private void OnDestroy()
         {
-            if (s_isPresenterType)
-            {
-                HandlePresenterDispose();
-            }
-            _cachedRootProvider = null;
+            Dispose();
         }
 
         public override void Sync(EcsEntity entity)
@@ -127,6 +126,8 @@ namespace BitterECS.Integration
 
         private void FindAndCacheRoot()
         {
+            if (_isDestroying)
+                return;
 
             GetComponents(s_componentCache);
 
@@ -168,6 +169,9 @@ namespace BitterECS.Integration
 
         private void RegistrationComponent(EcsEntity entity)
         {
+            if (_isDestroying)
+                return;
+
             GetComponents(s_componentCache);
 
             var count = s_componentCache.Count;
@@ -186,19 +190,16 @@ namespace BitterECS.Integration
         {
             if (_properties == null) return;
 
-            try
+            var presenter = _properties.Presenter;
+            var id = _properties.Id;
+
+            if (presenter != null && presenter.Has(id))
             {
-                if (_properties.Presenter != null && _properties.Presenter.Has(_properties.Id))
-                {
-                    var entity = _properties.Presenter.Get(_properties.Id);
-                    _properties.Presenter.Remove(entity);
-                }
+                var entity = presenter.Get(id);
+                _properties = null;
+                presenter.Remove(entity);
             }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"Error while removing entity: {ex.Message}");
-            }
-            finally
+            else
             {
                 _properties = null;
             }
@@ -212,8 +213,20 @@ namespace BitterECS.Integration
 
         protected override void DisposeInternal()
         {
+            if (_isDestroying)
+                return;
+
+            _isDestroying = true;
             if (s_isPresenterType)
+            {
                 HandlePresenterDispose();
+            }
+            else
+            {
+                Entity?.Dispose();
+            }
+
+            Destroy(gameObject);
         }
 
 #if UNITY_EDITOR

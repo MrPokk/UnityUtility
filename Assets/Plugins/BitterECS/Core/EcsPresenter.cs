@@ -95,12 +95,12 @@ namespace BitterECS.Core
                 return;
             }
 
+            _entities[entityId] = null;
+            _freeEntityIds.Push(entityId);
+
             Unlink(entity);
             RemoveAllComponents(entityId);
             EcsWorld.IncreaseVersion();
-
-            _entities[entityId] = null;
-            _freeEntityIds.Push(entityId);
         }
 
         private void RemoveAllComponents(int entityId)

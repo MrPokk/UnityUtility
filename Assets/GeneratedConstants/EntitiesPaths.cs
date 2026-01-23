@@ -5,6 +5,10 @@
 
 public static class EntitiesPaths
 {
-    /// <summary> Provider: TestProvider </summary>
+    /// <summary> Provider: SkillProvider </summary>
     public const string TEST = "Entities/Test";
+    /// <summary> Provider: TestProvider </summary>
+    public const string TEST_GREEN = "Entities/TestGreen";
+    /// <summary> Provider: TestProvider </summary>
+    public const string TEST_RED = "Entities/TestRed";
 }

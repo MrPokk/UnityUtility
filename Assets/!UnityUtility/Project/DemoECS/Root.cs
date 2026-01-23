@@ -8,6 +8,7 @@ using BitterECS.Integration;
 using UnityEngine;
 using static BitterECS.Core.EcsFilter;
 using Debug = UnityEngine.Debug;
+using Object = UnityEngine.Object;
 using Random = UnityEngine.Random;
 
 public class Root : EcsUnityRoot
@@ -25,9 +26,9 @@ public class Root : EcsUnityRoot
 
     protected override void PostBootstrap()
     {
-
-        var provider = new Loader<TestProvider>(EntitiesPaths.TEST).GetInstance();
-        Debug.Log(provider.Entity.Get<TestComponent>());
+        Debug.Log(EcsWorld.Get<SkillPresenter>().CountEntity);
+        SkillProvider provider = new Loader<SkillProvider>(EntitiesPaths.TEST);
+        provider.Dispose();
     }
 }
 
@@ -37,7 +38,7 @@ public class TestPresenter : EcsPresenter
     { }
 }
 
-public class PerformanceTest : IEcsInitSystem
+public class PerformanceTest : IEcsInitSystem, IEcsRunSystem
 {
     private int ENTITY_COUNT = 10000;
 
@@ -45,6 +46,7 @@ public class PerformanceTest : IEcsInitSystem
 
     public void Run()
     {
+        Debug.Log(EcsWorld.Get<SkillPresenter>().CountEntity);
 
         if (Input.GetKeyDown(KeyCode.C))
         {
