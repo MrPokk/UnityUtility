@@ -14,5 +14,8 @@ namespace BitterECS.Extra
 #endif
 
         public const string ENTITIES = "Entities/";
+        public const string ITEMS = "Items/";
+        public const string SETTINGS = "Settings/";
+        public const string PREFAB_OBJECTS = ENTITIES + "Prefabs/";
     }
 }

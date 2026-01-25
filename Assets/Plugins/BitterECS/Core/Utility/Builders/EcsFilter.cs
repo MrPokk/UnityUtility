@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Runtime.CompilerServices;
 
 namespace BitterECS.Core
@@ -234,30 +234,30 @@ namespace BitterECS.Core
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly FilterEntities Entities() => new(this);
+        public readonly Filter Entities() => new(this);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly FilterProviders<T> Providers<T>() where T : class, ILinkableProvider => new(this);
+        public readonly Filter<T> Providers<T>() where T : class, ILinkableProvider => new(this);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly FilterProviders<ILinkableProvider> Providers() => Providers<ILinkableProvider>();
+        public readonly Filter<ILinkableProvider> Providers() => Providers<ILinkableProvider>();
 
         public ReadOnlySpan<EcsEntity>.Enumerator GetEnumerator() => ValidationCacheOnFilter().GetEnumerator();
-        public readonly int Count() => _filteredLength;
+        public int Count() => ValidationCacheOnFilter().Length;
 
-        public ref struct FilterEntities
+        public ref struct Filter
         {
             private EcsFilter _filter;
-            public FilterEntities(in EcsFilter filter) => _filter = filter;
+            public Filter(in EcsFilter filter) => _filter = filter;
             public ReadOnlySpan<EcsEntity>.Enumerator GetEnumerator() => _filter.ValidationCacheOnFilter().GetEnumerator();
             public readonly int Count() => _filter.ValidationCacheOnFilter().Length;
         }
 
-        public ref struct FilterProviders<T> where T : class, ILinkableProvider
+        public ref struct Filter<T> where T : class, ILinkableProvider
         {
             private EcsFilter _filter;
 
-            public FilterProviders(in EcsFilter filter) => _filter = filter;
+            public Filter(in EcsFilter filter) => _filter = filter;
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public Enumerator GetEnumerator() => new(_filter.ValidationCacheOnFilter());
@@ -278,6 +278,88 @@ namespace BitterECS.Core
                     get => _entityEnumerator.Current.GetProvider<T>();
                 }
             }
+        }
+    }
+
+    public struct EcsFilter<T> where T : EcsPresenter, new()
+    {
+        private EcsFilter? _filter;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void EnsureInitialized()
+        {
+            if (_filter != null) return;
+            _filter = new EcsFilter(EcsWorld.Get<T>());
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public EcsFilter Include<TComponent>() where TComponent : struct
+        {
+            EnsureInitialized();
+            return _filter.Value.Include<TComponent>();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public EcsFilter Include<TComponent>(Predicate<TComponent> predicate) where TComponent : struct
+        {
+            EnsureInitialized();
+            return _filter.Value.Include(predicate);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public EcsFilter Exclude<TComponent>() where TComponent : struct
+        {
+            EnsureInitialized();
+            return _filter.Value.Exclude<TComponent>();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public EcsFilter Where(Predicate<EcsEntity> predicate)
+        {
+            EnsureInitialized();
+            return _filter.Value.Where(predicate);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public EcsFilter WhereType<TComponent>(Predicate<TComponent> predicate) where TComponent : EcsEntity
+        {
+            EnsureInitialized();
+            return _filter.Value.WhereType(predicate);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public EcsFilter WhereProvider<TComponent>(Predicate<TComponent> predicate) where TComponent : class, ILinkableProvider
+        {
+            EnsureInitialized();
+            return _filter.Value.WhereProvider(predicate);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public EcsFilter Or<TComponent>() where TComponent : struct
+        {
+            EnsureInitialized();
+            return _filter.Value.Or<TComponent>();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public EcsFilter Or<TComponent>(Predicate<TComponent> predicate) where TComponent : struct
+        {
+            EnsureInitialized();
+            return _filter.Value.Or(predicate);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public EcsFilter.Filter Entities()
+        {
+            EnsureInitialized();
+            return _filter.Value.Entities();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public EcsFilter.Filter<TProvider> Providers<TProvider>() where TProvider : class, ILinkableProvider
+        {
+            EnsureInitialized();
+            return _filter.Value.Providers<TProvider>();
         }
     }
 

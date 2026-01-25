@@ -1,14 +1,10 @@
 ﻿using System;
 
 // [AUTO-GENERATED] by BitterECS AutoPathConstantsGenerator
-// Defines paths for prefabs containing BitterECS Providers
+// Defines paths for prefabs containing BitterECS Providers or MonoBehaviours
 
 public static class EntitiesPaths
 {
-    /// <summary> Provider: SkillProvider </summary>
+    /// <summary> Provider: TestProvider </summary>
     public const string TEST = "Entities/Test";
-    /// <summary> Provider: TestProvider </summary>
-    public const string TEST_GREEN = "Entities/TestGreen";
-    /// <summary> Provider: TestProvider </summary>
-    public const string TEST_RED = "Entities/TestRed";
 }

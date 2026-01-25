@@ -1,15 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
+﻿using System.Diagnostics;
 using BitterECS.Core;
-using BitterECS.Extra;
 using BitterECS.Integration;
 using UnityEngine;
 using static BitterECS.Core.EcsFilter;
 using Debug = UnityEngine.Debug;
-using Object = UnityEngine.Object;
-using Random = UnityEngine.Random;
 
 public class Root : EcsUnityRoot
 {
@@ -17,6 +11,17 @@ public class Root : EcsUnityRoot
     private GridConfig _gridConfigs;
 
     private EcsUnityRoot _world;
+
+    private Filter EcsEntities =>
+    new EcsFilter<TestPresenter>()
+    .Include<TestComponent>()
+    .Include<TestComponent>()
+    .Entities();
+
+    private Filter Dsd =>
+    new EcsFilter<TestPresenter>()
+    .Include<TestComponent>()
+    .Entities();
 
     [SerializeField]
     protected override void Bootstrap()
@@ -26,9 +31,14 @@ public class Root : EcsUnityRoot
 
     protected override void PostBootstrap()
     {
-        Debug.Log(EcsWorld.Get<SkillPresenter>().CountEntity);
-        SkillProvider provider = new Loader<SkillProvider>(EntitiesPaths.TEST);
-        provider.Dispose();
+        var testFreeEntity = new Loader<TestProvider>(EntitiesPaths.TEST).GetInstance();
+        var testFreeEntityds = new Loader<TestProvider>(EntitiesPaths.TEST).GetPrefab();
+        var dsd = testFreeEntityds.Entity;
+        testFreeEntity.GetComponent<TestComponentProvider>().Value.value = 100;
+        foreach (var item in EcsEntities)
+        {
+            Debug.Log(item.Get<TestComponent>().value);
+        }
     }
 }
 
@@ -46,7 +56,6 @@ public class PerformanceTest : IEcsInitSystem, IEcsRunSystem
 
     public void Run()
     {
-        Debug.Log(EcsWorld.Get<SkillPresenter>().CountEntity);
 
         if (Input.GetKeyDown(KeyCode.C))
         {
@@ -68,17 +77,15 @@ public class PerformanceTest : IEcsInitSystem, IEcsRunSystem
     {
     }
 
-    private EcsFilter Filter =>
-    Build.For<TestPresenter>()
-        .Filter()
-        .Include<Damage>();
+    private Filter Filter =>
+    new EcsFilter<TestPresenter>()
+       .Include<Damage>()
+       .Entities();
 
-    private EcsFilter Filter2 =>
-    Build.For<TestPresenter>()
-        .Filter()
-        .Include<Health>()
-        .Exclude<Damage>();
-
+    private Filter Filter2 =>
+    new EcsFilter<TestPresenter>()
+       .Include<Damage>()
+       .Entities();
 
     public void TestFilterPerformance()
     {

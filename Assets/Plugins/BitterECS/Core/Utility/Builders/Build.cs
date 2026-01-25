@@ -1,10 +1,10 @@
-using System;
+﻿using System;
 
 namespace BitterECS.Core
 {
     public static class Build
     {
-        public static Builder For<T>() where T : EcsPresenter => new(EcsWorld.Get(typeof(T)));
+        public static Builder For<T>() where T : EcsPresenter, new() => new(EcsWorld.Get(typeof(T)));
         public static Builder For(Type presenterType) => new(EcsWorld.Get(presenterType));
     }
 

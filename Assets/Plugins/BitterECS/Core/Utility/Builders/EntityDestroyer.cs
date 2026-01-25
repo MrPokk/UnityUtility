@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 
@@ -51,6 +51,8 @@ namespace BitterECS.Core
 
         public void Destroy()
         {
+            if (_entity == null) return;
+
             _preDestroyCallback?.Invoke(_entity);
             _componentRemoveOps.Execute(_entity);
             _presenter.DestroyEntity(_entity);
@@ -65,14 +67,8 @@ namespace BitterECS.Core
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Add(Type componentType, EcsPresenter presenter)
             {
-                if (_operations == null)
-                {
-                    _operations = new ComponentRemoveOperation[EcsConfig.EntityCallbackFactor];
-                }
-                else if (_count == _operations.Length)
-                {
-                    Array.Resize(ref _operations, _operations.Length * 2);
-                }
+                if (_operations == null) _operations = new ComponentRemoveOperation[EcsConfig.EntityCallbackFactor];
+                else if (_count == _operations.Length) Array.Resize(ref _operations, _operations.Length * 2);
 
                 _operations[_count++] = new ComponentRemoveOperation
                 {
@@ -82,23 +78,19 @@ namespace BitterECS.Core
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public void Add<C>(EcsPresenter presenter) where C : struct
-            {
-                Add(typeof(C), presenter);
-            }
+            public void Add<C>(EcsPresenter presenter) where C : struct => Add(typeof(C), presenter);
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public readonly void Execute(EcsEntity entity)
             {
-                for (var i = 0; i < _count; i++)
-                {
-                    ExecuteOperation(ref _operations[i], entity);
-                }
+                for (var i = 0; i < _count; i++) ExecuteOperation(ref _operations[i], entity);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private static void ExecuteOperation(ref ComponentRemoveOperation op, EcsEntity entity)
             {
+                // Примечание: Reflection внутри цикла может быть медленным. 
+                // Если возможно, лучше вызывать типизированные методы напрямую, но оставляю как в оригинале.
                 var method = typeof(ComponentRemoveOperations).GetMethod(nameof(RemoveComponentInternal),
                     BindingFlags.NonPublic | BindingFlags.Static);
                 var generic = method.MakeGenericMethod(op.componentType);
@@ -109,10 +101,7 @@ namespace BitterECS.Core
             private static void RemoveComponentInternal<C>(EcsEntity entity, EcsPresenter presenter) where C : struct
             {
                 var pool = presenter.GetPool<C>();
-                if (pool.Has(entity.GetID()))
-                {
-                    pool.Remove(entity.GetID());
-                }
+                if (pool.Has(entity.GetID())) pool.Remove(entity.GetID());
             }
 
             private struct ComponentRemoveOperation
@@ -123,40 +112,113 @@ namespace BitterECS.Core
         }
     }
 
-    public struct EntityDestroyer<E> where E : EcsEntity
+    public struct EntityDestroyer<TPresenter, TEntity>
+        where TPresenter : EcsPresenter
+        where TEntity : EcsEntity
     {
-        private EntityDestroyer _destroyer;
+        private EntityDestroyer? _destroyer;
+        private readonly TEntity _entity;
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal EntityDestroyer(EcsPresenter presenter, E entity)
+        public EntityDestroyer(TEntity entity)
         {
-            _destroyer = new EntityDestroyer(presenter, entity);
+            _entity = entity;
+            _destroyer = null;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EntityDestroyer<E> WithPreDestroyCallback(Action<E> callback)
+        private void EnsureInitialized()
         {
-            _destroyer.WithPreDestroyCallback(e => callback((E)e));
+            if (!_destroyer.HasValue)
+            {
+                if (_entity == null) throw new InvalidOperationException("Cannot destroy null entity.");
+                var presenter = EcsWorld.Get(typeof(TPresenter));
+                _destroyer = new EntityDestroyer(presenter, _entity);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public EntityDestroyer<TPresenter, TEntity> WithPreDestroyCallback(Action<TEntity> callback)
+        {
+            EnsureInitialized();
+            _destroyer = _destroyer.Value.WithPreDestroyCallback(e => callback((TEntity)e));
             return this;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EntityDestroyer<E> WithPostDestroyCallback(Action<E> callback)
+        public EntityDestroyer<TPresenter, TEntity> WithPostDestroyCallback(Action<TEntity> callback)
         {
-            _destroyer.WithPostDestroyCallback(e => callback((E)e));
+            EnsureInitialized();
+            _destroyer = _destroyer.Value.WithPostDestroyCallback(e => callback((TEntity)e));
             return this;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EntityDestroyer<E> RemoveComponent<C>() where C : struct
+        public EntityDestroyer<TPresenter, TEntity> RemoveComponent<C>() where C : struct
         {
-            _destroyer.RemoveComponent<C>();
+            EnsureInitialized();
+            _destroyer = _destroyer.Value.RemoveComponent<C>();
             return this;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Destroy()
         {
-            _destroyer.Destroy();
+            EnsureInitialized();
+            _destroyer.Value.Destroy();
+        }
+    }
+
+    public struct EntityDestroyer<TPresenter> where TPresenter : EcsPresenter
+    {
+        private EntityDestroyer? _destroyer;
+        private readonly EcsEntity _entity;
+
+        public EntityDestroyer(EcsEntity entity)
+        {
+            _entity = entity;
+            _destroyer = null;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void EnsureInitialized()
+        {
+            if (!_destroyer.HasValue)
+            {
+                if (_entity == null) throw new InvalidOperationException("Cannot destroy null entity.");
+                var presenter = EcsWorld.Get(typeof(TPresenter));
+                _destroyer = new EntityDestroyer(presenter, _entity);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public EntityDestroyer<TPresenter> WithPreDestroyCallback(Action<EcsEntity> callback)
+        {
+            EnsureInitialized();
+            _destroyer = _destroyer.Value.WithPreDestroyCallback(callback);
+            return this;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public EntityDestroyer<TPresenter> WithPostDestroyCallback(Action<EcsEntity> callback)
+        {
+            EnsureInitialized();
+            _destroyer = _destroyer.Value.WithPostDestroyCallback(callback);
+            return this;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public EntityDestroyer<TPresenter> RemoveComponent<C>() where C : struct
+        {
+            EnsureInitialized();
+            _destroyer = _destroyer.Value.RemoveComponent<C>();
+            return this;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Destroy()
+        {
+            EnsureInitialized();
+            _destroyer.Value.Destroy();
         }
     }
 }

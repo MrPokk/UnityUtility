@@ -1,5 +1,6 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace BitterECS.Core
 {
@@ -71,6 +72,94 @@ namespace BitterECS.Core
             if (_subscriptions == null) return;
             foreach (var sub in _subscriptions.Values) sub.Dispose();
             _subscriptions.Clear();
+        }
+    }
+
+    public struct EcsEvent<T> : IDisposable where T : EcsPresenter, new()
+    {
+        private EcsEvent? _event;
+        private readonly Priority _priority;
+
+        public EcsEvent(Priority priority = Priority.Medium)
+        {
+            _priority = priority;
+            _event = null;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void EnsureInitialized()
+        {
+            if (_event.HasValue)
+            {
+                return;
+            }
+
+            _event = new EcsEvent(EcsWorld.Get<T>(), _priority);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public EcsEvent Subscribe<TComponent>(Action<EcsEntity> added = null, Action<EcsEntity> removed = null)
+            where TComponent : struct
+        {
+            EnsureInitialized();
+            return _event.Value.Subscribe<TComponent>(added, removed);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public EcsEvent SubscribeWhere<TComponent>(Predicate<TComponent> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null)
+            where TComponent : struct
+        {
+            EnsureInitialized();
+            return _event.Value.SubscribeWhere(condition, added, removed);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public EcsEvent SubscribeWhere<T1, T2>(Func<T1, T2, bool> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null)
+            where T1 : struct where T2 : struct
+        {
+            EnsureInitialized();
+            return _event.Value.SubscribeWhere(condition, added, removed);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public EcsEvent SubscribeWhere<T1, T2, T3>(Func<T1, T2, T3, bool> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null)
+            where T1 : struct where T2 : struct where T3 : struct
+        {
+            EnsureInitialized();
+            return _event.Value.SubscribeWhere(condition, added, removed);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public EcsEvent SubscribeWhere<T1, T2, T3, T4>(Func<T1, T2, T3, T4, bool> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null)
+            where T1 : struct where T2 : struct where T3 : struct where T4 : struct
+        {
+            EnsureInitialized();
+            return _event.Value.SubscribeWhere(condition, added, removed);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public EcsEvent SubscribeWhereEntity<TComponent>(Predicate<EcsEntity> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null)
+            where TComponent : struct
+        {
+            EnsureInitialized();
+            return _event.Value.SubscribeWhereEntity<TComponent>(condition, added, removed);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public EcsEvent SubscribeWhereEntity<T1, T2>(Predicate<EcsEntity> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null)
+            where T1 : struct where T2 : struct
+        {
+            EnsureInitialized();
+            return _event.Value.SubscribeWhereEntity<T1, T2>(condition, added, removed);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Dispose()
+        {
+            if (_event.HasValue)
+            {
+                _event.Value.Dispose();
+            }
         }
     }
 
@@ -158,6 +247,8 @@ namespace BitterECS.Core
         public static Predicate<T> LessThan<T>(T value) where T : IComparable<T> => c => c.CompareTo(value) < 0;
         public static Predicate<T> EqualTo<T>(T value) where T : IEquatable<T> => c => c.Equals(value);
         public static Predicate<T> NotNull<T>() where T : class => c => c != null;
+
+        public static bool HasProvider<T>(EcsEntity e) where T : ILinkableProvider => e.HasProvider<T>();
 
         public static bool Has<T1>(EcsEntity e) where T1 : struct => e.Has<T1>();
         public static bool Has<T1, T2>(EcsEntity e) where T1 : struct where T2 : struct => Has<T1>(e) && e.Has<T2>();

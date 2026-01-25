@@ -1,10 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
 namespace BitterECS.Core
 {
-    public class EcsPool<T> : IDisposable, IPoolDestroy where T : struct
+    public class EcsPool<T> : IDisposable, IPoolDestroy where T : new()
     {
         private T[] _components;
         private int[] _entityToDataIndex;

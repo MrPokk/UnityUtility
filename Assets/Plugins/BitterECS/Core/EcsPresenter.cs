@@ -111,7 +111,7 @@ namespace BitterECS.Core
             }
         }
 
-        public EcsPool<T> GetPool<T>() where T : struct
+        public EcsPool<T> GetPool<T>() where T : new()
         {
             var poolType = typeof(T);
             if (_pools.TryGetValue(poolType, out var pool))
@@ -124,7 +124,7 @@ namespace BitterECS.Core
             return (EcsPool<T>)pool;
         }
 
-        internal object CreatePool<T>() where T : struct
+        internal object CreatePool<T>() where T : new()
         {
             var poolType = typeof(T);
             return _poolFactories.TryGetValue(poolType, out var factory)

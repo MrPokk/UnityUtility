@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace BitterECS.Core
 {
@@ -49,7 +49,7 @@ namespace BitterECS.Core
 
         public int GetID() => _properties.Id;
 
-        public ref T Get<T>() where T : struct
+        public ref T Get<T>() where T : new()
             => ref _properties.Presenter.GetPool<T>().Get(GetID());
 
         public bool TryGet<T>(out T component) where T : struct

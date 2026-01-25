@@ -121,7 +121,13 @@ namespace BitterECS.Editor
             var style = new GUIStyle(EditorStyles.label) { alignment = TextAnchor.MiddleCenter };
             GUILayout.Label("No entities found in:", style);
             GUILayout.Label(TargetPath, EditorStyles.centeredGreyMiniLabel);
+
+            GUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
             if (GUILayout.Button("Force Refresh", GUILayout.Width(120))) RefreshData();
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+
             GUILayout.FlexibleSpace();
         }
 
@@ -1082,7 +1088,11 @@ namespace BitterECS.Editor
 
         private static void DrawOverlay(int instanceID, Rect rect)
         {
+#if UNITY_6000_3_OR_NEWER
+            var gameObject = EditorUtility.EntityIdToObject(instanceID) as GameObject;
+#else
             var gameObject = EditorUtility.InstanceIDToObject(instanceID) as GameObject;
+#endif
             if (gameObject == null || gameObject.name != "ECS Systems") return;
             var count = EcsReflectionHelper.GetSystemsCount();
             if (count <= 0) return;
