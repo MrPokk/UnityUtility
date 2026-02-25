@@ -21,7 +21,7 @@ namespace BitterECS.Core
 
         protected EcsPresenter()
         {
-            var capacity = EcsConfig.InitialEntitiesCapacity;
+            var capacity = EcsDefinitions.InitialEntitiesCapacity;
             _aliveIds = new int[capacity];
             _idToIndex = new int[capacity];
             _entityMasks = new ComponentMask[capacity];
@@ -30,7 +30,7 @@ namespace BitterECS.Core
             _freeEntityIds = new Stack<int>(capacity);
             _poolsFast = new object[64];
             _poolFactories = new Dictionary<Type, Func<EcsPresenter, object>>();
-            _linkedProviders = new Dictionary<int, ILinkableProvider>(EcsConfig.InitialLinkedEntitiesCapacity);
+            _linkedProviders = new Dictionary<int, ILinkableProvider>(EcsDefinitions.InitialLinkedEntitiesCapacity);
 
             Registration();
         }

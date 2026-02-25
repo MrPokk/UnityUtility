@@ -21,7 +21,7 @@ namespace BitterECS.Core
         private static EcsWorld s_instance;
         public static EcsWorld Instance => s_instance ??= new EcsWorld();
 
-        private readonly Dictionary<Type, EcsPresenter> _ecsPresenters = new(EcsConfig.InitialPresentersCapacity);
+        private readonly Dictionary<Type, EcsPresenter> _ecsPresenters = new(EcsDefinitions.InitialPresentersCapacity);
         private RefWorldVersion _world = new(0);
 
         private EcsWorld() { }

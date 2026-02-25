@@ -97,7 +97,7 @@ namespace BitterECS.Core
 
             public void Add<C>(C component) where C : new()
             {
-                if (_operations == null) _operations = new IComponentOperation[EcsConfig.EntityCallbackFactor];
+                if (_operations == null) _operations = new IComponentOperation[EcsDefinitions.EntityCallbackFactor];
                 else if (_count == _operations.Length) Array.Resize(ref _operations, _operations.Length * 2);
                 _operations[_count++] = new ComponentOperation<C> { component = component };
             }
@@ -126,7 +126,7 @@ namespace BitterECS.Core
 
             public void Add<C>(Action<EcsEntity, C> callback) where C : new()
             {
-                if (_callbacks == null) _callbacks = new IComponentCallback[EcsConfig.EntityCallbackFactor];
+                if (_callbacks == null) _callbacks = new IComponentCallback[EcsDefinitions.EntityCallbackFactor];
                 else if (_count == _callbacks.Length) Array.Resize(ref _callbacks, _callbacks.Length * 2);
                 _callbacks[_count++] = new ComponentCallback<C> { callback = callback };
             }

@@ -9,6 +9,7 @@ public struct TagC { }
 
 public class FilterFragmentationTest : IEcsInitSystem, IEcsRunSystem
 {
+    private const int V = 20000 * 100;
     private EcsFilter _complexFilter;
     public Priority Priority => Priority.Medium;
 
@@ -17,7 +18,7 @@ public class FilterFragmentationTest : IEcsInitSystem, IEcsRunSystem
         var presenter = EcsWorld.Get<TestPresenter>();
 
         // Создаем 20 000 "мусорных" сущностей
-        for (int i = 0; i < 20000; i++)
+        for (int i = 0; i < V; i++)
         {
             var e = presenter.CreateEntity();
             if (i % 2 == 0) e.Add(new TagA());
@@ -25,7 +26,7 @@ public class FilterFragmentationTest : IEcsInitSystem, IEcsRunSystem
         }
 
         // Создаем всего 100 сущностей, подходящих под сложный фильтр
-        for (int i = 0; i < 100; i++)
+        for (int i = 0; i < 101; i++)
         {
             var e = presenter.CreateEntity();
             e.Add(new TagA());
@@ -52,6 +53,6 @@ public class FilterFragmentationTest : IEcsInitSystem, IEcsRunSystem
         }
 
         sw.Stop();
-        Debug.Log($"[Filter Fragmentation] Found {count} among 20k entities in: {sw.Elapsed.TotalMilliseconds:F4} ms");
+        Debug.Log($"[Filter Fragmentation] Found {count} among {V} entities in: {sw.Elapsed.TotalMilliseconds:F4} ms");
     }
 }

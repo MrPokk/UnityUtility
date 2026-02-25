@@ -2,14 +2,10 @@
 
 namespace BitterECS.Core
 {
-    public static class EcsConfig
+    public static class EcsDefinitions
     {
         public const ushort InitialPoolCapacity = 64;
         public const ushort PoolGrowthFactor = 2;
-
-        public const ushort FilterConditionInclude = 6;
-        public const ushort FilterConditionExclude = 2;
-
         public const ushort EntityCallbackFactor = 4;
 
         public const ushort InitialPresentersCapacity = 16;

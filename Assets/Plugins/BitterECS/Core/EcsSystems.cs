@@ -8,9 +8,9 @@ namespace BitterECS.Core
         private static EcsSystems s_instance;
         public static EcsSystems Instance => s_instance ??= new EcsSystems();
 
-        private readonly List<IEcsSystem> _allSystems = new(EcsConfig.InitialSystemsCapacity);
-        private readonly Dictionary<Type, IEcsSystem> _systemsByType = new(EcsConfig.InitialSystemsCapacity);
-        private readonly Dictionary<Type, IEcsSystem[]> _cachedInstanceSystems = new(EcsConfig.InitialSystemsCapacity);
+        private readonly List<IEcsSystem> _allSystems = new(EcsDefinitions.InitialSystemsCapacity);
+        private readonly Dictionary<Type, IEcsSystem> _systemsByType = new(EcsDefinitions.InitialSystemsCapacity);
+        private readonly Dictionary<Type, IEcsSystem[]> _cachedInstanceSystems = new(EcsDefinitions.InitialSystemsCapacity);
 
         private EcsSystems() => LoadAllSystems();
 

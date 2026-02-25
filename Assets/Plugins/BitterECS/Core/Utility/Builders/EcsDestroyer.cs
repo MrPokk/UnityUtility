@@ -60,7 +60,7 @@ namespace BitterECS.Core
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Add(IPool pool)
             {
-                if (_pools == null) _pools = new IPool[EcsConfig.EntityCallbackFactor];
+                if (_pools == null) _pools = new IPool[EcsDefinitions.EntityCallbackFactor];
                 if (_count == _pools.Length) Array.Resize(ref _pools, _count * 2);
                 _pools[_count++] = pool;
             }

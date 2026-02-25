@@ -15,7 +15,7 @@ namespace BitterECS.Core
 
         public EcsPool(int initialCapacity = -1)
         {
-            var cap = initialCapacity > 0 ? initialCapacity : EcsConfig.InitialPoolCapacity;
+            var cap = initialCapacity > 0 ? initialCapacity : EcsDefinitions.InitialPoolCapacity;
             _components = new T[cap];
             _denseEntities = new int[cap];
             _sparsePages = Array.Empty<int[]>();
@@ -29,13 +29,13 @@ namespace BitterECS.Core
 
             if (_count >= _components.Length)
             {
-                var newCap = _components.Length > 0 ? _components.Length * EcsConfig.PoolGrowthFactor : EcsConfig.InitialPoolCapacity;
+                var newCap = _components.Length > 0 ? _components.Length * EcsDefinitions.PoolGrowthFactor : EcsDefinitions.InitialPoolCapacity;
                 Array.Resize(ref _components, newCap);
                 Array.Resize(ref _denseEntities, newCap);
             }
 
-            var page = entityId / EcsConfig.SparsePageSize;
-            var index = entityId % EcsConfig.SparsePageSize;
+            var page = entityId / EcsDefinitions.SparsePageSize;
+            var index = entityId % EcsDefinitions.SparsePageSize;
 
             if (page >= _sparsePages.Length)
             {
@@ -44,7 +44,7 @@ namespace BitterECS.Core
 
             if (_sparsePages[page] == null)
             {
-                _sparsePages[page] = new int[EcsConfig.SparsePageSize];
+                _sparsePages[page] = new int[EcsDefinitions.SparsePageSize];
                 Array.Fill(_sparsePages[page], -1);
             }
 
@@ -59,10 +59,10 @@ namespace BitterECS.Core
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Remove(int entityId)
         {
-            var page = entityId / EcsConfig.SparsePageSize;
+            var page = entityId / EcsDefinitions.SparsePageSize;
             if (page >= _sparsePages.Length || _sparsePages[page] == null) return;
 
-            var index = entityId % EcsConfig.SparsePageSize;
+            var index = entityId % EcsDefinitions.SparsePageSize;
             var denseIndex = _sparsePages[page][index];
 
             if (denseIndex == -1) return;
@@ -74,8 +74,8 @@ namespace BitterECS.Core
                 _components[denseIndex] = _components[lastDenseIndex];
                 _denseEntities[denseIndex] = lastEntity;
 
-                var lastPage = lastEntity / EcsConfig.SparsePageSize;
-                var lastIndex = lastEntity % EcsConfig.SparsePageSize;
+                var lastPage = lastEntity / EcsDefinitions.SparsePageSize;
+                var lastIndex = lastEntity % EcsDefinitions.SparsePageSize;
                 _sparsePages[lastPage][lastIndex] = denseIndex;
             }
 
@@ -89,15 +89,15 @@ namespace BitterECS.Core
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref T Get(int entityId)
         {
-            var page = entityId / EcsConfig.SparsePageSize;
-            return ref _components[_sparsePages[page][entityId % EcsConfig.SparsePageSize]];
+            var page = entityId / EcsDefinitions.SparsePageSize;
+            return ref _components[_sparsePages[page][entityId % EcsDefinitions.SparsePageSize]];
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Has(int entityId)
         {
-            var page = entityId / EcsConfig.SparsePageSize;
-            return page < _sparsePages.Length && _sparsePages[page] != null && _sparsePages[page][entityId % EcsConfig.SparsePageSize] != -1;
+            var page = entityId / EcsDefinitions.SparsePageSize;
+            return page < _sparsePages.Length && _sparsePages[page] != null && _sparsePages[page][entityId % EcsDefinitions.SparsePageSize] != -1;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ReadOnlySpan<int> GetDenseEntities() => new(_denseEntities, 0, _count);
