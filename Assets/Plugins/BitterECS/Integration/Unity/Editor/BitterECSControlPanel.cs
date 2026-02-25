@@ -401,14 +401,16 @@ namespace BitterECS.Editor
                 _entityFoldouts[AssetDatabase.GetAssetPath(prefabAsset)] = true;
         }
     }
+
     public class PathsView
     {
         private BitterECSControlPanel _owner;
+
         [Serializable]
         class PathNode
         {
             public string path;
-            public string fullPath; // Added to track unique path for expansion
+            public string fullPath;
             public List<PathNode> children = new();
             public bool expanded;
             public PathNode(string path, string parentPath)
@@ -421,7 +423,10 @@ namespace BitterECS.Editor
         [Serializable]
         class PathDefinition
         {
-            public string Name; public string Suffix; public string ParentName;
+            public string Name;
+            public string Suffix;
+            public string ParentName;
+
             public string GetFinalValue(List<PathDefinition> allDefs)
             {
                 if (string.IsNullOrEmpty(ParentName) || ParentName == "None") return Suffix;
@@ -503,27 +508,29 @@ namespace BitterECS.Editor
                 for (var i = 0; i < _pathDefinitions.Count; i++) DrawDefinitionRow(i);
 
                 GUILayout.Space(5);
-                if (GUILayout.Button("+ Add New Path Constant", GUILayout.Height(24)))
+                EditorGUILayout.BeginHorizontal();
+                if (GUILayout.Button("+ Add New", GUILayout.Height(24)))
                 {
                     _pathDefinitions.Add(new PathDefinition { Name = "NEW_PATH", ParentName = "None", Suffix = "New/" });
                     SortDefinitions();
                 }
+                if (GUILayout.Button("Scan & Import Missing Folders", GUILayout.Height(24)))
+                {
+                    ScanAndAddMissingFolders();
+                }
+                EditorGUILayout.EndHorizontal();
             }
 
             using (new EditorGUILayout.VerticalScope(BitterStyle.Card))
             {
                 GUILayout.Label("Generated Constants Prefabs", BitterStyle.HeaderLabel);
                 GUILayout.Space(5);
-
-                GUILayout.Label("This will generate paths for all prefabs to load them via the [new Loader].", EditorStyles.wordWrappedMiniLabel);
-
                 if (GUILayout.Button("Create Paths Prefab", GUILayout.Height(24)))
                 {
                     BitterAutoPathConstantsGenerator.GenerateAll();
                     AssetDatabase.Refresh();
                 }
             }
-
 
             GUILayout.Space(10);
 
@@ -563,6 +570,92 @@ namespace BitterECS.Editor
             EditorGUILayout.EndScrollView();
         }
 
+        private void ScanAndAddMissingFolders()
+        {
+            string baseSearchPath = Application.dataPath;
+            if (!string.IsNullOrEmpty(PathProject.RootPath))
+            {
+                baseSearchPath = Path.Combine(Application.dataPath, PathProject.RootPath).Replace("\\", "/");
+            }
+
+            if (!Directory.Exists(baseSearchPath))
+            {
+                Debug.LogWarning($"[PathsView] Root directory does not exist: {baseSearchPath}");
+                return;
+            }
+
+            var existingPaths = _pathDefinitions
+                .Select(p => p.GetFinalValue(_pathDefinitions).Trim('/'))
+                .Where(s => !string.IsNullOrEmpty(s))
+                .ToHashSet();
+
+            string[] allDirectories = Directory.GetDirectories(baseSearchPath, "*", SearchOption.AllDirectories);
+            int addedCount = 0;
+
+            foreach (var realDir in allDirectories)
+            {
+                string normalizedRealDir = realDir.Replace("\\", "/");
+
+                string relativeToRoot = normalizedRealDir.Substring(baseSearchPath.Length).Trim('/');
+
+                if (string.IsNullOrEmpty(relativeToRoot)) continue;
+
+                if (!existingPaths.Contains(relativeToRoot))
+                {
+                    AddNewPathDefinitionFromPath(relativeToRoot);
+                    addedCount++;
+
+                    existingPaths.Add(relativeToRoot);
+                }
+            }
+
+            if (addedCount > 0)
+            {
+                SortDefinitions();
+                RefreshTree();
+                Debug.Log($"[PathsView] Added {addedCount} new folder definitions from Root.");
+            }
+        }
+
+        private void AddNewPathDefinitionFromPath(string relativeToRootPath)
+        {
+            string parentName = "None";
+            string suffix = relativeToRootPath + "/";
+
+            var potentialParents = _pathDefinitions
+                .Select(p => new { Name = p.Name, FullVal = p.GetFinalValue(_pathDefinitions) })
+                .Where(p => !string.IsNullOrEmpty(p.FullVal))
+                .OrderByDescending(p => p.FullVal.Length);
+
+            foreach (var parent in potentialParents)
+            {
+                if (suffix.StartsWith(parent.FullVal) && suffix != parent.FullVal)
+                {
+                    parentName = parent.Name;
+                    suffix = suffix.Substring(parent.FullVal.Length);
+                    break;
+                }
+            }
+
+            string folderName = Path.GetFileName(relativeToRootPath.TrimEnd('/'));
+            string constName = Regex.Replace(folderName, @"[^a-zA-Z0-9_]", "").ToUpper() + "_PATH";
+
+            int counter = 1;
+            string originalName = constName;
+            while (_pathDefinitions.Any(p => p.Name == constName))
+            {
+                constName = originalName + "_" + counter;
+                counter++;
+            }
+
+            _pathDefinitions.Add(new PathDefinition
+            {
+                Name = constName,
+                ParentName = parentName,
+                Suffix = suffix
+            });
+        }
+
         private void LoadCurrentConstants()
         {
             _pathDefinitions.Clear();
@@ -571,16 +664,13 @@ namespace BitterECS.Editor
                 .Select(f => new { f.Name, Value = (string)f.GetValue(null) })
                 .OrderBy(x => x.Value.Length).ToList();
 
-
             foreach (var field in rawFields)
             {
                 var normalizedName = Regex.Replace(field.Name, @"[^a-zA-Z0-9_]", "").ToUpper();
-
                 var def = new PathDefinition { Name = normalizedName };
 
                 var possibleParent = _pathDefinitions
-                    .Where(p => field.Value.StartsWith(p.GetFinalValue(_pathDefinitions))
-                                && field.Value != p.GetFinalValue(_pathDefinitions))
+                    .Where(p => field.Value.StartsWith(p.GetFinalValue(_pathDefinitions)) && field.Value != p.GetFinalValue(_pathDefinitions))
                     .OrderByDescending(p => p.GetFinalValue(_pathDefinitions).Length)
                     .FirstOrDefault();
 
@@ -596,7 +686,6 @@ namespace BitterECS.Editor
                 }
                 _pathDefinitions.Add(def);
             }
-
             SortDefinitions();
         }
 
@@ -624,7 +713,6 @@ namespace BitterECS.Editor
             {
                 var node = new PathNode(group.Key, parent.fullPath);
                 if (_owner.expandedPathKeys.Contains(node.fullPath)) node.expanded = true;
-
                 parent.children.Add(node);
                 var subPaths = group.Where(parts => parts.Length > 1).Select(parts => string.Join("/", parts, 1, parts.Length - 1));
                 if (subPaths.Any()) BuildTree(node, subPaths);
@@ -634,7 +722,6 @@ namespace BitterECS.Editor
         private void DrawDefinitionRow(int index)
         {
             if (index >= _pathDefinitions.Count) return;
-
             var def = _pathDefinitions[index];
             using (new EditorGUILayout.HorizontalScope())
             {
@@ -642,24 +729,13 @@ namespace BitterECS.Editor
                 def.Name = Regex.Replace(newName, @"[^a-zA-Z0-9_]", "").ToUpper();
 
                 var options = new List<string> { "None" };
-                options.AddRange(_pathDefinitions
-                    .Where(x => x != def)
-                    .Select(x => x.Name)
-                    .OrderBy(n => n));
-
+                options.AddRange(_pathDefinitions.Where(x => x != def).Select(x => x.Name).OrderBy(n => n));
                 var currentIndex = options.IndexOf(def.ParentName);
-
-                if (currentIndex == -1)
-                {
-                    currentIndex = 0;
-                }
+                if (currentIndex == -1) currentIndex = 0;
 
                 EditorGUI.BeginChangeCheck();
                 var newIndex = EditorGUILayout.Popup(currentIndex, options.ToArray(), GUILayout.Width(100));
-                if (EditorGUI.EndChangeCheck())
-                {
-                    def.ParentName = options[newIndex];
-                }
+                if (EditorGUI.EndChangeCheck()) def.ParentName = options[newIndex];
 
                 def.Suffix = EditorGUILayout.TextField(def.Suffix);
 
@@ -678,13 +754,9 @@ namespace BitterECS.Editor
                 GUILayout.Space(indent * 15);
                 var icon = node.expanded ? BitterStyle.IconFolderOpen : BitterStyle.IconFolder;
                 var content = new GUIContent($" {node.path}", icon.image);
-
-                if (node.children.Count > 0)
-                    node.expanded = EditorGUILayout.Foldout(node.expanded, content, true);
-                else
-                    GUILayout.Label(content, GUILayout.Height(20));
+                if (node.children.Count > 0) node.expanded = EditorGUILayout.Foldout(node.expanded, content, true);
+                else GUILayout.Label(content, GUILayout.Height(20));
             }
-
             if (node.expanded && node.children.Count > 0)
             {
                 foreach (var child in node.children) DrawNode(child, indent + 1);
@@ -694,7 +766,7 @@ namespace BitterECS.Editor
         private void GenerateScript()
         {
             var scriptPath = FindPathProjectScript();
-            if (string.IsNullOrEmpty(scriptPath)) { Debug.LogError("Could not find PathProject.cs"); return; }
+            if (string.IsNullOrEmpty(scriptPath)) return;
             StringBuilder sb = new StringBuilder();
             sb.AppendLine("using System;");
             sb.AppendLine("namespace BitterECS.Extra");
@@ -712,8 +784,7 @@ namespace BitterECS.Editor
             sb.AppendLine("#endif");
             sb.AppendLine("");
 
-            SortDefinitions(); // Сортируем перед записью
-
+            SortDefinitions();
             foreach (var def in _pathDefinitions)
             {
                 sb.Append($"        public const string {def.Name} = ");
@@ -724,8 +795,8 @@ namespace BitterECS.Editor
             }
             sb.AppendLine("    }");
             sb.AppendLine("}");
-            try { File.WriteAllText(scriptPath, sb.ToString()); AssetDatabase.Refresh(); Debug.Log("PathProject.cs updated."); }
-            catch (Exception e) { Debug.LogError($"Failed to write script: {e.Message}"); }
+            File.WriteAllText(scriptPath, sb.ToString());
+            AssetDatabase.Refresh();
         }
 
         private string FindPathProjectScript()

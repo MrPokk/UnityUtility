@@ -17,6 +17,7 @@ namespace BitterECS.Extra.Editor
         [MenuItem("BitterECS/Tools/Generate All Path Constants", priority = 0)]
         public static void GenerateAll()
         {
+            // Убедимся, что пути PathProject актуальны
             PathUtility.GenerationConstPath();
 
             var pathFields = typeof(PathProject)
@@ -58,7 +59,7 @@ namespace BitterECS.Extra.Editor
             }
             else
             {
-                Debug.Log($"[BitterECS] No prefabs found in specified paths.");
+                Debug.Log($"[BitterECS] No assets found in specified paths.");
             }
         }
 
@@ -69,16 +70,22 @@ namespace BitterECS.Extra.Editor
             if (!Directory.Exists(fullSystemPath)) return;
 
             var normalizedCurrentPath = NormalizePath(fullSystemPath);
-            var prefabFiles = Directory.GetFiles(fullSystemPath, "*.prefab", SearchOption.AllDirectories);
 
-            if (prefabFiles.Length == 0) return;
+            // 1. Ищем и префабы, и ассеты (ScriptableObject)
+            var prefabFiles = Directory.GetFiles(fullSystemPath, "*.prefab", SearchOption.AllDirectories);
+            var assetFiles = Directory.GetFiles(fullSystemPath, "*.asset", SearchOption.AllDirectories);
+
+            var allFiles = prefabFiles.Concat(assetFiles).ToArray();
+
+            if (allFiles.Length == 0) return;
 
             var validItems = new List<(string constName, string loadPath, string summaryInfo)>();
 
-            foreach (var file in prefabFiles)
+            foreach (var file in allFiles)
             {
                 var normalizedFile = NormalizePath(file);
 
+                // Проверка вложенности путей (чтобы не дублировать константы для вложенных папок, если они определены отдельно)
                 bool belongsToMoreSpecificPath = allDefinedPaths.Any(otherPath =>
                     otherPath != normalizedCurrentPath &&
                     otherPath.Length > normalizedCurrentPath.Length &&
@@ -88,25 +95,39 @@ namespace BitterECS.Extra.Editor
                 if (belongsToMoreSpecificPath) continue;
 
                 var assetPath = "Assets" + file.Substring(Application.dataPath.Length).Replace('\\', '/');
-                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
-                if (prefab == null) continue;
-
                 string summaryInfo = null;
 
-                var provider = prefab.GetComponent<ITypedComponentProvider>();
-                if (provider != null)
+                // 2. Логика разделения по типу файла
+                if (file.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase))
                 {
-                    summaryInfo = $"Provider: {provider.GetType().Name}";
-                }
-                else
-                {
-                    var mb = prefab.GetComponent<MonoBehaviour>();
-                    if (mb != null)
+                    var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
+                    if (prefab == null) continue;
+
+                    var provider = prefab.GetComponent<ITypedComponentProvider>();
+                    if (provider != null)
                     {
-                        summaryInfo = $"Component: {mb.GetType().Name}";
+                        summaryInfo = $"Provider: {provider.GetType().Name}";
+                    }
+                    else
+                    {
+                        var mb = prefab.GetComponent<MonoBehaviour>();
+                        if (mb != null)
+                        {
+                            summaryInfo = $"Component: {mb.GetType().Name}";
+                        }
+                    }
+                }
+                else if (file.EndsWith(".asset", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Загружаем как ScriptableObject
+                    var so = AssetDatabase.LoadAssetAtPath<ScriptableObject>(assetPath);
+                    if (so != null)
+                    {
+                        summaryInfo = $"ScriptableObject: {so.GetType().Name}";
                     }
                 }
 
+                // 3. Если информация найдена, добавляем в список генерации
                 if (summaryInfo != null)
                 {
                     var fileName = Path.GetFileNameWithoutExtension(file);
@@ -120,14 +141,19 @@ namespace BitterECS.Extra.Editor
                         relativeDir = fileDirectory.Substring(fullSystemPath.Length).Replace('\\', '/').TrimStart('/');
                     }
 
+                    // Формируем путь загрузки (без расширения)
                     var loadPath = string.IsNullOrEmpty(relativeDir)
                         ? fileName
                         : Path.Combine(relativeResourcePath, relativeDir, fileName).Replace('\\', '/');
 
+                    // Корректировка пути, если он не начинается с базового пути (защита от лишних слэшей)
                     if (!loadPath.StartsWith(relativeResourcePath))
                     {
                         loadPath = Path.Combine(relativeResourcePath, fileName).Replace('\\', '/');
                     }
+
+                    // Убираем двойные слэши если возникли
+                    loadPath = loadPath.Replace("//", "/");
 
                     validItems.Add((constName, loadPath, summaryInfo));
                 }
@@ -148,6 +174,7 @@ namespace BitterECS.Extra.Editor
             }
             catch (Exception)
             {
+                // Fallback, если PathUtility недоступен или выдал ошибку
                 return Path.Combine(PathProject.DataPath, $"!{PathProject.ProductName}", PathProject.RootPath, relativeResourcePath);
             }
         }
@@ -163,10 +190,13 @@ namespace BitterECS.Extra.Editor
             sb.AppendLine("using System;");
             sb.AppendLine();
             sb.AppendLine("// [AUTO-GENERATED] by BitterECS AutoPathConstantsGenerator");
-            sb.AppendLine("// Defines paths for prefabs containing BitterECS Providers or MonoBehaviours");
+            sb.AppendLine("// Defines paths for Prefabs (Providers/MonoBehaviours) and ScriptableObjects");
             sb.AppendLine();
             sb.AppendLine($"public static class {className}");
             sb.AppendLine("{");
+
+            // Сортируем для красоты
+            items = items.OrderBy(x => x.name).ToList();
 
             foreach (var item in items)
             {
@@ -203,16 +233,33 @@ namespace BitterECS.Extra.Editor
         {
             if (string.IsNullOrEmpty(input)) return input;
             var result = new StringBuilder();
-            result.Append(char.ToUpper(input[0]));
+
+            // Обработка первого символа
+            if (char.IsLetterOrDigit(input[0]))
+                result.Append(char.ToUpper(input[0]));
+            else
+                result.Append('_');
+
             for (var i = 1; i < input.Length; i++)
             {
-                if (char.IsUpper(input[i]) && !char.IsUpper(input[i - 1]) && input[i - 1] != '_')
+                char c = input[i];
+                char prev = input[i - 1];
+
+                // Вставляем подчеркивание перед заглавной буквой, если предыдущая буква строчная
+                // или если это начало последовательности цифр
+                if ((char.IsUpper(c) && !char.IsUpper(prev) && prev != '_') ||
+                    (char.IsDigit(c) && !char.IsDigit(prev) && prev != '_'))
                 {
                     result.Append('_');
                 }
-                result.Append(char.ToUpper(input[i]));
+
+                if (char.IsLetterOrDigit(c))
+                    result.Append(char.ToUpper(c));
+                else
+                    result.Append('_');
             }
-            return result.ToString().Replace(" ", "_").Replace("-", "_");
+
+            return result.ToString().Replace(" ", "_").Replace("-", "_").Replace("__", "_");
         }
     }
 }

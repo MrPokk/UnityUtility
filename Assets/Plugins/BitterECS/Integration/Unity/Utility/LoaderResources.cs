@@ -12,7 +12,7 @@ public readonly ref struct Loader<T> where T : Object
         _path = path;
     }
 
-    public T GetPrefab() => Asset;
-    public T GetInstance() => Object.Instantiate(GetPrefab());
+    public T Prefab() => Asset;
+    public T New() => Object.Instantiate(Prefab());
     public static implicit operator T(Loader<T> loader) => Object.Instantiate(loader.Asset);
 }

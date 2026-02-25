@@ -94,7 +94,6 @@ namespace BitterECS.Core
     {
         public EcsPresenter Presenter { get; }
         public int Id { get; }
-        public int CountComponents { get; internal set; }
 
         public EcsProperty(EcsPresenter presenter, int id)
         {

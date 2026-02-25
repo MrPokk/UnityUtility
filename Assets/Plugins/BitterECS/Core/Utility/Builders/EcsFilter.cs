@@ -59,13 +59,6 @@ namespace BitterECS.Core
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EcsFilter WhereType<T>(Predicate<T> predicate) where T : EcsEntity
-        {
-            AddCondition(ref _includeConditions, new EntityTypePredicateCondition<T>(predicate), ref _includeCount);
-            return this;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public EcsFilter WhereProvider<T>(Predicate<T> predicate) where T : class, ILinkableProvider
         {
             AddCondition(ref _includeConditions, new TypeProviderPredicateCondition<T>(predicate), ref _includeCount);
@@ -104,13 +97,6 @@ namespace BitterECS.Core
         public EcsFilter Or(Predicate<EcsEntity> predicate)
         {
             AddCondition(ref _orConditions, new EntityPredicateCondition(predicate), ref _orCount);
-            return this;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EcsFilter OrType<T>(Predicate<T> predicate) where T : EcsEntity
-        {
-            AddCondition(ref _orConditions, new EntityTypePredicateCondition<T>(predicate), ref _orCount);
             return this;
         }
 
@@ -208,29 +194,24 @@ namespace BitterECS.Core
 
         private void RebuildCache()
         {
-            var aliveEntities = _presenter.GetAliveEntities();
-            ResetFilteredCache();
+            var aliveIds = _presenter.GetAliveIds();
+            _filteredLength = 0;
 
-            for (var i = 0; i < aliveEntities.Count; i++)
+            for (var i = 0; i < aliveIds.Length; i++)
             {
-                var entity = aliveEntities[i];
-                if (!MatchesAllConditions(entity))
+                var id = aliveIds[i];
+                var entity = new EcsEntity(id, _presenter);
+
+                if (!MatchesAllConditions(entity)) continue;
+
+                if (_filteredLength >= _filteredCache.Length)
                 {
-                    continue;
+                    Array.Resize(ref _filteredCache, _filteredCache.Length * 2);
                 }
 
-                AddToFilteredCache(entity);
+                _filteredCache[_filteredLength] = entity;
+                _filteredLength++;
             }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ResetFilteredCache() => _filteredLength = 0;
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void AddToFilteredCache(EcsEntity entity = default)
-        {
-            _filteredCache[_filteredLength] = entity;
-            _filteredLength++;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -321,17 +302,17 @@ namespace BitterECS.Core
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EcsFilter WhereType<TComponent>(Predicate<TComponent> predicate) where TComponent : EcsEntity
-        {
-            EnsureInitialized();
-            return _filter.Value.WhereType(predicate);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public EcsFilter WhereProvider<TComponent>(Predicate<TComponent> predicate) where TComponent : class, ILinkableProvider
         {
             EnsureInitialized();
             return _filter.Value.WhereProvider(predicate);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public EcsFilter WhereProvider<TComponent>() where TComponent : class, ILinkableProvider
+        {
+            EnsureInitialized();
+            return _filter.Value.WhereProvider<TComponent>();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -383,16 +364,6 @@ namespace BitterECS.Core
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Check(EcsEntity entity) => _predicate(entity);
-    }
-
-    public readonly struct EntityTypePredicateCondition<T> : ICondition where T : EcsEntity
-    {
-        private readonly Predicate<T> _predicate;
-
-        public EntityTypePredicateCondition(Predicate<T> predicate) => _predicate = predicate;
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool Check(EcsEntity entity) => entity is T typeEntity && _predicate(typeEntity);
     }
 
     public readonly struct TypeProviderPredicateCondition<T> : ICondition where T : class, ILinkableProvider

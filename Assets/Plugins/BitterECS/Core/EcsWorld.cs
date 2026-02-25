@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace BitterECS.Core
@@ -77,26 +77,10 @@ namespace BitterECS.Core
         {
             foreach (var presenter in _ecsPresenters.Values)
             {
-                if (presenter.IsTypeAllowed(type))
-                {
-                    return presenter;
-                }
+                return presenter;
             }
 
             throw new Exception($"No presenter found that can handle type: {type} count: {_ecsPresenters.Count}");
-        }
-
-        internal EcsPresenter GetToEntityTypeInternal<T>() where T : EcsEntity
-        {
-            foreach (var presenter in _ecsPresenters.Values)
-            {
-                if (presenter.IsTypeAllowed<T>())
-                {
-                    return presenter;
-                }
-            }
-
-            throw new Exception($"No presenter found that can handle type: {typeof(T)} count: {_ecsPresenters.Count}");
         }
 
         internal ICollection<EcsPresenter> GetAllInternal() => _ecsPresenters.Values;
@@ -119,7 +103,6 @@ namespace BitterECS.Core
         public static EcsPresenter Get(Type type) => Instance.GetInternal(type);
         public static T Get<T>() where T : EcsPresenter, new() => Instance.GetInternal<T>();
         public static EcsPresenter GetToEntityType(Type type) => Instance.GetToEntityTypeInternal(type);
-        public static EcsPresenter GetToEntityType<T>() where T : EcsEntity => Instance.GetToEntityTypeInternal<T>();
         public static ICollection<EcsPresenter> GetAll() => Instance.GetAllInternal();
         public static RefWorldVersion GetRefWorld() => Instance.GetWorld();
         public static RefWorldVersion IncreaseVersion() => Instance.IncreaseWorldVersion();

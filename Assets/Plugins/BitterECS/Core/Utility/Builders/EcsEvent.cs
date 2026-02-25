@@ -19,44 +19,44 @@ namespace BitterECS.Core
             _priority = priority;
         }
 
-        public EcsEvent Subscribe<T>(Action<EcsEntity> added = null, Action<EcsEntity> removed = null) where T : struct
+        public EcsEvent Subscribe<T>(Action<EcsEntity> added = null, Action<EcsEntity> removed = null) where T : new()
             => SubscribeWhere<T>(_ => true, added, removed);
 
-        public EcsEvent SubscribeWhere<T>(Predicate<T> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null) where T : struct
+        public EcsEvent SubscribeWhere<T>(Predicate<T> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null) where T : new()
         {
             Register(new[] { typeof(T) }, e => e.TryGet<T>(out var c) && condition(c), added, removed);
             return this;
         }
 
         public EcsEvent SubscribeWhere<T1, T2>(Func<T1, T2, bool> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null)
-            where T1 : struct where T2 : struct
+            where T1 : new() where T2 : new()
         {
             Register(new[] { typeof(T1), typeof(T2) }, e => e.TryGet<T1>(out var c1) && e.TryGet<T2>(out var c2) && condition(c1, c2), added, removed);
             return this;
         }
 
         public EcsEvent SubscribeWhere<T1, T2, T3>(Func<T1, T2, T3, bool> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null)
-            where T1 : struct where T2 : struct where T3 : struct
+            where T1 : new() where T2 : new() where T3 : new()
         {
             Register(new[] { typeof(T1), typeof(T2), typeof(T3) }, e => e.TryGet<T1>(out var c1) && e.TryGet<T2>(out var c2) && e.TryGet<T3>(out var c3) && condition(c1, c2, c3), added, removed);
             return this;
         }
 
         public EcsEvent SubscribeWhere<T1, T2, T3, T4>(Func<T1, T2, T3, T4, bool> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null)
-            where T1 : struct where T2 : struct where T3 : struct where T4 : struct
+            where T1 : new() where T2 : new() where T3 : new() where T4 : new()
         {
             Register(new[] { typeof(T1), typeof(T2), typeof(T3), typeof(T4) }, e => e.TryGet<T1>(out var c1) && e.TryGet<T2>(out var c2) && e.TryGet<T3>(out var c3) && e.TryGet<T4>(out var c4) && condition(c1, c2, c3, c4), added, removed);
             return this;
         }
 
-        public EcsEvent SubscribeWhereEntity<T>(Predicate<EcsEntity> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null) where T : struct
+        public EcsEvent SubscribeWhereEntity<T>(Predicate<EcsEntity> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null) where T : new()
         {
             Register(new[] { typeof(T) }, e => { try { return e.Has<T>() && condition(e); } catch { return false; } }, added, removed);
             return this;
         }
 
         public EcsEvent SubscribeWhereEntity<T1, T2>(Predicate<EcsEntity> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null)
-            where T1 : struct where T2 : struct
+            where T1 : new() where T2 : new()
         {
             Register(new[] { typeof(T1), typeof(T2) }, e => { try { return e.Has<T1>() && e.Has<T2>() && condition(e); } catch { return false; } }, added, removed);
             return this;
@@ -99,7 +99,7 @@ namespace BitterECS.Core
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public EcsEvent Subscribe<TComponent>(Action<EcsEntity> added = null, Action<EcsEntity> removed = null)
-            where TComponent : struct
+            where TComponent : new()
         {
             EnsureInitialized();
             return _event.Value.Subscribe<TComponent>(added, removed);
@@ -107,7 +107,7 @@ namespace BitterECS.Core
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public EcsEvent SubscribeWhere<TComponent>(Predicate<TComponent> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null)
-            where TComponent : struct
+            where TComponent : new()
         {
             EnsureInitialized();
             return _event.Value.SubscribeWhere(condition, added, removed);
@@ -115,7 +115,7 @@ namespace BitterECS.Core
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public EcsEvent SubscribeWhere<T1, T2>(Func<T1, T2, bool> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null)
-            where T1 : struct where T2 : struct
+            where T1 : new() where T2 : new()
         {
             EnsureInitialized();
             return _event.Value.SubscribeWhere(condition, added, removed);
@@ -123,7 +123,7 @@ namespace BitterECS.Core
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public EcsEvent SubscribeWhere<T1, T2, T3>(Func<T1, T2, T3, bool> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null)
-            where T1 : struct where T2 : struct where T3 : struct
+            where T1 : new() where T2 : new() where T3 : new()
         {
             EnsureInitialized();
             return _event.Value.SubscribeWhere(condition, added, removed);
@@ -131,7 +131,7 @@ namespace BitterECS.Core
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public EcsEvent SubscribeWhere<T1, T2, T3, T4>(Func<T1, T2, T3, T4, bool> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null)
-            where T1 : struct where T2 : struct where T3 : struct where T4 : struct
+            where T1 : new() where T2 : new() where T3 : new() where T4 : new()
         {
             EnsureInitialized();
             return _event.Value.SubscribeWhere(condition, added, removed);
@@ -139,7 +139,7 @@ namespace BitterECS.Core
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public EcsEvent SubscribeWhereEntity<TComponent>(Predicate<EcsEntity> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null)
-            where TComponent : struct
+            where TComponent : new()
         {
             EnsureInitialized();
             return _event.Value.SubscribeWhereEntity<TComponent>(condition, added, removed);
@@ -147,7 +147,7 @@ namespace BitterECS.Core
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public EcsEvent SubscribeWhereEntity<T1, T2>(Predicate<EcsEntity> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null)
-            where T1 : struct where T2 : struct
+            where T1 : new() where T2 : new()
         {
             EnsureInitialized();
             return _event.Value.SubscribeWhereEntity<T1, T2>(condition, added, removed);
@@ -184,14 +184,19 @@ namespace BitterECS.Core
                 _subscriptions[i] = (IEcsEvent)Activator.CreateInstance(subType, priority, presenter, (Action<EcsEntity>)OnComponentChanged);
             }
 
-            foreach (var entity in presenter.GetAliveEntities()) CheckEntity(entity);
+            foreach (var entity in presenter.GetAliveIds())
+            {
+                CheckEntity(presenter.Get(entity));
+            }
         }
 
         private void OnComponentChanged(EcsEntity entity) => CheckEntity(entity);
 
         private void CheckEntity(EcsEntity entity)
         {
-            if (entity == null) return;
+            if (entity.Presenter == null || !entity.Presenter.Has(entity.Id))
+                return;
+
             var id = entity.GetID();
             var satisfied = _condition(entity);
             var wasActive = _activeEntities.Contains(id);
@@ -215,7 +220,7 @@ namespace BitterECS.Core
         }
     }
 
-    internal class ComponentSubscription<T> : IEcsEvent where T : struct
+    internal class ComponentSubscription<T> : IEcsEvent where T : new()
     {
         private readonly EcsEventPool<T> _pool;
 
@@ -250,16 +255,16 @@ namespace BitterECS.Core
 
         public static bool HasProvider<T>(EcsEntity e) where T : ILinkableProvider => e.HasProvider<T>();
 
-        public static bool Has<T1>(EcsEntity e) where T1 : struct => e.Has<T1>();
-        public static bool Has<T1, T2>(EcsEntity e) where T1 : struct where T2 : struct => Has<T1>(e) && e.Has<T2>();
-        public static bool Has<T1, T2, T3>(EcsEntity e) where T1 : struct where T2 : struct where T3 : struct => Has<T1, T2>(e) && e.Has<T3>();
-        public static bool Has<T1, T2, T3, T4>(EcsEntity e) where T1 : struct where T2 : struct where T3 : struct where T4 : struct => Has<T1, T2, T3>(e) && e.Has<T4>();
-        public static bool Has<T1, T2, T3, T4, T5>(EcsEntity e) where T1 : struct where T2 : struct where T3 : struct where T4 : struct where T5 : struct => Has<T1, T2, T3, T4>(e) && e.Has<T5>();
+        public static bool Has<T1>(EcsEntity e) where T1 : new() => e.Has<T1>();
+        public static bool Has<T1, T2>(EcsEntity e) where T1 : new() where T2 : new() => Has<T1>(e) && e.Has<T2>();
+        public static bool Has<T1, T2, T3>(EcsEntity e) where T1 : new() where T2 : new() where T3 : new() => Has<T1, T2>(e) && e.Has<T3>();
+        public static bool Has<T1, T2, T3, T4>(EcsEntity e) where T1 : new() where T2 : new() where T3 : new() where T4 : new() => Has<T1, T2, T3>(e) && e.Has<T4>();
+        public static bool Has<T1, T2, T3, T4, T5>(EcsEntity e) where T1 : new() where T2 : new() where T3 : new() where T4 : new() where T5 : new() => Has<T1, T2, T3, T4>(e) && e.Has<T5>();
 
-        public static bool Not<T1>(EcsEntity e) where T1 : struct => !Has<T1>(e);
-        public static bool Not<T1, T2>(EcsEntity e) where T1 : struct where T2 : struct => !Has<T1, T2>(e);
-        public static bool Not<T1, T2, T3>(EcsEntity e) where T1 : struct where T2 : struct where T3 : struct => !Has<T1, T2, T3>(e);
-        public static bool Not<T1, T2, T3, T4>(EcsEntity e) where T1 : struct where T2 : struct where T3 : struct where T4 : struct => !Has<T1, T2, T3, T4>(e);
-        public static bool Not<T1, T2, T3, T4, T5>(EcsEntity e) where T1 : struct where T2 : struct where T3 : struct where T4 : struct where T5 : struct => !Has<T1, T2, T3, T4, T5>(e);
+        public static bool Not<T1>(EcsEntity e) where T1 : new() => !Has<T1>(e);
+        public static bool Not<T1, T2>(EcsEntity e) where T1 : new() where T2 : new() => !Has<T1, T2>(e);
+        public static bool Not<T1, T2, T3>(EcsEntity e) where T1 : new() where T2 : new() where T3 : new() => !Has<T1, T2, T3>(e);
+        public static bool Not<T1, T2, T3, T4>(EcsEntity e) where T1 : new() where T2 : new() where T3 : new() where T4 : new() => !Has<T1, T2, T3, T4>(e);
+        public static bool Not<T1, T2, T3, T4, T5>(EcsEntity e) where T1 : new() where T2 : new() where T3 : new() where T4 : new() where T5 : new() => !Has<T1, T2, T3, T4, T5>(e);
     }
 }

@@ -1,113 +1,113 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Runtime.CompilerServices;
 
 namespace BitterECS.Core
 {
     public abstract partial class EcsPresenter : IDisposable
     {
-        private EcsEntity[] _entities;
+        private int[] _aliveIds;
+        private int[] _idToIndex;
         private int _entitiesCount;
+        private int _aliveCount;
+
         private readonly Stack<int> _freeEntityIds;
         private readonly Dictionary<Type, Func<object>> _poolFactories;
         private readonly Dictionary<Type, object> _pools;
-        private readonly HashSet<Type> _allowedTypes;
-        private readonly Dictionary<EcsEntity, ILinkableProvider> _linkedEntities;
+        private readonly Dictionary<int, ILinkableProvider> _linkedProviders;
 
-        public int CountEntity => _entitiesCount - _freeEntityIds.Count;
-        public int Capacity => _entities.Length;
-        public IReadOnlyDictionary<Type, object> Pools => _pools;
+        private int[] _componentCounts;
+
+        public int CountEntity => _aliveCount;
 
         protected EcsPresenter()
         {
-            _entities = new EcsEntity[EcsConfig.InitialEntitiesCapacity];
-            _freeEntityIds = new Stack<int>(EcsConfig.InitialEntitiesCapacity);
-            _linkedEntities = new Dictionary<EcsEntity, ILinkableProvider>(EcsConfig.InitialLinkedEntitiesCapacity);
+            var capacity = EcsConfig.InitialEntitiesCapacity;
+            _aliveIds = new int[capacity];
+            _idToIndex = new int[capacity];
+            Array.Fill(_idToIndex, -1);
+            _componentCounts = new int[EcsConfig.InitialEntitiesCapacity];
+
+            _freeEntityIds = new Stack<int>(capacity);
             _pools = new Dictionary<Type, object>(EcsConfig.InitialPoolCapacity);
             _poolFactories = new Dictionary<Type, Func<object>>();
-            _allowedTypes = new HashSet<Type>();
+            _linkedProviders = new Dictionary<int, ILinkableProvider>(EcsConfig.InitialLinkedEntitiesCapacity);
+            _aliveCount = 0;
             _entitiesCount = 0;
 
             Registration();
         }
 
-        protected abstract void Registration();
+        protected virtual void Registration() { }
+        public void AddPoolFactory<T>(Func<EcsPool<T>> factory) where T : new() => _poolFactories[typeof(T)] = factory;
+        public void AddCheckEvent<T>() where T : new() => AddPoolFactory(() => new EcsEventPool<T>());
 
-        protected void AddLimitedType<T>() where T : EcsEntity => _allowedTypes.Add(typeof(T));
-        public void AddPoolFactory<T>(Func<EcsPool<T>> factory) where T : struct => _poolFactories[typeof(T)] = factory;
-        public void AddCheckEvent<T>() where T : struct => AddPoolFactory(() => new EcsEventPool<T>());
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ReadOnlySpan<int> GetAliveIds() => _aliveIds.AsSpan(0, _aliveCount);
 
-        public bool IsTypeAllowed(Type type)
+        public EcsEntity CreateEntity()
         {
-            if (_allowedTypes.Count == 0 || _allowedTypes.Contains(type))
+            int id;
+            if (_freeEntityIds.Count > 0)
             {
-                return true;
+                id = _freeEntityIds.Pop();
+            }
+            else
+            {
+                id = _entitiesCount++;
+                if (id >= _idToIndex.Length) ResizeIdArrays(id * 2);
             }
 
-            return _allowedTypes.Any(allowedType => type.IsSubclassOf(allowedType));
-        }
-        public bool IsTypeAllowed<T>() where T : EcsEntity => IsTypeAllowed(typeof(T));
+            _idToIndex[id] = _aliveCount;
+            _aliveIds[_aliveCount] = id;
+            _aliveCount++;
 
-        public void Add(EcsEntity entity, bool force = false) => Create(entity, force);
-        public EcsEntity Add(Type type, bool force = false) => Create(type, force);
-        public EcsEntity Add<T>(bool force = false) where T : EcsEntity => Create<T>(force);
-
-        internal void Create(EcsEntity entity, bool force = false) => InitEntity(entity, force);
-        internal EcsEntity Create(Type type, bool force = false) => InitEntity((EcsEntity)Activator.CreateInstance(type), force);
-        internal T Create<T>(bool force = false) where T : EcsEntity => (T)InitEntity(Activator.CreateInstance<T>(), force);
-
-        private EcsEntity InitEntity(EcsEntity entity, bool force = false)
-        {
-            if (!IsTypeAllowed(entity.GetType()) && !force)
-            {
-                throw new InvalidOperationException($"Can't create entity of type {entity.GetType().Name}");
-            }
-
-            var entityId = GetNextEntityId();
-            entity.Init(new(this, entityId));
-
-            if (entityId >= _entities.Length)
-            {
-                Array.Resize(ref _entities, (_entities.Length + 1) * EcsConfig.PoolGrowthFactor);
-            }
-
-            _entities[entityId] = entity;
-            entity.Registration();
             EcsWorld.IncreaseVersion();
-
-            return entity;
+            return new EcsEntity(id, this);
         }
 
-        private int GetNextEntityId() => _freeEntityIds.Count > 0 ? _freeEntityIds.Pop() : _entitiesCount++;
-
-        public void Remove(EcsEntity entity) => DestroyEntity(entity);
-
-        internal void DestroyEntity(EcsEntity entity)
+        public void Remove(EcsEntity entity)
         {
-            if (entity == null)
-            {
-                return;
-            }
+            var id = entity.Id;
+            if (id < 0 || id >= _idToIndex.Length) return;
 
-            var entityId = entity.GetID();
-            if (entityId >= _entities.Length || _entities[entityId] != entity)
-            {
-                return;
-            }
+            var index = _idToIndex[id];
+            if (index == -1) return;
+            _idToIndex[id] = -1;
 
-            _entities[entityId] = null;
-            _freeEntityIds.Push(entityId);
-
-            Unlink(entity);
-            RemoveAllComponents(entityId);
-            EcsWorld.IncreaseVersion();
-        }
-
-        private void RemoveAllComponents(int entityId)
-        {
             foreach (var pool in _pools.Values)
             {
-                ((IPoolDestroy)pool).Remove(entityId);
+                ((IPoolDestroy)pool).Remove(id);
+            }
+
+            if (_linkedProviders.Remove(id, out var provider))
+            {
+                provider.Dispose();
+            }
+
+            _aliveCount--;
+            if (_aliveCount > 0 && index != _aliveCount)
+            {
+                var lastId = _aliveIds[_aliveCount];
+                _aliveIds[index] = lastId;
+                _idToIndex[lastId] = index;
+            }
+
+            _componentCounts[id] = 0;
+            _freeEntityIds.Push(id);
+
+            EcsWorld.IncreaseVersion();
+        }
+
+        private void ResizeIdArrays(int newSize)
+        {
+            Array.Resize(ref _aliveIds, newSize);
+            Array.Resize(ref _componentCounts, newSize);
+            var oldSize = _idToIndex.Length;
+            Array.Resize(ref _idToIndex, newSize);
+            for (var i = oldSize; i < newSize; i++)
+            {
+                _idToIndex[i] = -1;
             }
         }
 
@@ -132,60 +132,65 @@ namespace BitterECS.Core
                 : new EcsPool<T>();
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Has(int id) => id >= 0 && id < _idToIndex.Length && _idToIndex[id] != -1;
+
+        public ILinkableProvider GetProvider(EcsEntity entity)
+            => _linkedProviders.TryGetValue(entity.Id, out var provider) ? provider : null;
+
         public void Link(EcsEntity entity, ILinkableProvider provider)
         {
-            if (entity == null || provider == null)
-            {
-                return;
-            }
-
-            _linkedEntities.TryAdd(entity, provider);
-            provider.Init(entity.Properties);
+            _linkedProviders[entity.Id] = provider;
+            provider.Init(new EcsProperty(this, entity.Id));
         }
 
         public void Unlink(EcsEntity entity)
         {
-            if (entity == null || !_linkedEntities.ContainsKey(entity))
+            if (_linkedProviders.Remove(entity.Id, out var provider))
             {
-                return;
-            }
-
-            if (_linkedEntities.Remove(entity, out var provider))
-            {
-                provider?.Dispose();
+                provider.Dispose();
             }
         }
 
-        public ILinkableProvider GetProvider(EcsEntity entity)
-            => entity != null && _linkedEntities.TryGetValue(entity, out var provider) ? provider : null;
+        public EcsEntity Get(int id) => Has(id) ? new EcsEntity(id, this) : default;
 
-        public EcsEntity Get(ILinkableProvider provider)
-            => _linkedEntities.FirstOrDefault(kvp => kvp.Value == provider).Key;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void IncrementCount(int id) => _componentCounts[id]++;
 
-        public EcsEntity Get(int id) => id >= 0 && id < _entities.Length ? _entities[id] : null;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void DecrementCount(int id) => _componentCounts[id]--;
 
-        public bool Has(int id) => id >= 0 && id < _entities.Length && _entities[id] != null;
-
-        public List<EcsEntity> GetAliveEntities()
-        {
-            return new ArraySegment<EcsEntity>(_entities, 0, _entitiesCount)
-                .Where(entity => entity != null)
-                .ToList();
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public int GetComponentCount(int id) => _componentCounts[id];
 
         public void Dispose()
         {
             foreach (var pool in _pools.Values)
             {
-                ((IDisposable)pool)?.Dispose();
+                if (pool is IDisposable disposable) disposable.Dispose();
+            }
+            _pools.Clear();
+
+            if (_linkedProviders.Count > 0)
+            {
+                var providers = new ILinkableProvider[_linkedProviders.Count];
+                _linkedProviders.Values.CopyTo(providers, 0);
+
+                for (var i = 0; i < providers.Length; i++)
+                {
+                    providers[i]?.Dispose();
+                }
             }
 
-            _entitiesCount = 0;
-            _entities = Array.Empty<EcsEntity>();
+            _linkedProviders.Clear();
             _freeEntityIds.Clear();
-            _pools.Clear();
-            _allowedTypes.Clear();
-            _linkedEntities.Clear();
+            _poolFactories.Clear();
+            _aliveCount = 0;
+            _entitiesCount = 0;
+
+            _aliveIds = Array.Empty<int>();
+            _idToIndex = Array.Empty<int>();
+            _componentCounts = Array.Empty<int>();
         }
     }
 }
