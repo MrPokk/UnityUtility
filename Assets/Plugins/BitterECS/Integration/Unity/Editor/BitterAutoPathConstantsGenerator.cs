@@ -12,44 +12,30 @@ namespace BitterECS.Extra.Editor
 {
     public static class BitterAutoPathConstantsGenerator
     {
-        private const string GENERATED_SCRIPTS_FOLDER = "Assets/GeneratedConstants";
-
-        [MenuItem("BitterECS/Tools/Generate All Path Constants", priority = 0)]
+        private const string GENERATED_SCRIPTS_FOLDER = "Assets/GeneratedConstants"; [MenuItem("BitterECS/Tools/Generate All Path Constants", priority = 0)]
         public static void GenerateAll()
         {
-            // Убедимся, что пути PathProject актуальны
-            PathUtility.GenerationConstPath();
+            PathUtility.GenerationConstPath(); // Убедимся, что пути PathProject актуальны
+            EnsureDirectoryExists(GENERATED_SCRIPTS_FOLDER);
 
-            var pathFields = typeof(PathProject)
-                .GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy)
-                .Where(f => f.IsLiteral && !f.IsInitOnly && f.FieldType == typeof(string))
+            var pathFields = GetValidPathFields();
+            var allDefinedSystemPaths = pathFields
+                .Select(f => (string)f.GetValue(null))
+                .Where(val => !string.IsNullOrEmpty(val))
+                .Select(val => NormalizePath(ResolveFullPath(val)))
                 .ToList();
-
-            if (!Directory.Exists(GENERATED_SCRIPTS_FOLDER))
-            {
-                Directory.CreateDirectory(GENERATED_SCRIPTS_FOLDER);
-            }
-
-            var allDefinedSystemPaths = new List<string>();
-            foreach (var field in pathFields)
-            {
-                var val = (string)field.GetValue(null);
-                if (!string.IsNullOrEmpty(val))
-                {
-                    allDefinedSystemPaths.Add(NormalizePath(ResolveFullPath(val)));
-                }
-            }
 
             var generatedCount = 0;
 
             foreach (var field in pathFields)
             {
                 var pathValue = (string)field.GetValue(null);
-                var fieldName = field.Name;
-
                 if (string.IsNullOrEmpty(pathValue)) continue;
 
-                GenerateClassForPath(fieldName, pathValue, allDefinedSystemPaths, ref generatedCount);
+                if (GenerateClassForPath(field.Name, pathValue, allDefinedSystemPaths))
+                {
+                    generatedCount++;
+                }
             }
 
             if (generatedCount > 0)
@@ -59,111 +45,121 @@ namespace BitterECS.Extra.Editor
             }
             else
             {
-                Debug.Log($"[BitterECS] No assets found in specified paths.");
+                Debug.Log($"[BitterECS] No assets found in specified paths to generate.");
             }
         }
 
-        private static void GenerateClassForPath(string fieldName, string relativeResourcePath, List<string> allDefinedPaths, ref int counter)
+        private static bool GenerateClassForPath(string fieldName, string relativeResourcePath, List<string> allDefinedPaths)
         {
             var fullSystemPath = ResolveFullPath(relativeResourcePath);
-
-            if (!Directory.Exists(fullSystemPath)) return;
+            if (!Directory.Exists(fullSystemPath)) return false;
 
             var normalizedCurrentPath = NormalizePath(fullSystemPath);
+            var filesToProcess = GetTargetFiles(fullSystemPath);
 
-            // 1. Ищем и префабы, и ассеты (ScriptableObject)
-            var prefabFiles = Directory.GetFiles(fullSystemPath, "*.prefab", SearchOption.AllDirectories);
-            var assetFiles = Directory.GetFiles(fullSystemPath, "*.asset", SearchOption.AllDirectories);
-
-            var allFiles = prefabFiles.Concat(assetFiles).ToArray();
-
-            if (allFiles.Length == 0) return;
+            if (filesToProcess.Length == 0) return false;
 
             var validItems = new List<(string constName, string loadPath, string summaryInfo)>();
 
-            foreach (var file in allFiles)
+            foreach (var file in filesToProcess)
             {
                 var normalizedFile = NormalizePath(file);
 
-                // Проверка вложенности путей (чтобы не дублировать константы для вложенных папок, если они определены отдельно)
-                bool belongsToMoreSpecificPath = allDefinedPaths.Any(otherPath =>
-                    otherPath != normalizedCurrentPath &&
-                    otherPath.Length > normalizedCurrentPath.Length &&
-                    normalizedFile.StartsWith(otherPath)
-                );
-
-                if (belongsToMoreSpecificPath) continue;
+                if (BelongsToNestedPath(normalizedFile, normalizedCurrentPath, allDefinedPaths))
+                    continue;
 
                 var assetPath = "Assets" + file.Substring(Application.dataPath.Length).Replace('\\', '/');
-                string summaryInfo = null;
+                var summaryInfo = ExtractAssetSummary(assetPath);
 
-                // 2. Логика разделения по типу файла
-                if (file.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase))
-                {
-                    var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
-                    if (prefab == null) continue;
-
-                    var provider = prefab.GetComponent<ITypedComponentProvider>();
-                    if (provider != null)
-                    {
-                        summaryInfo = $"Provider: {provider.GetType().Name}";
-                    }
-                    else
-                    {
-                        var mb = prefab.GetComponent<MonoBehaviour>();
-                        if (mb != null)
-                        {
-                            summaryInfo = $"Component: {mb.GetType().Name}";
-                        }
-                    }
-                }
-                else if (file.EndsWith(".asset", StringComparison.OrdinalIgnoreCase))
-                {
-                    // Загружаем как ScriptableObject
-                    var so = AssetDatabase.LoadAssetAtPath<ScriptableObject>(assetPath);
-                    if (so != null)
-                    {
-                        summaryInfo = $"ScriptableObject: {so.GetType().Name}";
-                    }
-                }
-
-                // 3. Если информация найдена, добавляем в список генерации
                 if (summaryInfo != null)
                 {
-                    var fileName = Path.GetFileNameWithoutExtension(file);
-                    var constName = ToUpperSnakeCase(fileName);
-
-                    var fileDirectory = Path.GetDirectoryName(file);
-                    var relativeDir = string.Empty;
-
-                    if (fileDirectory != null && fileDirectory.Length >= fullSystemPath.Length)
-                    {
-                        relativeDir = fileDirectory.Substring(fullSystemPath.Length).Replace('\\', '/').TrimStart('/');
-                    }
-
-                    // Формируем путь загрузки (без расширения)
-                    var loadPath = string.IsNullOrEmpty(relativeDir)
-                        ? fileName
-                        : Path.Combine(relativeResourcePath, relativeDir, fileName).Replace('\\', '/');
-
-                    // Корректировка пути, если он не начинается с базового пути (защита от лишних слэшей)
-                    if (!loadPath.StartsWith(relativeResourcePath))
-                    {
-                        loadPath = Path.Combine(relativeResourcePath, fileName).Replace('\\', '/');
-                    }
-
-                    // Убираем двойные слэши если возникли
-                    loadPath = loadPath.Replace("//", "/");
-
-                    validItems.Add((constName, loadPath, summaryInfo));
+                    validItems.Add(CreateConstantEntry(file, fullSystemPath, relativeResourcePath, summaryInfo));
                 }
             }
 
-            if (validItems.Count == 0) return;
+            if (validItems.Count == 0) return false;
 
             var className = ConvertFieldNameToClassName(fieldName) + "Paths";
             WriteScriptFile(className, validItems);
-            counter++;
+            return true;
+        }
+
+        #region Helper Methods
+
+        private static string[] GetTargetFiles(string directory)
+        {
+            var prefabs = Directory.GetFiles(directory, "*.prefab", SearchOption.AllDirectories);
+            var assets = Directory.GetFiles(directory, "*.asset", SearchOption.AllDirectories);
+            return prefabs.Concat(assets).ToArray();
+        }
+
+        private static bool BelongsToNestedPath(string normalizedFile, string normalizedCurrentPath, List<string> allDefinedPaths)
+        {
+            return allDefinedPaths.Any(otherPath =>
+                otherPath != normalizedCurrentPath &&
+                otherPath.Length > normalizedCurrentPath.Length &&
+                normalizedFile.StartsWith(otherPath));
+        }
+
+        private static string ExtractAssetSummary(string assetPath)
+        {
+            if (assetPath.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase))
+            {
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
+                if (prefab == null) return null;
+
+                var provider = prefab.GetComponent<ITypedComponentProvider>();
+                if (provider != null) return $"Provider: {provider.GetType().Name}";
+
+                var mb = prefab.GetComponent<MonoBehaviour>();
+                if (mb != null) return $"Component: {mb.GetType().Name}";
+            }
+            else if (assetPath.EndsWith(".asset", StringComparison.OrdinalIgnoreCase))
+            {
+                var so = AssetDatabase.LoadAssetAtPath<ScriptableObject>(assetPath);
+                if (so != null) return $"ScriptableObject: {so.GetType().Name}";
+            }
+            return null;
+        }
+
+        private static (string constName, string loadPath, string summaryInfo) CreateConstantEntry(
+            string filePath, string fullSystemPath, string relativeResourcePath, string summaryInfo)
+        {
+            var fileName = Path.GetFileNameWithoutExtension(filePath);
+            var constName = ToUpperSnakeCase(fileName);
+            var fileDirectory = Path.GetDirectoryName(filePath);
+
+            var relativeDir = string.Empty;
+            if (fileDirectory != null && fileDirectory.Length >= fullSystemPath.Length)
+            {
+                relativeDir = fileDirectory.Substring(fullSystemPath.Length).Replace('\\', '/').TrimStart('/');
+            }
+
+            var loadPath = string.IsNullOrEmpty(relativeDir)
+                ? fileName
+                : Path.Combine(relativeResourcePath, relativeDir, fileName).Replace('\\', '/');
+
+            if (!loadPath.StartsWith(relativeResourcePath))
+            {
+                loadPath = Path.Combine(relativeResourcePath, fileName).Replace('\\', '/');
+            }
+
+            loadPath = loadPath.Replace("//", "/"); // Очистка на всякий случай
+
+            return (constName, loadPath, summaryInfo);
+        }
+
+        private static List<FieldInfo> GetValidPathFields()
+        {
+            return typeof(PathProject)
+                .GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy)
+                .Where(f => f.IsLiteral && !f.IsInitOnly && f.FieldType == typeof(string))
+                .ToList();
+        }
+
+        private static void EnsureDirectoryExists(string path)
+        {
+            if (!Directory.Exists(path)) Directory.CreateDirectory(path);
         }
 
         private static string ResolveFullPath(string relativeResourcePath)
@@ -172,17 +168,13 @@ namespace BitterECS.Extra.Editor
             {
                 return PathUtility.GetFullPath(relativeResourcePath);
             }
-            catch (Exception)
+            catch
             {
-                // Fallback, если PathUtility недоступен или выдал ошибку
                 return Path.Combine(PathProject.DataPath, $"!{PathProject.ProductName}", PathProject.RootPath, relativeResourcePath);
             }
         }
 
-        private static string NormalizePath(string path)
-        {
-            return path.Replace('\\', '/').TrimEnd('/');
-        }
+        private static string NormalizePath(string path) => path.Replace('\\', '/').TrimEnd('/');
 
         private static void WriteScriptFile(string className, List<(string name, string path, string summary)> items)
         {
@@ -195,10 +187,7 @@ namespace BitterECS.Extra.Editor
             sb.AppendLine($"public static class {className}");
             sb.AppendLine("{");
 
-            // Сортируем для красоты
-            items = items.OrderBy(x => x.name).ToList();
-
-            foreach (var item in items)
+            foreach (var item in items.OrderBy(x => x.name))
             {
                 sb.AppendLine($"    /// <summary> {item.summary} </summary>");
                 sb.AppendLine($"    public const string {item.name} = \"{item.path}\";");
@@ -232,34 +221,29 @@ namespace BitterECS.Extra.Editor
         private static string ToUpperSnakeCase(string input)
         {
             if (string.IsNullOrEmpty(input)) return input;
-            var result = new StringBuilder();
 
-            // Обработка первого символа
-            if (char.IsLetterOrDigit(input[0]))
-                result.Append(char.ToUpper(input[0]));
-            else
-                result.Append('_');
+            var result = new StringBuilder();
+            result.Append(char.IsLetterOrDigit(input[0]) ? char.ToUpper(input[0]) : '_');
 
             for (var i = 1; i < input.Length; i++)
             {
-                char c = input[i];
-                char prev = input[i - 1];
+                var c = input[i];
+                var prev = input[i - 1];
 
-                // Вставляем подчеркивание перед заглавной буквой, если предыдущая буква строчная
-                // или если это начало последовательности цифр
-                if ((char.IsUpper(c) && !char.IsUpper(prev) && prev != '_') ||
-                    (char.IsDigit(c) && !char.IsDigit(prev) && prev != '_'))
+                var isCamelCaseTransition = char.IsUpper(c) && !char.IsUpper(prev) && prev != '_';
+                var isNumberTransition = char.IsDigit(c) && !char.IsDigit(prev) && prev != '_';
+
+                if (isCamelCaseTransition || isNumberTransition)
                 {
                     result.Append('_');
                 }
 
-                if (char.IsLetterOrDigit(c))
-                    result.Append(char.ToUpper(c));
-                else
-                    result.Append('_');
+                result.Append(char.IsLetterOrDigit(c) ? char.ToUpper(c) : '_');
             }
 
-            return result.ToString().Replace(" ", "_").Replace("-", "_").Replace("__", "_");
+            return result.ToString().Replace("__", "_").Trim('_');
         }
+
+        #endregion
     }
 }

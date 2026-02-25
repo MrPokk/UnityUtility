@@ -1,165 +1,169 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
 namespace BitterECS.Core
 {
-    public class EcsPool<T> : IDisposable, IPoolDestroy where T : new()
+    public class EcsPool<T> : IDisposable, IPool where T : new()
     {
         private T[] _components;
-        private int[] _entityToDataIndex;
-        private int[] _dataIndexToEntity;
+        private int[][] _sparsePages;
+        private int[] _denseEntities;
         private int _count;
-        private readonly int _initialCapacity;
 
+        public EcsPresenter Presenter { get; internal set; }
         public int Count => _count;
-        public int Capacity => _components.Length;
 
         public EcsPool(int initialCapacity = -1)
         {
-            _initialCapacity = initialCapacity > 0 ? initialCapacity : EcsConfig.InitialPoolCapacity;
-            _components = Array.Empty<T>();
-            _entityToDataIndex = Array.Empty<int>();
-            _dataIndexToEntity = Array.Empty<int>();
+            var cap = initialCapacity > 0 ? initialCapacity : EcsConfig.InitialPoolCapacity;
+            _components = new T[cap];
+            _denseEntities = new int[cap];
+            _sparsePages = Array.Empty<int[]>();
             _count = 0;
         }
 
-        public virtual void Add(int entityId, in T component)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Add(int entityId, in T component)
         {
-            EnsureEntityCapacity(entityId);
+            if (Has(entityId)) return;
 
-            if (Has(entityId))
+            if (_count >= _components.Length)
             {
-                return;
+                var newCap = _components.Length > 0 ? _components.Length * EcsConfig.PoolGrowthFactor : EcsConfig.InitialPoolCapacity;
+                Array.Resize(ref _components, newCap);
+                Array.Resize(ref _denseEntities, newCap);
             }
 
-            EnsureComponentCapacity();
+            var page = entityId / EcsConfig.SparsePageSize;
+            var index = entityId % EcsConfig.SparsePageSize;
 
-            var dataIndex = _count;
+            if (page >= _sparsePages.Length)
+            {
+                Array.Resize(ref _sparsePages, page + 1);
+            }
 
-            _components[dataIndex] = component;
-            _entityToDataIndex[entityId] = dataIndex;
-            _dataIndexToEntity[dataIndex] = entityId;
+            if (_sparsePages[page] == null)
+            {
+                _sparsePages[page] = new int[EcsConfig.SparsePageSize];
+                Array.Fill(_sparsePages[page], -1);
+            }
 
+            _components[_count] = component;
+            _denseEntities[_count] = entityId;
+            _sparsePages[page][index] = _count;
             _count++;
+
             EcsWorld.IncreaseVersion();
         }
 
-        public virtual void Remove(int entityId)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Remove(int entityId)
         {
-            if (!Has(entityId))
+            var page = entityId / EcsConfig.SparsePageSize;
+            if (page >= _sparsePages.Length || _sparsePages[page] == null) return;
+
+            var index = entityId % EcsConfig.SparsePageSize;
+            var denseIndex = _sparsePages[page][index];
+
+            if (denseIndex == -1) return;
+
+            var lastDenseIndex = _count - 1;
+            if (denseIndex != lastDenseIndex)
             {
-                return;
+                var lastEntity = _denseEntities[lastDenseIndex];
+                _components[denseIndex] = _components[lastDenseIndex];
+                _denseEntities[denseIndex] = lastEntity;
+
+                var lastPage = lastEntity / EcsConfig.SparsePageSize;
+                var lastIndex = lastEntity % EcsConfig.SparsePageSize;
+                _sparsePages[lastPage][lastIndex] = denseIndex;
             }
 
-            var dataIndex = _entityToDataIndex[entityId];
-            var lastIndex = _count - 1;
-
-            if (dataIndex != lastIndex)
-            {
-                _components[dataIndex] = _components[lastIndex];
-
-                var entityMoved = _dataIndexToEntity[lastIndex];
-                _dataIndexToEntity[dataIndex] = entityMoved;
-                _entityToDataIndex[entityMoved] = dataIndex;
-            }
-
-            _components[lastIndex] = default;
-            _dataIndexToEntity[lastIndex] = -1;
-            _entityToDataIndex[entityId] = -1;
-
+            _components[lastDenseIndex] = default;
+            _sparsePages[page][index] = -1;
             _count--;
+
             EcsWorld.IncreaseVersion();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref T Get(int entityId)
         {
-            return ref _components[_entityToDataIndex[entityId]];
+            var page = entityId / EcsConfig.SparsePageSize;
+            return ref _components[_sparsePages[page][entityId % EcsConfig.SparsePageSize]];
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Has(int entityId)
         {
-            return entityId < _entityToDataIndex.Length && _entityToDataIndex[entityId] != -1;
+            var page = entityId / EcsConfig.SparsePageSize;
+            return page < _sparsePages.Length && _sparsePages[page] != null && _sparsePages[page][entityId % EcsConfig.SparsePageSize] != -1;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ReadOnlySpan<int> GetDenseEntities() => new(_denseEntities, 0, _count);
+
+        public void Dispose()
+        {
+            Array.Clear(_components, 0, _count);
+            _sparsePages = Array.Empty<int[]>();
+            _count = 0;
+        }
+    }
+
+    public class EcsEventPool<T> : EcsPool<T> where T : new()
+    {
+        private IEcsEvent[] _subscriptions = Array.Empty<IEcsEvent>();
+        private int _subCount;
+        private bool _isSorted;
+
+        public void Subscribe(IEcsEvent eventTo)
+        {
+            if (_subCount >= _subscriptions.Length) Array.Resize(ref _subscriptions, Math.Max(2, _subscriptions.Length * 2));
+            _subscriptions[_subCount++] = eventTo;
+            _isSorted = false;
         }
 
-        private void EnsureEntityCapacity(int entityId)
+        public void Unsubscribe(IEcsEvent eventTo)
         {
-            if (entityId >= _entityToDataIndex.Length)
+            var idx = Array.IndexOf(_subscriptions, eventTo, 0, _subCount);
+            if (idx >= 0)
             {
-                var oldLength = _entityToDataIndex.Length;
-                var newSize = oldLength == 0
-                    ? Math.Max(entityId + 1, _initialCapacity)
-                    : Math.Max(entityId + 1, oldLength * EcsConfig.PoolGrowthFactor);
-
-                Array.Resize(ref _entityToDataIndex, newSize);
-
-                for (var i = oldLength; i < newSize; i++)
-                {
-                    _entityToDataIndex[i] = -1;
-                }
+                _subscriptions[idx] = _subscriptions[--_subCount];
+                _subscriptions[_subCount] = null;
+                _isSorted = false;
             }
         }
 
-        private void EnsureComponentCapacity()
+        private void EnsureSorted()
         {
-            if (_count >= _components.Length)
+            if (_isSorted)
             {
-                var newCapacity = _components.Length == 0
-                    ? _initialCapacity
-                    : _components.Length * EcsConfig.PoolGrowthFactor;
-
-                if (newCapacity <= _components.Length)
-                    newCapacity = _components.Length + 1;
-
-                Array.Resize(ref _components, newCapacity);
-                Array.Resize(ref _dataIndexToEntity, newCapacity);
+                return;
             }
-        }
 
-        public void EnsureCapacity(int capacity)
-        {
-            if (capacity > _components.Length)
-            {
-                Array.Resize(ref _components, capacity);
-                Array.Resize(ref _dataIndexToEntity, capacity);
-            }
-        }
-
-        public void TrimExcess()
-        {
-            if (_count < _components.Length * 0.9)
-            {
-                Array.Resize(ref _components, _count);
-                Array.Resize(ref _dataIndexToEntity, _count);
-            }
+            Array.Sort(_subscriptions, 0, _subCount, PriorityUtility.Sort());
+            _isSorted = true;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ReadOnlySpan<T> AsOccupiedSpan()
+        public new void Add(int entityId, in T component)
         {
-            return _components.AsSpan(0, _count);
+            base.Add(entityId, in component);
+            if (_subCount == 0) return;
+            EnsureSorted();
+            for (var i = 0; i < _subCount; i++) _subscriptions[i].Added?.Invoke(new(Presenter, entityId));
         }
 
-        public IEnumerable<int> GetEntityIds()
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public new void Remove(int entityId)
         {
-            for (var i = 0; i < _count; i++)
+            if (_subCount > 0 && Has(entityId))
             {
-                yield return _dataIndexToEntity[i];
+                EnsureSorted();
+                var e = new EcsEntity(Presenter, entityId);
+                for (var i = 0; i < _subCount; i++) _subscriptions[i].Removed?.Invoke(new(Presenter, entityId));
             }
-        }
-
-        public virtual void Dispose()
-        {
-            if (_count > 0)
-            {
-                Array.Clear(_components, 0, _count);
-                Array.Clear(_dataIndexToEntity, 0, _count);
-            }
-
-            Array.Fill(_entityToDataIndex, -1);
-            _count = 0;
+            base.Remove(entityId);
         }
     }
 }

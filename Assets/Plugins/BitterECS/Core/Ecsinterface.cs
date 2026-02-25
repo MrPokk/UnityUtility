@@ -2,63 +2,25 @@
 
 namespace BitterECS.Core
 {
-    #region IEcsSystems
+    public interface IEcsSystem : IEcsPriority { }
+    public interface IEcsAutoImplement : IEcsSystem { }
+    public interface IEcsPreInitSystem : IEcsAutoImplement { void PreInit(); }
+    public interface IEcsInitSystem : IEcsAutoImplement { void Init(); }
+    public interface IEcsRunSystem : IEcsAutoImplement { void Run(); }
+    public interface IEcsFixedRunSystem : IEcsAutoImplement { void FixedRun(); }
+    public interface IEcsPostRunSystem : IEcsAutoImplement { void PostRun(); }
+    public interface IEcsDestroySystem : IEcsAutoImplement { void Destroy(); }
+    public interface IEcsPostDestroySystem : IEcsAutoImplement { void PostDestroy(); }
 
-    public interface IEcsSystem : IEcsPriority
-    { }
-
-    public interface IEcsAutoImplement : IEcsSystem
-    { }
-
-    public interface IEcsPreInitSystem : IEcsAutoImplement
+    internal interface IPool
     {
-        public void PreInit();
-    }
-
-    public interface IEcsInitSystem : IEcsAutoImplement
-    {
-        public void Init();
-    }
-
-    public interface IEcsRunSystem : IEcsAutoImplement
-    {
-        public void Run();
-    }
-
-    public interface IEcsFixedRunSystem : IEcsAutoImplement
-    {
-        public void FixedRun();
-    }
-
-    public interface IEcsPostRunSystem : IEcsAutoImplement
-    {
-        public void PostRun();
-    }
-
-    public interface IEcsDestroySystem : IEcsAutoImplement
-    {
-        public void Destroy();
-    }
-
-    public interface IEcsPostDestroySystem : IEcsAutoImplement
-    {
-        public void PostDestroy();
-    }
-
-    internal interface IPoolDestroy
-    {
+        int Count { get; }
+        ReadOnlySpan<int> GetDenseEntities();
         bool Has(int entityId);
         void Remove(int entityId);
     }
 
-    #endregion
-
-    #region Helper
-
-    public interface IEcsPriority
-    {
-        public Priority Priority { get; }
-    }
+    public interface IEcsPriority { Priority Priority { get; } }
 
     public interface IEcsEvent : IEcsPriority, IDisposable
     {
@@ -69,16 +31,16 @@ namespace BitterECS.Core
 
     public interface ILinkableProvider : IInitialize<EcsProperty>, IDisposable
     {
-        public EcsEntity Entity { get; }
+        EcsEntity Entity { get; }
     }
 
     public interface IInitializeProperty { }
 
     public interface IInitialize<T> where T : IInitializeProperty
     {
-        public T Properties { get; }
-        public void Init(T property);
-        public T ValidateProperty(T property) => property;
+        T Properties { get; }
+        void Init(T property);
+        T ValidateProperty(T property) => property;
     }
 
     public enum Priority : int
@@ -102,5 +64,4 @@ namespace BitterECS.Core
         }
     }
 
-    #endregion
 }

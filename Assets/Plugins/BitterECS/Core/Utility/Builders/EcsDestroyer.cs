@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 
 namespace BitterECS.Core
 {
-    public struct EntityDestroyer
+    public struct EcsDestroyer
     {
         private readonly EcsPresenter _presenter;
         private readonly EcsEntity _entity;
@@ -12,7 +12,7 @@ namespace BitterECS.Core
         private ComponentRemoveOperations _componentRemoveOps;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal EntityDestroyer(EcsPresenter presenter, EcsEntity entity)
+        internal EcsDestroyer(EcsPresenter presenter, EcsEntity entity)
         {
             _presenter = presenter;
             _entity = entity;
@@ -22,21 +22,21 @@ namespace BitterECS.Core
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EntityDestroyer WithPreDestroyCallback(Action<EcsEntity> callback)
+        public EcsDestroyer WithPreDestroyCallback(Action<EcsEntity> callback)
         {
             _preDestroyCallback = callback;
             return this;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EntityDestroyer WithPostDestroyCallback(Action<EcsEntity> callback)
+        public EcsDestroyer WithPostDestroyCallback(Action<EcsEntity> callback)
         {
             _postDestroyCallback = callback;
             return this;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EntityDestroyer RemoveComponent<C>() where C : new()
+        public EcsDestroyer RemoveComponent<C>() where C : new()
         {
             _componentRemoveOps.Add(_presenter.GetPool<C>());
             return this;
@@ -44,7 +44,7 @@ namespace BitterECS.Core
 
         public void Destroy()
         {
-            if (!_entity.IsAlive()) return;
+            if (!_entity.IsAlive) return;
 
             _preDestroyCallback?.Invoke(_entity);
             _componentRemoveOps.Execute(_entity.Id);
@@ -54,13 +54,13 @@ namespace BitterECS.Core
 
         private struct ComponentRemoveOperations
         {
-            private IPoolDestroy[] _pools;
+            private IPool[] _pools;
             private int _count;
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public void Add(IPoolDestroy pool)
+            public void Add(IPool pool)
             {
-                if (_pools == null) _pools = new IPoolDestroy[EcsConfig.EntityCallbackFactor];
+                if (_pools == null) _pools = new IPool[EcsConfig.EntityCallbackFactor];
                 if (_count == _pools.Length) Array.Resize(ref _pools, _count * 2);
                 _pools[_count++] = pool;
             }
@@ -76,31 +76,31 @@ namespace BitterECS.Core
         }
     }
 
-    public struct EntityDestroyer<TPresenter> where TPresenter : EcsPresenter, new()
+    public struct EcsDestroyer<TPresenter> where TPresenter : EcsPresenter, new()
     {
-        private EntityDestroyer _builder;
+        private EcsDestroyer _builder;
 
-        public EntityDestroyer(EcsEntity entity)
+        public EcsDestroyer(EcsEntity entity)
         {
-            _builder = new EntityDestroyer(EcsWorld.Get<TPresenter>(), entity);
+            _builder = new EcsDestroyer(EcsWorld.Get<TPresenter>(), entity);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EntityDestroyer<TPresenter> WithPreDestroyCallback(Action<EcsEntity> callback)
+        public EcsDestroyer<TPresenter> WithPreDestroyCallback(Action<EcsEntity> callback)
         {
             _builder = _builder.WithPreDestroyCallback(callback);
             return this;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EntityDestroyer<TPresenter> WithPostDestroyCallback(Action<EcsEntity> callback)
+        public EcsDestroyer<TPresenter> WithPostDestroyCallback(Action<EcsEntity> callback)
         {
             _builder = _builder.WithPostDestroyCallback(callback);
             return this;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EntityDestroyer<TPresenter> RemoveComponent<C>() where C : new()
+        public EcsDestroyer<TPresenter> RemoveComponent<C>() where C : new()
         {
             _builder = _builder.RemoveComponent<C>();
             return this;

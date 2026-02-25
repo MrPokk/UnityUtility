@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 
 namespace BitterECS.Core
 {
-    public struct EntityBuilder
+    public struct EcsBuilder
     {
         private readonly EcsPresenter _presenter;
         private Action<EcsEntity> _postInitCallback;
@@ -13,7 +13,7 @@ namespace BitterECS.Core
         private ILinkableProvider _linkableProvider;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal EntityBuilder(EcsPresenter presenter)
+        public EcsBuilder(EcsPresenter presenter)
         {
             _presenter = presenter ?? throw new ArgumentNullException(nameof(presenter));
             _postInitCallback = null;
@@ -24,35 +24,35 @@ namespace BitterECS.Core
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EntityBuilder WithLink(ILinkableProvider provider)
+        public EcsBuilder WithLink(ILinkableProvider provider)
         {
             _linkableProvider = provider;
             return this;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EntityBuilder WithPost(Action<EcsEntity> callback)
+        public EcsBuilder WithPost(Action<EcsEntity> callback)
         {
             _postInitCallback = callback;
             return this;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EntityBuilder WithPre(Action<EcsEntity> initAction)
+        public EcsBuilder WithPre(Action<EcsEntity> initAction)
         {
             _preInitCallback = initAction;
             return this;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EntityBuilder With<C>(C component) where C : new()
+        public EcsBuilder With<C>(C component = default) where C : new()
         {
             _componentAddOps.Add(component);
             return this;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EntityBuilder WithAdded<C>(Action<EcsEntity, C> callback) where C : new()
+        public EcsBuilder WithAdded<C>(Action<EcsEntity, C> callback) where C : new()
         {
             _componentAddedCallbacks.Add(callback);
             return this;
@@ -139,45 +139,45 @@ namespace BitterECS.Core
         }
     }
 
-    public struct EntityBuilder<TPresenter> where TPresenter : EcsPresenter, new()
+    public struct EcsBuilder<TPresenter> where TPresenter : EcsPresenter, new()
     {
-        private EntityBuilder? _builder;
+        private EcsBuilder? _builder;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void EnsureInitialized()
         {
-            if (!_builder.HasValue) _builder = new EntityBuilder(EcsWorld.Get<TPresenter>());
+            if (!_builder.HasValue) _builder = new EcsBuilder(EcsWorld.Get<TPresenter>());
         }
 
-        public EntityBuilder<TPresenter> WithLink(ILinkableProvider provider)
+        public EcsBuilder<TPresenter> WithLink(ILinkableProvider provider)
         {
             EnsureInitialized();
             _builder = _builder.Value.WithLink(provider);
             return this;
         }
 
-        public EntityBuilder<TPresenter> WithPost(Action<EcsEntity> callback)
+        public EcsBuilder<TPresenter> WithPost(Action<EcsEntity> callback)
         {
             EnsureInitialized();
             _builder = _builder.Value.WithPost(callback);
             return this;
         }
 
-        public EntityBuilder<TPresenter> WithPre(Action<EcsEntity> initAction)
+        public EcsBuilder<TPresenter> WithPre(Action<EcsEntity> initAction)
         {
             EnsureInitialized();
             _builder = _builder.Value.WithPre(initAction);
             return this;
         }
 
-        public EntityBuilder<TPresenter> With<C>(C component) where C : new()
+        public EcsBuilder<TPresenter> With<C>(C component = default) where C : new()
         {
             EnsureInitialized();
             _builder = _builder.Value.With(component);
             return this;
         }
 
-        public EntityBuilder<TPresenter> WithAdded<C>(Action<EcsEntity, C> callback) where C : new()
+        public EcsBuilder<TPresenter> WithAdded<C>(Action<EcsEntity, C> callback) where C : new()
         {
             EnsureInitialized();
             _builder = _builder.Value.WithAdded(callback);
@@ -191,12 +191,11 @@ namespace BitterECS.Core
         }
     }
 
-    // Упрощенный билдер для использования через Build.For().Add<T>()
     public struct EntityBuilderGeneric<TEntity> where TEntity : struct
     {
-        private EntityBuilder _builder;
+        private EcsBuilder _builder;
 
-        internal EntityBuilderGeneric(EcsPresenter presenter) => _builder = new EntityBuilder(presenter);
+        internal EntityBuilderGeneric(EcsPresenter presenter) => _builder = new EcsBuilder(presenter);
 
         public EntityBuilderGeneric<TEntity> WithLink(ILinkableProvider provider) { _builder.WithLink(provider); return this; }
         public EntityBuilderGeneric<TEntity> WithPost(Action<EcsEntity> callback) { _builder.WithPost(callback); return this; }

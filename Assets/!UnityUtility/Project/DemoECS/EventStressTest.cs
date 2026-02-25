@@ -12,8 +12,7 @@ public class EventStressTest : IEcsRunSystem
     public Priority Priority => Priority.Medium;
 
     // Подписываемся на добавление компонента
-    private EcsEvent _event = Build.For<TestPresenter>()
-        .Event()
+    private EcsEvent _event = new EcsEvent<TestPresenter>()
         .Subscribe<TriggerComponent>(added: OnTriggered);
 
     private static void OnTriggered(EcsEntity entity)

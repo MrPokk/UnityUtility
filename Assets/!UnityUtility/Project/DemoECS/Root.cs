@@ -7,5 +7,4 @@ using Debug = UnityEngine.Debug;
 
 public class Root : EcsUnityRoot
 {
-
 }

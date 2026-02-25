@@ -49,10 +49,12 @@ namespace BitterECS.Integration
             get
             {
                 var entity = GetEntitySilently();
-                if (entity.Presenter == null)
+#if UNITY_EDITOR
+                if (!entity.IsAlive && !_isDestroying)
                 {
-                    throw new Exception($"[ProviderEcs<{typeof(T).Name}>] Entity is not linked on '{name}'.");
+                    throw new Exception($"[ProviderEcs<{typeof(T).Name}>] Entity is not linked on '{typeof(T).Name}'.");
                 }
+#endif
                 return entity;
             }
         }
@@ -68,7 +70,12 @@ namespace BitterECS.Integration
             return GetParentEntitySilently();
         }
 
-        public EcsEntity NewEntity() => CreateEntity();
+        public EcsEntity ToEntity()
+        {
+            return new EcsBuilder(EcsWorld.Get(typeof(T)))
+                     .WithPost(e => ProcessComponents(e))
+                     .Create();
+        }
 
         protected virtual void Awake()
         {
@@ -84,7 +91,10 @@ namespace BitterECS.Integration
                     Debug.LogWarning($"[ProviderEcs<{typeof(T).Name}>] No Root Provider found on '{name}'. This component won't sync automatically.");
                 }
             }
+            Registration();
         }
+
+        protected virtual void Registration() { }
 
         private void OnDestroy() => Dispose();
 
@@ -96,7 +106,7 @@ namespace BitterECS.Integration
 
         protected override void InitInternal(EcsProperty property)
         {
-            _linkedEntity = new EcsEntity(property.Id, property.Presenter);
+            _linkedEntity = new EcsEntity(property.Presenter, property.Id);
         }
 
         protected override void DisposeInternal()
@@ -126,8 +136,7 @@ namespace BitterECS.Integration
 
         private EcsEntity CreateEntity()
         {
-            return Build.For(typeof(T))
-                     .Add()
+            return new EcsBuilder(EcsWorld.Get(typeof(T)))
                      .WithPost(e => ProcessComponents(e))
                      .WithLink(this)
                      .Create();
@@ -159,7 +168,7 @@ namespace BitterECS.Integration
         private EcsEntity GetParentEntitySilently()
         {
             if (_cachedRootProvider == null) ProcessComponents();
-            return _cachedRootProvider != null ? _cachedRootProvider.GetEntitySilently() : default;
+            return _cachedRootProvider != null ? _cachedRootProvider.GetEntitySilently() : new(null);
         }
 
         public void PushToEcs()
@@ -173,5 +182,30 @@ namespace BitterECS.Integration
             var entity = GetEntitySilently();
             if (entity.Presenter != null) _value = entity.Get<T>();
         }
+
+#if UNITY_EDITOR
+
+        private void Update()
+        {
+            if (!Application.isPlaying || _isDestroying) return;
+
+            var entity = GetEntitySilently();
+            if (entity.Presenter != null && entity.Has<T>())
+            {
+                _value = entity.Get<T>();
+            }
+        }
+
+        private void OnValidate()
+        {
+            if (!Application.isPlaying || _isDestroying) return;
+
+            var entity = GetEntitySilently();
+            if (entity.Presenter != null && entity.Has<T>())
+            {
+                entity.Get<T>() = _value;
+            }
+        }
+#endif
     }
 }

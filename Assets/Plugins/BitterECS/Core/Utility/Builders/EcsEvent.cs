@@ -8,19 +8,43 @@ namespace BitterECS.Core
     {
         private readonly Priority _priority;
         private readonly EcsPresenter _presenter;
-        private readonly Dictionary<Guid, ConditionalEvent> _subscriptions;
+        private readonly List<ConditionalEvent> _subscriptions;
 
         public int Count => _subscriptions?.Count ?? 0;
 
         public EcsEvent(EcsPresenter presenter, Priority priority)
         {
             _presenter = presenter ?? throw new ArgumentNullException(nameof(presenter));
-            _subscriptions = new Dictionary<Guid, ConditionalEvent>();
+            _subscriptions = new List<ConditionalEvent>();
             _priority = priority;
         }
 
         public EcsEvent Subscribe<T>(Action<EcsEntity> added = null, Action<EcsEntity> removed = null) where T : new()
             => SubscribeWhere<T>(_ => true, added, removed);
+
+        public EcsEvent Subscribe<T1, T2>(Action<EcsEntity> added = null, Action<EcsEntity> removed = null)
+            where T1 : new() where T2 : new()
+            => SubscribeWhere<T1, T2>((_, _) => true, added, removed);
+
+        public EcsEvent Subscribe<T1, T2, T3>(Action<EcsEntity> added = null, Action<EcsEntity> removed = null)
+            where T1 : new() where T2 : new() where T3 : new()
+            => SubscribeWhere<T1, T2, T3>((_, _, _) => true, added, removed);
+
+        public EcsEvent Subscribe<T1, T2, T3, T4>(Action<EcsEntity> added = null, Action<EcsEntity> removed = null)
+            where T1 : new() where T2 : new() where T3 : new() where T4 : new()
+            => SubscribeWhere<T1, T2, T3, T4>((_, _, _, _) => true, added, removed);
+
+        public EcsEvent SubscribeAny<T1, T2>(Action<EcsEntity> added = null, Action<EcsEntity> removed = null) where T1 : new() where T2 : new()
+        {
+            Register(new[] { typeof(T1), typeof(T2) }, e => e.IsAlive && (e.Has<T1>() || e.Has<T2>()), added, removed);
+            return this;
+        }
+
+        public EcsEvent SubscribeAny<T1, T2, T3>(Action<EcsEntity> added = null, Action<EcsEntity> removed = null) where T1 : new() where T2 : new() where T3 : new()
+        {
+            Register(new[] { typeof(T1), typeof(T2), typeof(T3) }, e => e.IsAlive && (e.Has<T1>() || e.Has<T2>() || e.Has<T3>()), added, removed);
+            return this;
+        }
 
         public EcsEvent SubscribeWhere<T>(Predicate<T> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null) where T : new()
         {
@@ -51,26 +75,26 @@ namespace BitterECS.Core
 
         public EcsEvent SubscribeWhereEntity<T>(Predicate<EcsEntity> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null) where T : new()
         {
-            Register(new[] { typeof(T) }, e => { try { return e.Has<T>() && condition(e); } catch { return false; } }, added, removed);
+            Register(new[] { typeof(T) }, e => e.IsAlive && e.Has<T>() && condition(e), added, removed);
             return this;
         }
 
         public EcsEvent SubscribeWhereEntity<T1, T2>(Predicate<EcsEntity> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null)
             where T1 : new() where T2 : new()
         {
-            Register(new[] { typeof(T1), typeof(T2) }, e => { try { return e.Has<T1>() && e.Has<T2>() && condition(e); } catch { return false; } }, added, removed);
+            Register(new[] { typeof(T1), typeof(T2) }, e => e.IsAlive && e.Has<T1>() && e.Has<T2>() && condition(e), added, removed);
             return this;
         }
 
         private void Register(Type[] types, Predicate<EcsEntity> check, Action<EcsEntity> added, Action<EcsEntity> removed)
         {
-            _subscriptions[Guid.NewGuid()] = new ConditionalEvent(_priority, _presenter, types, check, added, removed);
+            _subscriptions.Add(new ConditionalEvent(_priority, _presenter, types, check, added, removed));
         }
 
         public void Dispose()
         {
             if (_subscriptions == null) return;
-            foreach (var sub in _subscriptions.Values) sub.Dispose();
+            for (int i = 0; i < _subscriptions.Count; i++) _subscriptions[i].Dispose();
             _subscriptions.Clear();
         }
     }
@@ -89,77 +113,82 @@ namespace BitterECS.Core
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void EnsureInitialized()
         {
-            if (_event.HasValue)
-            {
-                return;
-            }
-
-            _event = new EcsEvent(EcsWorld.Get<T>(), _priority);
+            if (!_event.HasValue) _event = new EcsEvent(EcsWorld.Get<T>(), _priority);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EcsEvent Subscribe<TComponent>(Action<EcsEntity> added = null, Action<EcsEntity> removed = null)
-            where TComponent : new()
+        public EcsEvent Subscribe<TComponent>(Action<EcsEntity> added = null, Action<EcsEntity> removed = null) where TComponent : new()
         {
             EnsureInitialized();
             return _event.Value.Subscribe<TComponent>(added, removed);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EcsEvent SubscribeWhere<TComponent>(Predicate<TComponent> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null)
-            where TComponent : new()
+        public EcsEvent Subscribe<T1, T2>(Action<EcsEntity> added = null, Action<EcsEntity> removed = null) where T1 : new() where T2 : new()
+        {
+            EnsureInitialized();
+            return _event.Value.Subscribe<T1, T2>(added, removed);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public EcsEvent Subscribe<T1, T2, T3>(Action<EcsEntity> added = null, Action<EcsEntity> removed = null) where T1 : new() where T2 : new() where T3 : new()
+        {
+            EnsureInitialized();
+            return _event.Value.Subscribe<T1, T2, T3>(added, removed);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public EcsEvent Subscribe<T1, T2, T3, T4>(Action<EcsEntity> added = null, Action<EcsEntity> removed = null) where T1 : new() where T2 : new() where T3 : new() where T4 : new()
+        {
+            EnsureInitialized();
+            return _event.Value.Subscribe<T1, T2, T3, T4>(added, removed);
+        }
+
+        public EcsEvent SubscribeAny<T1, T2>(Action<EcsEntity> added = null, Action<EcsEntity> removed = null) where T1 : new() where T2 : new()
+        {
+            EnsureInitialized();
+            return _event.Value.SubscribeAny<T1, T2>(added, removed);
+        }
+
+        public EcsEvent SubscribeAny<T1, T2, T3>(Action<EcsEntity> added = null, Action<EcsEntity> removed = null) where T1 : new() where T2 : new() where T3 : new()
+        {
+            EnsureInitialized();
+            return _event.Value.SubscribeAny<T1, T2, T3>(added, removed);
+        }
+
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public EcsEvent SubscribeWhere<TComponent>(Predicate<TComponent> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null) where TComponent : new()
         {
             EnsureInitialized();
             return _event.Value.SubscribeWhere(condition, added, removed);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EcsEvent SubscribeWhere<T1, T2>(Func<T1, T2, bool> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null)
-            where T1 : new() where T2 : new()
+        public EcsEvent SubscribeWhere<T1, T2>(Func<T1, T2, bool> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null) where T1 : new() where T2 : new()
         {
             EnsureInitialized();
             return _event.Value.SubscribeWhere(condition, added, removed);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EcsEvent SubscribeWhere<T1, T2, T3>(Func<T1, T2, T3, bool> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null)
-            where T1 : new() where T2 : new() where T3 : new()
+        public EcsEvent SubscribeWhere<T1, T2, T3>(Func<T1, T2, T3, bool> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null) where T1 : new() where T2 : new() where T3 : new()
         {
             EnsureInitialized();
             return _event.Value.SubscribeWhere(condition, added, removed);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EcsEvent SubscribeWhere<T1, T2, T3, T4>(Func<T1, T2, T3, T4, bool> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null)
-            where T1 : new() where T2 : new() where T3 : new() where T4 : new()
-        {
-            EnsureInitialized();
-            return _event.Value.SubscribeWhere(condition, added, removed);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EcsEvent SubscribeWhereEntity<TComponent>(Predicate<EcsEntity> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null)
-            where TComponent : new()
+        public EcsEvent SubscribeWhereEntity<TComponent>(Predicate<EcsEntity> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null) where TComponent : new()
         {
             EnsureInitialized();
             return _event.Value.SubscribeWhereEntity<TComponent>(condition, added, removed);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EcsEvent SubscribeWhereEntity<T1, T2>(Predicate<EcsEntity> condition, Action<EcsEntity> added = null, Action<EcsEntity> removed = null)
-            where T1 : new() where T2 : new()
-        {
-            EnsureInitialized();
-            return _event.Value.SubscribeWhereEntity<T1, T2>(condition, added, removed);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Dispose()
         {
-            if (_event.HasValue)
-            {
-                _event.Value.Dispose();
-            }
+            if (_event.HasValue) _event.Value.Dispose();
         }
     }
 
@@ -170,6 +199,7 @@ namespace BitterECS.Core
         private readonly Predicate<EcsEntity> _condition;
         private readonly HashSet<int> _activeEntities = new();
         private readonly IEcsEvent[] _subscriptions;
+        private readonly Action<EcsEntity> _onChangedCache;
 
         public ConditionalEvent(Priority priority, EcsPresenter presenter, Type[] types, Predicate<EcsEntity> condition, Action<EcsEntity> added, Action<EcsEntity> removed)
         {
@@ -177,29 +207,27 @@ namespace BitterECS.Core
             _added = added;
             _removed = removed;
             _subscriptions = new IEcsEvent[types.Length];
+            _onChangedCache = OnComponentChanged;
 
             for (int i = 0; i < types.Length; i++)
             {
                 var subType = typeof(ComponentSubscription<>).MakeGenericType(types[i]);
-                _subscriptions[i] = (IEcsEvent)Activator.CreateInstance(subType, priority, presenter, (Action<EcsEntity>)OnComponentChanged);
+                _subscriptions[i] = (IEcsEvent)Activator.CreateInstance(subType, priority, presenter, _onChangedCache);
             }
 
-            foreach (var entity in presenter.GetAliveIds())
-            {
-                CheckEntity(presenter.Get(entity));
-            }
+            foreach (var entityId in presenter.GetAliveIds()) CheckEntity(presenter.Get(entityId));
         }
 
         private void OnComponentChanged(EcsEntity entity) => CheckEntity(entity);
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void CheckEntity(EcsEntity entity)
         {
-            if (entity.Presenter == null || !entity.Presenter.Has(entity.Id))
-                return;
+            if (entity.Presenter == null || !entity.Presenter.Has(entity.Id)) return;
 
-            var id = entity.GetID();
-            var satisfied = _condition(entity);
-            var wasActive = _activeEntities.Contains(id);
+            int id = entity.Id;
+            bool satisfied = _condition(entity);
+            bool wasActive = _activeEntities.Contains(id);
 
             if (satisfied && !wasActive)
             {
@@ -215,7 +243,7 @@ namespace BitterECS.Core
 
         public void Dispose()
         {
-            foreach (var sub in _subscriptions) sub.Dispose();
+            for (int i = 0; i < _subscriptions.Length; i++) _subscriptions[i].Dispose();
             _activeEntities.Clear();
         }
     }
@@ -223,7 +251,6 @@ namespace BitterECS.Core
     internal class ComponentSubscription<T> : IEcsEvent where T : new()
     {
         private readonly EcsEventPool<T> _pool;
-
         public Priority Priority { get; set; }
         public EcsPresenter Presenter { get; }
         public Action<EcsEntity> Added { get; }
@@ -235,36 +262,11 @@ namespace BitterECS.Core
             Presenter = presenter;
             Added = onChanged;
             Removed = onChanged;
-
             presenter.AddCheckEvent<T>();
-            _pool = presenter.GetPool<T>() as EcsEventPool<T>
-                ?? throw new InvalidOperationException($"Pool for {typeof(T)} is not an event pool");
+            _pool = presenter.GetPool<T>() as EcsEventPool<T> ?? throw new InvalidOperationException($"Pool for {typeof(T)} is not an event pool");
             _pool.Subscribe(this);
         }
 
         public void Dispose() => _pool.Unsubscribe(this);
-
-    }
-
-    public static class EcsConditions
-    {
-        public static Predicate<T> GreaterThan<T>(T value) where T : IComparable<T> => c => c.CompareTo(value) > 0;
-        public static Predicate<T> LessThan<T>(T value) where T : IComparable<T> => c => c.CompareTo(value) < 0;
-        public static Predicate<T> EqualTo<T>(T value) where T : IEquatable<T> => c => c.Equals(value);
-        public static Predicate<T> NotNull<T>() where T : class => c => c != null;
-
-        public static bool HasProvider<T>(EcsEntity e) where T : ILinkableProvider => e.HasProvider<T>();
-
-        public static bool Has<T1>(EcsEntity e) where T1 : new() => e.Has<T1>();
-        public static bool Has<T1, T2>(EcsEntity e) where T1 : new() where T2 : new() => Has<T1>(e) && e.Has<T2>();
-        public static bool Has<T1, T2, T3>(EcsEntity e) where T1 : new() where T2 : new() where T3 : new() => Has<T1, T2>(e) && e.Has<T3>();
-        public static bool Has<T1, T2, T3, T4>(EcsEntity e) where T1 : new() where T2 : new() where T3 : new() where T4 : new() => Has<T1, T2, T3>(e) && e.Has<T4>();
-        public static bool Has<T1, T2, T3, T4, T5>(EcsEntity e) where T1 : new() where T2 : new() where T3 : new() where T4 : new() where T5 : new() => Has<T1, T2, T3, T4>(e) && e.Has<T5>();
-
-        public static bool Not<T1>(EcsEntity e) where T1 : new() => !Has<T1>(e);
-        public static bool Not<T1, T2>(EcsEntity e) where T1 : new() where T2 : new() => !Has<T1, T2>(e);
-        public static bool Not<T1, T2, T3>(EcsEntity e) where T1 : new() where T2 : new() where T3 : new() => !Has<T1, T2, T3>(e);
-        public static bool Not<T1, T2, T3, T4>(EcsEntity e) where T1 : new() where T2 : new() where T3 : new() where T4 : new() => !Has<T1, T2, T3, T4>(e);
-        public static bool Not<T1, T2, T3, T4, T5>(EcsEntity e) where T1 : new() where T2 : new() where T3 : new() where T4 : new() where T5 : new() => !Has<T1, T2, T3, T4, T5>(e);
     }
 }

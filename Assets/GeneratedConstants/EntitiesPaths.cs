@@ -1,7 +1,7 @@
 ﻿using System;
 
 // [AUTO-GENERATED] by BitterECS AutoPathConstantsGenerator
-// Defines paths for prefabs containing BitterECS Providers or MonoBehaviours
+// Defines paths for Prefabs (Providers/MonoBehaviours) and ScriptableObjects
 
 public static class EntitiesPaths
 {

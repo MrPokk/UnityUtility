@@ -4,66 +4,85 @@ using System;
 
 namespace BitterECS.Editor
 {
-
     public static class BitterStyle
     {
-        public static readonly Color MainBgColor = EditorGUIUtility.isProSkin ? new Color(0.22f, 0.22f, 0.22f) : new Color(0.76f, 0.76f, 0.76f);
-        public static readonly Color CardBgColor = EditorGUIUtility.isProSkin ? new Color(0.28f, 0.28f, 0.28f) : new Color(0.9f, 0.9f, 0.9f);
-        public static readonly Color HeaderBgColor = EditorGUIUtility.isProSkin ? new Color(0.25f, 0.25f, 0.25f) : new Color(0.8f, 0.8f, 0.8f);
-        public static readonly Color AccentColor = new Color(0.2f, 0.6f, 0.85f);
-        public static readonly Color SelectionColor = new Color(0.2f, 0.6f, 0.85f, 0.2f);
-
-        public static GUIStyle Container;
-        public static GUIStyle Card;
-        public static GUIStyle HeaderLabel;
-        public static GUIStyle SubHeaderLabel;
-        public static GUIStyle MiniBadge;
-        public static GUIStyle SearchField;
-        public static GUIStyle Toolbar;
-        public static GUIStyle ToolbarButton;
-
-        // Icons
-        public static GUIContent IconRefresh;
-        public static GUIContent IconAutoRefresh;
-        public static GUIContent IconFolder;
-        public static GUIContent IconFolderOpen;
-        public static GUIContent IconScript;
-        public static GUIContent IconPrefab;
-        public static GUIContent IconWarn;
-
         private static bool _initialized;
 
-        public static Color HeaderBackground => EditorGUIUtility.isProSkin ? new Color(0.25f, 0.25f, 0.25f) : new Color(0.85f, 0.85f, 0.85f);
-        public static Color CardBackground => EditorGUIUtility.isProSkin ? new Color(0.22f, 0.22f, 0.22f) : new Color(0.9f, 0.9f, 0.9f);
-        public static Color WindowBackground => EditorGUIUtility.isProSkin ? new Color(0.18f, 0.18f, 0.18f) : new Color(0.78f, 0.78f, 0.78f);
+        // Colors
+        public static Color MainBgColor => EditorGUIUtility.isProSkin ? new Color(0.22f, 0.22f, 0.22f) : new Color(0.76f, 0.76f, 0.76f);
+        public static Color CardBgColor => EditorGUIUtility.isProSkin ? new Color(0.28f, 0.28f, 0.28f) : new Color(0.9f, 0.9f, 0.9f);
+        public static Color HeaderBgColor => EditorGUIUtility.isProSkin ? new Color(0.25f, 0.25f, 0.25f) : new Color(0.85f, 0.85f, 0.85f);
+        public static Color AccentColor => new Color(0.2f, 0.6f, 0.85f);
+        public static Color SelectionColor => new Color(0.2f, 0.6f, 0.85f, 0.2f);
         public static Color WarningColor => new Color(0.95f, 0.7f, 0.2f);
 
-        public static GUIStyle CardStyle;
-        public static GUIStyle FolderHeaderStyle;
-        public static GUIStyle EntityTitleStyle;
-        public static GUIStyle ComponentBadgeStyle;
+        // GUI Styles
+        public static GUIStyle Container { get; private set; }
+        public static GUIStyle Card { get; private set; }
+        public static GUIStyle CardStyle { get; private set; }
+        public static GUIStyle HeaderLabel { get; private set; }
+        public static GUIStyle SubHeaderLabel { get; private set; }
+        public static GUIStyle FolderHeaderStyle { get; private set; }
+        public static GUIStyle EntityTitleStyle { get; private set; }
+        public static GUIStyle ComponentBadgeStyle { get; private set; }
+        public static GUIStyle MiniBadge { get; private set; }
+        public static GUIStyle SearchField { get; private set; }
+        public static GUIStyle Toolbar { get; private set; }
+        public static GUIStyle ToolbarButton { get; private set; }
 
-        private static Texture2D MakeTex(int width, int height, Color col)
-        {
-            var pix = new Color[width * height];
-            for (int i = 0; i < pix.Length; i++) pix[i] = col;
-            var result = new Texture2D(width, height);
-            result.SetPixels(pix);
-            result.Apply();
-            return result;
-        }
+        // Icons
+        public static GUIContent IconRefresh { get; private set; }
+        public static GUIContent IconAutoRefresh { get; private set; }
+        public static GUIContent IconFolder { get; private set; }
+        public static GUIContent IconFolderOpen { get; private set; }
+        public static GUIContent IconScript { get; private set; }
+        public static GUIContent IconPrefab { get; private set; }
+        public static GUIContent IconWarn { get; private set; }
 
         public static void Init()
         {
             if (_initialized) return;
 
-            if (CardStyle != null) return;
+            InitStyles();
+            InitIcons();
 
+            _initialized = true;
+        }
+
+        private static void InitStyles()
+        {
             CardStyle = new GUIStyle(EditorStyles.helpBox)
             {
                 padding = new RectOffset(0, 0, 0, 0),
                 margin = new RectOffset(4, 4, 4, 8),
-                normal = { background = MakeTex(1, 1, CardBackground) }
+                normal = { background = MakeTexture(1, 1, CardBgColor) }
+            };
+
+            Container = new GUIStyle(EditorStyles.helpBox)
+            {
+                padding = new RectOffset(0, 0, 0, 0),
+                margin = new RectOffset(0, 0, 5, 5)
+            };
+
+            Card = new GUIStyle(EditorStyles.helpBox)
+            {
+                padding = new RectOffset(10, 10, 8, 8),
+                margin = new RectOffset(4, 4, 4, 4),
+                normal = { background = MakeTexture(2, 2, CardBgColor) }
+            };
+
+            HeaderLabel = new GUIStyle(EditorStyles.boldLabel)
+            {
+                fontSize = 13,
+                alignment = TextAnchor.MiddleLeft
+            };
+
+            SubHeaderLabel = new GUIStyle(EditorStyles.miniLabel)
+            {
+                fontSize = 10,
+                alignment = TextAnchor.MiddleRight,
+                fontStyle = FontStyle.Bold,
+                normal = { textColor = EditorGUIUtility.isProSkin ? Color.gray : Color.darkGray }
             };
 
             FolderHeaderStyle = new GUIStyle(EditorStyles.boldLabel)
@@ -91,23 +110,6 @@ namespace BitterECS.Editor
                 padding = new RectOffset(4, 4, 0, 0)
             };
 
-
-            Container = new GUIStyle(EditorStyles.helpBox)
-            {
-                padding = new RectOffset(0, 0, 0, 0),
-                margin = new RectOffset(0, 0, 5, 5)
-            };
-
-            Card = new GUIStyle(EditorStyles.helpBox)
-            {
-                padding = new RectOffset(10, 10, 8, 8),
-                margin = new RectOffset(4, 4, 4, 4),
-                normal = { background = MakeTexture(2, 2, CardBgColor) }
-            };
-
-            HeaderLabel = new GUIStyle(EditorStyles.boldLabel) { fontSize = 13, alignment = TextAnchor.MiddleLeft };
-            SubHeaderLabel = new GUIStyle(EditorStyles.miniLabel) { fontSize = 10, alignment = TextAnchor.MiddleRight, fontStyle = FontStyle.Bold, normal = { textColor = EditorGUIUtility.isProSkin ? Color.gray : Color.darkGray } };
-
             MiniBadge = new GUIStyle(EditorStyles.miniButton)
             {
                 fixedHeight = 16,
@@ -119,7 +121,10 @@ namespace BitterECS.Editor
             SearchField = new GUIStyle(EditorStyles.toolbarSearchField);
             Toolbar = new GUIStyle(EditorStyles.toolbar);
             ToolbarButton = new GUIStyle(EditorStyles.toolbarButton);
+        }
 
+        private static void InitIcons()
+        {
             IconRefresh = EditorGUIUtility.IconContent("d_Refresh");
             IconAutoRefresh = EditorGUIUtility.IconContent("d_RotateTool On");
             IconFolder = EditorGUIUtility.IconContent("Folder Icon");
@@ -127,15 +132,15 @@ namespace BitterECS.Editor
             IconScript = EditorGUIUtility.IconContent("cs Script Icon");
             IconPrefab = EditorGUIUtility.IconContent("d_Prefab Icon");
             IconWarn = EditorGUIUtility.IconContent("console.warnicon.sml");
-
-            _initialized = true;
         }
 
         public static Texture2D MakeTexture(int width, int height, Color col)
         {
             Color[] pix = new Color[width * height];
-            for (int i = 0; i < pix.Length; i++) pix[i] = col;
-            Texture2D result = new Texture2D(width, height);
+            for (int i = 0; i < pix.Length; i++)
+                pix[i] = col;
+
+            var result = new Texture2D(width, height) { hideFlags = HideFlags.HideAndDontSave };
             result.SetPixels(pix);
             result.Apply();
             return result;
