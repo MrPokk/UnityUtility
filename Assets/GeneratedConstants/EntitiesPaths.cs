@@ -7,4 +7,11 @@ public static class EntitiesPaths
 {
     /// <summary> Provider: TestProvider </summary>
     public const string TEST = "Entities/Test";
+
+    public static readonly string[] AllPaths = new string[]
+    {
+        TEST,
+    };
+
+    public const int COUNT = 1;
 }

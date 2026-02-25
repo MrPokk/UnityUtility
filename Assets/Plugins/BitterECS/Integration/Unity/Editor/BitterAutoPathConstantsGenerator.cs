@@ -15,7 +15,7 @@ namespace BitterECS.Extra.Editor
         private const string GENERATED_SCRIPTS_FOLDER = "Assets/GeneratedConstants"; [MenuItem("BitterECS/Tools/Generate All Path Constants", priority = 0)]
         public static void GenerateAll()
         {
-            PathUtility.GenerationConstPath(); // Убедимся, что пути PathProject актуальны
+            PathUtility.GenerationConstPath();
             EnsureDirectoryExists(GENERATED_SCRIPTS_FOLDER);
 
             var pathFields = GetValidPathFields();
@@ -144,7 +144,7 @@ namespace BitterECS.Extra.Editor
                 loadPath = Path.Combine(relativeResourcePath, fileName).Replace('\\', '/');
             }
 
-            loadPath = loadPath.Replace("//", "/"); // Очистка на всякий случай
+            loadPath = loadPath.Replace("//", "/");
 
             return (constName, loadPath, summaryInfo);
         }
@@ -187,12 +187,45 @@ namespace BitterECS.Extra.Editor
             sb.AppendLine($"public static class {className}");
             sb.AppendLine("{");
 
-            foreach (var item in items.OrderBy(x => x.name))
+            items = items.OrderBy(x => x.name).ThenBy(x => x.path).ToList();
+
+            var nameCounts = new Dictionary<string, int>();
+            var processedItems = new List<(string uniqueName, string path, string summary)>();
+
+            foreach (var (name, path, summary) in items)
             {
-                sb.AppendLine($"    /// <summary> {item.summary} </summary>");
-                sb.AppendLine($"    public const string {item.name} = \"{item.path}\";");
+                var finalName = name;
+
+                if (nameCounts.ContainsKey(name))
+                {
+                    nameCounts[name]++;
+                    finalName = $"{name}_{nameCounts[name]}";
+                }
+                else
+                {
+                    nameCounts[name] = 1;
+                }
+
+                processedItems.Add((finalName, path, summary));
             }
 
+            foreach (var (uniqueName, path, summary) in processedItems)
+            {
+                sb.AppendLine($"    /// <summary> {summary} </summary>");
+                sb.AppendLine($"    public const string {uniqueName} = \"{path}\";");
+            }
+
+            sb.AppendLine();
+            sb.AppendLine("    public static readonly string[] AllPaths = new string[]");
+            sb.AppendLine("    {");
+            foreach (var (uniqueName, path, summary) in processedItems)
+            {
+                sb.AppendLine($"        {uniqueName},");
+            }
+
+            sb.AppendLine("    };");
+            sb.AppendLine();
+            sb.AppendLine($"    public const int COUNT = {processedItems.Count};");
             sb.AppendLine("}");
 
             var filePath = Path.Combine(GENERATED_SCRIPTS_FOLDER, $"{className}.cs");
