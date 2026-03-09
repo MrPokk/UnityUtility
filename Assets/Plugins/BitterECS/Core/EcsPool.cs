@@ -22,8 +22,7 @@ namespace BitterECS.Core
             _count = 0;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Add(int entityId, in T component)
+        public virtual void Add(int entityId, in T component)
         {
             if (Has(entityId)) return;
 
@@ -56,8 +55,7 @@ namespace BitterECS.Core
             EcsWorld.IncreaseVersion();
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Remove(int entityId)
+        public virtual void Remove(int entityId)
         {
             var page = entityId / EcsDefinitions.SparsePageSize;
             if (page >= _sparsePages.Length || _sparsePages[page] == null) return;
@@ -114,13 +112,12 @@ namespace BitterECS.Core
     {
         private IEcsEvent[] _subscriptions = Array.Empty<IEcsEvent>();
         private int _subCount;
-        private bool _isSorted;
 
         public void Subscribe(IEcsEvent eventTo)
         {
             if (_subCount >= _subscriptions.Length) Array.Resize(ref _subscriptions, Math.Max(2, _subscriptions.Length * 2));
             _subscriptions[_subCount++] = eventTo;
-            _isSorted = false;
+            Array.Sort(_subscriptions, 0, _subCount, PriorityUtility.Sort());
         }
 
         public void Unsubscribe(IEcsEvent eventTo)
@@ -130,39 +127,24 @@ namespace BitterECS.Core
             {
                 _subscriptions[idx] = _subscriptions[--_subCount];
                 _subscriptions[_subCount] = null;
-                _isSorted = false;
+                Array.Sort(_subscriptions, 0, _subCount, PriorityUtility.Sort());
             }
         }
 
-        private void EnsureSorted()
-        {
-            if (_isSorted)
-            {
-                return;
-            }
-
-            Array.Sort(_subscriptions, 0, _subCount, PriorityUtility.Sort());
-            _isSorted = true;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public new void Add(int entityId, in T component)
+        public override void Add(int entityId, in T component)
         {
             base.Add(entityId, in component);
-            if (_subCount == 0) return;
-            EnsureSorted();
-            for (var i = 0; i < _subCount; i++) _subscriptions[i].Added?.Invoke(new(Presenter, entityId));
+
+            for (var i = 0; i < _subCount; i++)
+                _subscriptions[i].Added?.Invoke(new(Presenter, entityId));
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public new void Remove(int entityId)
+        public override void Remove(int entityId)
         {
-            if (_subCount > 0 && Has(entityId))
-            {
-                EnsureSorted();
-                for (var i = 0; i < _subCount; i++) _subscriptions[i].Removed?.Invoke(new(Presenter, entityId));
-            }
             base.Remove(entityId);
+
+            for (var i = 0; i < _subCount; i++)
+                _subscriptions[i].Removed?.Invoke(Presenter.Get(entityId));
         }
     }
 }

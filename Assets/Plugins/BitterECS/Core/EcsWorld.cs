@@ -24,20 +24,40 @@ namespace BitterECS.Core
         private readonly Dictionary<Type, EcsPresenter> _ecsPresenters = new(EcsDefinitions.InitialPresentersCapacity);
         private RefWorldVersion _world = new(0);
 
-        private EcsWorld() { }
+        private EcsWorld() => LoadAllPresenters();
 
-        internal void RegisterPresenter(Type type, EcsPresenter presenter) => _ecsPresenters[type] = presenter;
+        private void LoadAllPresenters()
+        {
+            _ecsPresenters.Clear();
+            var presenterTypes = ReflectionUtility.FindAllImplement<EcsPresenter>();
+            foreach (var type in presenterTypes)
+            {
+                if (Activator.CreateInstance(type) is EcsPresenter presenter)
+                {
+                    _ecsPresenters.TryAdd(type, presenter);
+                }
+            }
+        }
+
+        internal EcsPresenter GetInternal(Type type)
+        {
+            if (_ecsPresenters.TryGetValue(type, out var value)) return value;
+            throw new Exception($"Presenter not found");
+        }
 
         internal T GetInternal<T>() where T : EcsPresenter, new()
         {
             if (_ecsPresenters.TryGetValue(typeof(T), out var value)) return (T)value;
-            var inst = new T();
-            _ecsPresenters[typeof(T)] = inst;
-            return inst;
+            throw new Exception($"Presenter not found: {typeof(T)}");
         }
 
-        internal EcsPresenter GetInternal(Type type) => _ecsPresenters.TryGetValue(type, out var value) ? value : null;
+        internal EcsPresenter GetToEntityTypeInternal(Type type)
+        {
+            foreach (var presenter in _ecsPresenters.Values) return presenter;
+            throw new Exception($"No presenter found for: {type}");
+        }
 
+        internal ICollection<EcsPresenter> GetAllInternal() => _ecsPresenters.Values;
         public RefWorldVersion GetWorld() => _world;
         public RefWorldVersion IncreaseWorldVersion() => _world = _world.Increment();
 
@@ -51,6 +71,8 @@ namespace BitterECS.Core
         public static void Clear() => Instance.Dispose();
         public static EcsPresenter Get(Type type) => Instance.GetInternal(type);
         public static T Get<T>() where T : EcsPresenter, new() => Instance.GetInternal<T>();
+        public static EcsPresenter GetToEntityType(Type type) => Instance.GetToEntityTypeInternal(type);
+        public static ICollection<EcsPresenter> GetAll() => Instance.GetAllInternal();
         public static RefWorldVersion GetRefWorld() => Instance.GetWorld();
         public static RefWorldVersion IncreaseVersion() => Instance.IncreaseWorldVersion();
     }

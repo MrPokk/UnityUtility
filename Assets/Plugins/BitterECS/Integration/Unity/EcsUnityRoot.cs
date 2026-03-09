@@ -1,7 +1,7 @@
 using BitterECS.Core;
 using UnityEngine;
 
-namespace BitterECS.Integration
+namespace BitterECS.Integration.Unity
 {
     [DefaultExecutionOrder(int.MinValue)]
     [DisallowMultipleComponent]

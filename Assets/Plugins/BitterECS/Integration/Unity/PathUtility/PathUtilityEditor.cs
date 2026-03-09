@@ -10,7 +10,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using BitterECS.Extra;
 
-namespace BitterECS.Integration.Editor
+namespace BitterECS.Integration.Unity.Editor
 {
     public class PathProjectEditor : EditorWindow
     {

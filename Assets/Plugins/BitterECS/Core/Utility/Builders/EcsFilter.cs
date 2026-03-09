@@ -6,9 +6,9 @@ namespace BitterECS.Core
     public struct EcsFilter
     {
         private readonly EcsPresenter _presenter;
-        private ComponentMask _includeMask;
-        private ComponentMask _excludeMask;
-        private ComponentMask _orMask;
+        private EcsComponentMask _includeMask;
+        private EcsComponentMask _excludeMask;
+        private EcsComponentMask _orMask;
         private int _smallestPoolId;
 
         private Predicate<int>[] _predicates;
@@ -18,12 +18,21 @@ namespace BitterECS.Core
         private int[] _filteredCache;
         private int _filteredLength;
 
+        public int Count
+        {
+            get
+            {
+                ValidationCacheOnFilter();
+                return _filteredLength;
+            }
+        }
+
         public EcsFilter(EcsPresenter presenter)
         {
             _presenter = presenter;
-            _includeMask = new ComponentMask();
-            _excludeMask = new ComponentMask();
-            _orMask = new ComponentMask();
+            _includeMask = new EcsComponentMask();
+            _excludeMask = new EcsComponentMask();
+            _orMask = new EcsComponentMask();
             _smallestPoolId = -1;
 
             _predicates = null;
@@ -46,7 +55,7 @@ namespace BitterECS.Core
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public EcsFilter Include<T>() where T : new()
         {
-            var id = ComponentTypeId<T>.Id;
+            var id = EcsComponentTypeId<T>.Id;
             _includeMask.Set(id);
             UpdateSmallestPool(id);
             return this;
@@ -64,14 +73,14 @@ namespace BitterECS.Core
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public EcsFilter Exclude<T>() where T : new()
         {
-            _excludeMask.Set(ComponentTypeId<T>.Id);
+            _excludeMask.Set(EcsComponentTypeId<T>.Id);
             return this;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public EcsFilter Or<T>() where T : new()
         {
-            _orMask.Set(ComponentTypeId<T>.Id);
+            _orMask.Set(EcsComponentTypeId<T>.Id);
             return this;
         }
 
@@ -98,7 +107,7 @@ namespace BitterECS.Core
         public EcsFilter WhereProvider<T>() where T : class, ILinkableProvider
         {
             var presenter = _presenter;
-            AddPredicate(entityId => new EcsEntity(presenter, entityId).IsProviding);
+            AddPredicate(entityId => new EcsEntity(presenter, entityId).HasProvider<T>());
             return this;
         }
 
@@ -170,14 +179,11 @@ namespace BitterECS.Core
             }
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private Enumerator GetFastEnumerator()
+        public Enumerator GetEnumerator()
         {
             ValidationCacheOnFilter();
             return new Enumerator(_presenter, _filteredCache, _filteredLength);
         }
-
-        public Enumerator GetEnumerator() => GetFastEnumerator();
 
         public ref struct Enumerator
         {

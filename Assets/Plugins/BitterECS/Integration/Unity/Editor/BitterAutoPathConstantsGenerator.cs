@@ -6,9 +6,9 @@ using System.Reflection;
 using System.Text;
 using UnityEditor;
 using UnityEngine;
-using BitterECS.Integration;
+using BitterECS.Extra;
 
-namespace BitterECS.Extra.Editor
+namespace BitterECS.Integration.Unity.Editor
 {
     public static class BitterAutoPathConstantsGenerator
     {

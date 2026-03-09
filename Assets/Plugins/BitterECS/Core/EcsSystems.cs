@@ -69,7 +69,7 @@ namespace BitterECS.Core
             var systems = GetSystemsInternal<T>();
             for (var i = 0; i < systems.Length; i++)
             {
-                action((T)systems[i]);
+                action(systems[i]);
             }
         }
 
@@ -111,7 +111,10 @@ namespace BitterECS.Core
         public static void Clear() => Instance.Dispose();
         public static void AddSystem(IEcsSystem system) => Instance.AddSystemInternal(system);
         public static void AddSystems(params IEcsSystem[] systems) => Instance.AddSystemsInternal(systems);
+        public static void AddSystem<T>(T system) where T : class, IEcsSystem => Instance.AddSystemInternal(system);
         public static void Run<T>(Action<T> action) where T : class, IEcsSystem => Instance.RunInternal(action);
         public static T[] GetSystems<T>() where T : class, IEcsSystem => Instance.GetSystemsInternal<T>();
+
+
     }
 }

@@ -1,32 +1,28 @@
-﻿using System;
-
-namespace BitterECS.Core
+﻿namespace BitterECS.Core
 {
     public static class EcsDefinitions
     {
         public const ushort InitialPoolCapacity = 64;
         public const ushort PoolGrowthFactor = 2;
         public const ushort EntityCallbackFactor = 4;
-
         public const ushort InitialPresentersCapacity = 16;
         public const ushort InitialEntitiesCapacity = 128;
         public const ushort InitialLinkedEntitiesCapacity = 64;
-
         public const ushort InitialSystemsCapacity = 64;
         public const int SparsePageSize = 256;
     }
 
-    internal static class ComponentTypeManager
+    internal static class EcsComponentTypes
     {
         public static int NextId = 0;
     }
 
-    public static class ComponentTypeId<T>
+    public static class EcsComponentTypeId<T>
     {
-        public static readonly int Id = ComponentTypeManager.NextId++;
+        public static readonly int Id = EcsComponentTypes.NextId++;
     }
 
-    public struct ComponentMask
+    public struct EcsComponentMask
     {
         public ulong bits0, bits1, bits2, bits3;
 
@@ -55,13 +51,13 @@ namespace BitterECS.Core
             return false;
         }
 
-        public readonly bool HasAll(in ComponentMask other) =>
+        public readonly bool HasAll(in EcsComponentMask other) =>
             (bits0 & other.bits0) == other.bits0 &&
             (bits1 & other.bits1) == other.bits1 &&
             (bits2 & other.bits2) == other.bits2 &&
             (bits3 & other.bits3) == other.bits3;
 
-        public readonly bool HasAny(in ComponentMask other) =>
+        public readonly bool HasAny(in EcsComponentMask other) =>
             (bits0 & other.bits0) != 0 ||
             (bits1 & other.bits1) != 0 ||
             (bits2 & other.bits2) != 0 ||

@@ -8,12 +8,10 @@ using System.IO;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
-using BitterECS.Integration;
-using BitterECS.Extra;
 using BitterECS.Core;
-using BitterECS.Extra.Editor;
+using BitterECS.Extra;
 
-namespace BitterECS.Editor
+namespace BitterECS.Integration.Unity.Editor
 {
     #region View Classes
 

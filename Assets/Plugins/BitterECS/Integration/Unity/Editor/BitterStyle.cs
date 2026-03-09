@@ -2,7 +2,7 @@
 using UnityEngine;
 using System;
 
-namespace BitterECS.Editor
+namespace BitterECS.Integration.Unity.Editor
 {
     public static class BitterStyle
     {

@@ -1,8 +1,10 @@
-using System;
+﻿using System;
 using UnityEngine;
-
-public class SelectImplementationAttribute : PropertyAttribute
+namespace BitterECS.Integration.Unity
 {
-    public Type FieldType { get; }
-    public SelectImplementationAttribute(Type fieldType) => FieldType = fieldType;
+    public class SelectImplementationAttribute : PropertyAttribute
+    {
+        public Type FieldType { get; }
+        public SelectImplementationAttribute(Type fieldType) => FieldType = fieldType;
+    }
 }

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using BitterECS.Core;
 using UnityEngine;
 
-namespace BitterECS.Integration
+namespace BitterECS.Integration.Unity
 {
     public interface ITypedComponentProvider
     {
