@@ -7,17 +7,20 @@ public struct VelocityComponent { public float vx, vy; }
 
 public class RawPerformanceTest : IEcsRunSystem, IEcsInitSystem
 {
-    private const int EntityCount = 100_000;  // количество сущностей
-    private EcsFilter _filter = new EcsFilter<TestPresenter>().Include<MoveComponent>();
-
+    private const int EntityCount = 100_000;
+    private EcsFilter _filter = new EcsFilter().Has<MoveComponent>();
+    private EcsFilter<MoveComponent> _ecsEntities = new();
     public Priority Priority => Priority.Medium;
 
     public void Init()
     {
-        new EcsBuilder<TestPresenter>()
+        var test = new EcsBuilder()
        .With<MoveComponent>()
-       .With<VelocityComponent>()
-       .Create(EntityCount);
+       .With<VelocityComponent>();
+        for (int i = 0; i < EntityCount; i++)
+        {
+            test.Create();
+        }
     }
 
     public void Run()
@@ -26,7 +29,7 @@ public class RawPerformanceTest : IEcsRunSystem, IEcsInitSystem
 
         var sw = Stopwatch.StartNew();
 
-        foreach (var entity in _filter)
+        foreach (var entity in _ecsEntities)
         {
 
         }

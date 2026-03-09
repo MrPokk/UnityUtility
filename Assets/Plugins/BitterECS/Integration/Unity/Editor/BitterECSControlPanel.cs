@@ -1121,12 +1121,12 @@ namespace BitterECS.Integration.Unity.Editor
 
         public static IReadOnlyCollection<IEcsSystem> GetSystems()
         {
-            if (!Application.isPlaying || EcsSystems.Instance == null) return Array.Empty<IEcsSystem>();
+            if (!Application.isPlaying || EcsSystemStatic.Instance == null) return Array.Empty<IEcsSystem>();
 
-            _systemsField ??= typeof(EcsSystems).GetField("_systems", BindingFlags.NonPublic | BindingFlags.Instance);
+            _systemsField ??= typeof(EcsSystemStatic).GetField("_systems", BindingFlags.NonPublic | BindingFlags.Instance);
             if (_systemsField == null) return Array.Empty<IEcsSystem>();
 
-            return _systemsField.GetValue(EcsSystems.Instance) as SortedSet<IEcsSystem> ?? (IReadOnlyCollection<IEcsSystem>)Array.Empty<IEcsSystem>();
+            return _systemsField.GetValue(EcsSystemStatic.Instance) as SortedSet<IEcsSystem> ?? (IReadOnlyCollection<IEcsSystem>)Array.Empty<IEcsSystem>();
         }
 
         public static int GetSystemsCount() => GetSystems().Count;

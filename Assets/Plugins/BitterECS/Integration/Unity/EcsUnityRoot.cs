@@ -1,4 +1,4 @@
-using BitterECS.Core;
+﻿using BitterECS.Core;
 using UnityEngine;
 
 namespace BitterECS.Integration.Unity
@@ -33,38 +33,39 @@ namespace BitterECS.Integration.Unity
 
         protected virtual void Awake()
         {
-            EcsSystems.Run<IEcsPreInitSystem>(system => system.PreInit());
+            EcsSystemStatic.Load();
+            EcsSystemStatic.Run<IEcsPreInitSystem>(system => system.PreInit());
             Bootstrap();
         }
 
         protected virtual void Start()
         {
-            EcsSystems.Run<IEcsInitSystem>(system => system.Init());
+            EcsSystemStatic.Run<IEcsInitSystem>(system => system.Init());
             PostBootstrap();
         }
 
         protected virtual void Update()
         {
-            EcsSystems.Run<IEcsRunSystem>(system => system.Run());
+            EcsSystemStatic.Run<IEcsRunSystem>(system => system.Run());
         }
 
         protected virtual void FixedUpdate()
         {
-            EcsSystems.Run<IEcsFixedRunSystem>(system => system.FixedRun());
+            EcsSystemStatic.Run<IEcsFixedRunSystem>(system => system.FixedRun());
         }
 
         protected virtual void LateUpdate()
         {
-            EcsSystems.Run<IEcsPostRunSystem>(system => system.PostRun());
+            EcsSystemStatic.Run<IEcsPostRunSystem>(system => system.PostRun());
         }
 
         protected virtual void OnDestroy()
         {
-            EcsSystems.Run<IEcsDestroySystem>(system => system.Destroy());
-            EcsSystems.Run<IEcsPostDestroySystem>(system => system.PostDestroy());
+            EcsSystemStatic.Run<IEcsDestroySystem>(system => system.Destroy());
+            EcsSystemStatic.Run<IEcsPostDestroySystem>(system => system.PostDestroy());
 
-            EcsWorld.Clear();
-            EcsSystems.Clear();
+            EcsWorldStatic.Dispose();
+            EcsSystemStatic.Dispose();
         }
     }
 }

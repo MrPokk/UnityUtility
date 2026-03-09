@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using BitterECS.Core;
 using UnityEngine;
 
@@ -12,101 +11,88 @@ namespace BitterECS.Integration.Unity
 
     public abstract class ProviderEcs : MonoBehaviour, ITypedComponentProvider, ILinkableProvider
     {
-        public abstract bool IsPresenter { get; }
+        private static EcsWorld s_activeWorld;
+        public static EcsWorld ActiveWorld
+        {
+            get => s_activeWorld ?? EcsWorldStatic.Instance;
+            set => s_activeWorld = value;
+        }
+
+        protected static readonly List<ProviderEcs> ProvidersCache = new(16);
+
         public abstract EcsEntity Entity { get; }
 
-        internal abstract EcsEntity GetEntitySilently();
+        internal abstract EcsEntity GetEntityRaw();
 
-        public virtual EcsProperty Properties => GetEntitySilently().Presenter != null
-            ? new EcsProperty(GetEntitySilently().Presenter, GetEntitySilently().Id)
-            : null;
+        public abstract void AddToBuilder(ref EcsBuilder builder);
 
         public abstract void Sync(EcsEntity entity);
-        public void Dispose() => DisposeInternal();
 
+        public void Dispose() => DisposeInternal();
         protected abstract void InitInternal(EcsProperty property);
         protected abstract void DisposeInternal();
-
         void IInitialize<EcsProperty>.Init(EcsProperty property) => InitInternal(property);
+
+        public virtual EcsProperty Properties => GetEntityRaw().World != null
+            ? new EcsProperty(GetEntityRaw().World, GetEntityRaw().Id)
+            : default;
     }
 
     [DisallowMultipleComponent]
     public class ProviderEcs<T> : ProviderEcs where T : new()
     {
-        private static readonly bool s_isPresenterType = typeof(EcsPresenter).IsAssignableFrom(typeof(T));
-        private static readonly List<ITypedComponentProvider> s_sharedComponentCache = new(16);
-
         [SerializeField] protected T _value;
 
-        private bool _isDestroying;
         private EcsEntity _linkedEntity;
-        private ProviderEcs _cachedRootProvider;
+        private bool _isDestroying;
 
-        public override bool IsPresenter => s_isPresenterType;
+        public override EcsEntity Entity => GetOrUpdateEntity();
 
-        public override EcsEntity Entity
-        {
-            get
-            {
-                var entity = GetEntitySilently();
-#if UNITY_EDITOR
-                if (!entity.IsAlive && !_isDestroying)
-                {
-                    throw new Exception($"[ProviderEcs<{typeof(T).Name}>] Entity is not linked on '{typeof(T).Name}'.");
-                }
-#endif
-                return entity;
-            }
-        }
+        internal override EcsEntity GetEntityRaw() => _linkedEntity;
 
         public ref T Value => ref Entity.Get<T>();
 
-        internal override EcsEntity GetEntitySilently()
-        {
-            if (s_isPresenterType)
-            {
-                return _linkedEntity;
-            }
-            return GetParentEntitySilently();
-        }
-
-        public EcsEntity ToEntity()
-        {
-            return new EcsBuilder(EcsWorld.Get(typeof(T)))
-                     .WithPost(e => ProcessComponents(e))
-                     .Create();
-        }
-
         protected virtual void Awake()
         {
-            if (s_isPresenterType)
-            {
-                InitializeAsPresenter();
-            }
-            else
-            {
-                ProcessComponents();
-                if (_cachedRootProvider == null)
-                {
-                    Debug.LogWarning($"[ProviderEcs<{typeof(T).Name}>] No Root Provider found on '{name}'. This component won't sync automatically.");
-                }
-            }
-            Registration();
+            GetOrUpdateEntity();
         }
 
-        protected virtual void Registration() { }
+        private EcsEntity GetOrUpdateEntity()
+        {
+            if (_linkedEntity.IsAlive) return _linkedEntity;
+
+            GetComponents(ProvidersCache);
+            for (var i = 0; i < ProvidersCache.Count; i++)
+            {
+                var siblingEntity = ProvidersCache[i].GetEntityRaw();
+                if (siblingEntity.IsAlive)
+                {
+                    _linkedEntity = siblingEntity;
+                    ProvidersCache.Clear();
+                    return _linkedEntity;
+                }
+            }
+
+            _linkedEntity = CreateEntityForGameObject(ActiveWorld);
+            return _linkedEntity;
+        }
 
         private void OnDestroy() => Dispose();
 
+        public override void AddToBuilder(ref EcsBuilder builder)
+        {
+            builder.With(_value);
+        }
+
         public override void Sync(EcsEntity entity)
         {
-            if (s_isPresenterType || entity.Presenter == null) return;
+            if (entity.World == null) return;
             entity.Add(_value);
         }
 
         protected override void InitInternal(EcsProperty property)
         {
-            _linkedEntity = new EcsEntity(property.Presenter, property.Id);
+            _linkedEntity = new EcsEntity(property.World, property.Id);
         }
 
         protected override void DisposeInternal()
@@ -114,98 +100,80 @@ namespace BitterECS.Integration.Unity
             if (_isDestroying) return;
             _isDestroying = true;
 
-            if (gameObject != null && gameObject.scene.IsValid())
+            if (_linkedEntity.IsAlive)
             {
-                var entity = GetEntitySilently();
-                if (entity.Presenter != null)
-                {
-                    entity.Destroy();
-                }
-                Destroy(gameObject);
+                _linkedEntity.Destroy();
             }
 
+            if (gameObject != null) Destroy(gameObject);
             _linkedEntity = default;
-            _cachedRootProvider = null;
         }
 
-        private void InitializeAsPresenter()
+        private EcsEntity CreateEntityForGameObject(EcsWorld world)
         {
-            if (_isDestroying || _linkedEntity.Presenter != null) return;
-            CreateEntity();
-        }
+            var builder = new EcsBuilder(world);
 
-        private EcsEntity CreateEntity()
-        {
-            return new EcsBuilder(EcsWorld.Get(typeof(T)))
-                     .WithPost(e => ProcessComponents(e))
-                     .WithLink(this)
-                     .Create();
-        }
+            if (ProvidersCache.Count == 0) GetComponents(ProvidersCache);
 
-        private void ProcessComponents(EcsEntity entityToSync = default)
-        {
-            if (_isDestroying) return;
-            var isSyncMode = entityToSync.Presenter != null;
-
-            GetComponents(s_sharedComponentCache);
-            foreach (var provider in s_sharedComponentCache)
+            for (var i = 0; i < ProvidersCache.Count; i++)
             {
-                if (ReferenceEquals(provider, this)) continue;
+                ProvidersCache[i].AddToBuilder(ref builder);
 
-                if (isSyncMode)
-                {
-                    provider.Sync(entityToSync);
-                }
-                else if (provider is ProviderEcs root && root.IsPresenter)
-                {
-                    _cachedRootProvider = root;
-                    break;
-                }
+                builder.WithLink(ProvidersCache[i]);
             }
-            s_sharedComponentCache.Clear();
+
+            ProvidersCache.Clear();
+
+            return builder.Create();
         }
 
-        private EcsEntity GetParentEntitySilently()
-        {
-            if (_cachedRootProvider == null) ProcessComponents();
-            return _cachedRootProvider != null ? _cachedRootProvider.GetEntitySilently() : new(null);
-        }
+        public EcsEntity ToEntity(EcsWorld world = default) => CreateEntityForGameObject(world ?? ActiveWorld);
 
         public void PushToEcs()
         {
-            var entity = GetEntitySilently();
-            if (entity.Presenter != null) entity.Get<T>() = _value;
+            if (Entity.IsAlive) Entity.Get<T>() = _value;
         }
 
         public void PullFromEcs()
         {
-            var entity = GetEntitySilently();
-            if (entity.Presenter != null) _value = entity.Get<T>();
+            if (Entity.Has<T>()) _value = Entity.Get<T>();
         }
 
 #if UNITY_EDITOR
-
         private void Update()
         {
             if (!Application.isPlaying || _isDestroying) return;
-
-            var entity = GetEntitySilently();
-            if (entity.Presenter != null && entity.Has<T>())
-            {
-                _value = entity.Get<T>();
-            }
+            if (Entity.Has<T>()) _value = Entity.Get<T>();
         }
 
         private void OnValidate()
         {
             if (!Application.isPlaying || _isDestroying) return;
-
-            var entity = GetEntitySilently();
-            if (entity.Presenter != null && entity.Has<T>())
-            {
-                entity.Get<T>() = _value;
-            }
+            if (Entity.IsAlive) Entity.Get<T>() = _value;
         }
 #endif
+    }
+
+    public struct UnityComponent<T> where T : Component
+    {
+        public T value;
+
+        public static implicit operator T(UnityComponent<T> proxy) => proxy.value;
+    }
+
+    public abstract class ProxyProvider<T> : ProviderEcs<UnityComponent<T>> where T : Component
+    {
+        protected override void Awake()
+        {
+            _value.value = TryGetComponent<T>(out var component) ? component : gameObject.AddComponent<T>();
+
+            base.Awake();
+        }
+
+        public override void AddToBuilder(ref EcsBuilder builder)
+        {
+            _value.value ??= GetComponent<T>();
+            builder.With(_value);
+        }
     }
 }

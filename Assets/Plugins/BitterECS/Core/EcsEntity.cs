@@ -6,15 +6,14 @@ namespace BitterECS.Core
     public readonly struct EcsEntity : IEquatable<EcsEntity>
     {
         public readonly int Id;
-        public readonly EcsPresenter Presenter;
-        public bool IsNull => Presenter == null;
-        public bool IsAlive => !IsNull && Presenter.Has(Id);
-        public bool IsProviding => IsAlive && Presenter.HasProvider(Id);
+        public readonly EcsWorld World;
+        public bool IsAlive => World != null && World.Has(Id);
+        public bool IsProviding => IsAlive && World.HasProvider(Id);
 
-        public EcsEntity(EcsPresenter presenter, int id = -1)
+        public EcsEntity(EcsWorld world, int id = -1)
         {
             Id = id;
-            Presenter = presenter;
+            World = world;
         }
 
         public void AddFrame<T>(in T component = default) where T : new()
@@ -41,8 +40,8 @@ namespace BitterECS.Core
             }
             else
             {
-                Presenter.SetMaskBit(Id, EcsComponentTypeId<T>.Id);
-                Presenter.GetPool<T>().Add(Id, component);
+                World.SetMaskBit(Id, EcsComponentTypeId<T>.Id);
+                World.GetPool<T>().Add(Id, component);
             }
         }
 
@@ -50,7 +49,7 @@ namespace BitterECS.Core
         public delegate void RefAction<T>(ref T component) where T : new();
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ref T Get<T>() where T : new() => ref Presenter.GetPool<T>().Get(Id);
+        public ref T Get<T>() where T : new() => ref World.GetPool<T>().Get(Id);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryGet<T>(out T component) where T : new() =>
@@ -61,7 +60,7 @@ namespace BitterECS.Core
         { if (!Has<T>()) Add(new T()); return ref Get<T>(); }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool Has<T>() where T : new() => !IsNull && Presenter.GetEntityMask(Id).Has(EcsComponentTypeId<T>.Id);
+        public bool Has<T>() where T : new() => World != null && World.GetEntityMask(Id).Has(EcsComponentTypeId<T>.Id);
 
         public bool Has<T>(Predicate<T> predicate) where T : new() => Has<T>() && predicate(Get<T>());
 
@@ -70,22 +69,22 @@ namespace BitterECS.Core
         {
             if (Has<T>())
             {
-                Presenter.RemoveMaskBit(Id, EcsComponentTypeId<T>.Id);
-                Presenter.GetPool<T>().Remove(Id);
+                World.RemoveMaskBit(Id, EcsComponentTypeId<T>.Id);
+                World.GetPool<T>().Remove(Id);
             }
         }
 
-        public void Destroy() => Presenter.Remove(this);
-        public T GetProvider<T>() where T : class, ILinkableProvider => Presenter.GetProvider(this) as T;
+        public void Destroy() => World.Remove(this);
+        public T GetProvider<T>() where T : class, ILinkableProvider => World.GetProvider(this) as T;
 
         public bool TryGetProvider<T>(out T provider) where T : class, ILinkableProvider
         { provider = GetProvider<T>(); return HasProvider<T>(); }
 
-        public bool HasProvider<T>() where T : ILinkableProvider => Presenter.GetProvider(this) is not null and T;
+        public bool HasProvider<T>() where T : ILinkableProvider => World.GetProvider(this) is not null and T;
 
-        public bool Equals(EcsEntity other) => Id == other.Id && Presenter == other.Presenter;
+        public bool Equals(EcsEntity other) => Id == other.Id && World == other.World;
         public override bool Equals(object obj) => obj is EcsEntity other && Equals(other);
-        public override int GetHashCode() => HashCode.Combine(Id, Presenter);
+        public override int GetHashCode() => HashCode.Combine(Id, World);
         public static bool operator ==(EcsEntity left, EcsEntity right) => left.Equals(right);
         public static bool operator !=(EcsEntity left, EcsEntity right) => !left.Equals(right);
     }

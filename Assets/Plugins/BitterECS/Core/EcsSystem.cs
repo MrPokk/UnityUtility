@@ -3,18 +3,38 @@ using System.Collections.Generic;
 
 namespace BitterECS.Core
 {
-    public sealed class EcsSystems : IDisposable
+    public static class EcsSystemStatic
     {
-        private static EcsSystems s_instance;
-        public static EcsSystems Instance => s_instance ??= new EcsSystems();
+        private static EcsSystem s_instance;
+        public static EcsSystem Instance => s_instance ??= new EcsSystem();
 
-        private readonly List<IEcsSystem> _allSystems = new(EcsDefinitions.InitialSystemsCapacity);
-        private readonly Dictionary<Type, IEcsSystem> _systemsByType = new(EcsDefinitions.InitialSystemsCapacity);
-        private readonly Dictionary<Type, IEcsSystem[]> _cachedInstanceSystems = new(EcsDefinitions.InitialSystemsCapacity);
+        public static void Load() => Instance.Load();
+        public static void AddSystem(IEcsSystem system) => Instance.AddSystem(system);
+        public static void AddSystems(params IEcsSystem[] systems) => Instance.AddSystems(systems);
+        public static void AddSystem<T>(T system) where T : class, IEcsSystem => Instance.AddSystem(system);
+        public static void Run<T>(Action<T> action) where T : class, IEcsSystem => Instance.Run(action);
+        public static T[] GetSystems<T>() where T : class, IEcsSystem => Instance.GetSystems<T>();
+        public static void Dispose()
+        {
+            s_instance?.Dispose();
+            s_instance = null;
+        }
+    }
 
-        private EcsSystems() => LoadAllSystems();
+    public sealed class EcsSystem : IDisposable
+    {
+        private readonly List<IEcsSystem> _allSystems;
+        private readonly Dictionary<Type, IEcsSystem> _systemsByType;
+        private readonly Dictionary<Type, IEcsSystem[]> _cachedInstanceSystems;
 
-        private void LoadAllSystems()
+        public EcsSystem()
+        {
+            _allSystems = new(EcsDefinitions.InitialSystemsCapacity);
+            _systemsByType = new(EcsDefinitions.InitialSystemsCapacity);
+            _cachedInstanceSystems = new(EcsDefinitions.InitialSystemsCapacity);
+        }
+
+        public void Load()
         {
             _allSystems.Clear();
             _systemsByType.Clear();
@@ -25,33 +45,33 @@ namespace BitterECS.Core
             {
                 if (Activator.CreateInstance(type) is IEcsAutoImplement system)
                 {
-                    AddToSystemInternal(system);
+                    AddToSystem(system);
                 }
             }
 
             _allSystems.Sort(PriorityUtility.Sort());
         }
 
-        internal void AddSystemInternal(IEcsSystem system)
+        public void AddSystem(IEcsSystem system)
         {
             if (system == null) throw new ArgumentNullException(nameof(system));
 
-            AddToSystemInternal(system);
+            AddToSystem(system);
             _allSystems.Sort(PriorityUtility.Sort());
             _cachedInstanceSystems.Clear();
         }
 
-        internal void AddSystemsInternal(params IEcsSystem[] systems)
+        public void AddSystems(params IEcsSystem[] systems)
         {
             if (systems == null) throw new ArgumentNullException(nameof(systems));
 
-            foreach (var system in systems) AddToSystemInternal(system);
+            foreach (var system in systems) AddToSystem(system);
 
             _allSystems.Sort(PriorityUtility.Sort());
             _cachedInstanceSystems.Clear();
         }
 
-        private void AddToSystemInternal(IEcsSystem system)
+        private void AddToSystem(IEcsSystem system)
         {
             var type = system.GetType();
 
@@ -64,16 +84,16 @@ namespace BitterECS.Core
             _allSystems.Add(system);
         }
 
-        internal void RunInternal<T>(Action<T> action) where T : class, IEcsSystem
+        public void Run<T>(Action<T> action) where T : class, IEcsSystem
         {
-            var systems = GetSystemsInternal<T>();
+            var systems = GetSystems<T>();
             for (var i = 0; i < systems.Length; i++)
             {
                 action(systems[i]);
             }
         }
 
-        internal T[] GetSystemsInternal<T>() where T : class, IEcsSystem
+        public T[] GetSystems<T>() where T : class, IEcsSystem
         {
             var type = typeof(T);
 
@@ -105,16 +125,6 @@ namespace BitterECS.Core
             _allSystems.Clear();
             _systemsByType.Clear();
             _cachedInstanceSystems.Clear();
-            s_instance = null;
         }
-
-        public static void Clear() => Instance.Dispose();
-        public static void AddSystem(IEcsSystem system) => Instance.AddSystemInternal(system);
-        public static void AddSystems(params IEcsSystem[] systems) => Instance.AddSystemsInternal(systems);
-        public static void AddSystem<T>(T system) where T : class, IEcsSystem => Instance.AddSystemInternal(system);
-        public static void Run<T>(Action<T> action) where T : class, IEcsSystem => Instance.RunInternal(action);
-        public static T[] GetSystems<T>() where T : class, IEcsSystem => Instance.GetSystemsInternal<T>();
-
-
     }
 }

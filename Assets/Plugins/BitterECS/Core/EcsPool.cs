@@ -10,7 +10,7 @@ namespace BitterECS.Core
         private int[] _denseEntities;
         private int _count;
 
-        public EcsPresenter Presenter { get; internal set; }
+        public EcsWorld World { get; internal set; }
         public int Count => _count;
 
         public EcsPool(int initialCapacity = -1)
@@ -52,7 +52,7 @@ namespace BitterECS.Core
             _sparsePages[page][index] = _count;
             _count++;
 
-            EcsWorld.IncreaseVersion();
+            World.IncreaseVersion();
         }
 
         public virtual void Remove(int entityId)
@@ -81,7 +81,7 @@ namespace BitterECS.Core
             _sparsePages[page][index] = -1;
             _count--;
 
-            EcsWorld.IncreaseVersion();
+            World.IncreaseVersion();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -136,7 +136,7 @@ namespace BitterECS.Core
             base.Add(entityId, in component);
 
             for (var i = 0; i < _subCount; i++)
-                _subscriptions[i].Added?.Invoke(new(Presenter, entityId));
+                _subscriptions[i].Added?.Invoke(new(World, entityId));
         }
 
         public override void Remove(int entityId)
@@ -144,7 +144,7 @@ namespace BitterECS.Core
             base.Remove(entityId);
 
             for (var i = 0; i < _subCount; i++)
-                _subscriptions[i].Removed?.Invoke(Presenter.Get(entityId));
+                _subscriptions[i].Removed?.Invoke(World.Get(entityId));
         }
     }
 }

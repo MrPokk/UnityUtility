@@ -1,5 +1,6 @@
 ﻿using System;
-using BitterECS.Integration;
+using BitterECS.Integration.Unity;
+using UnityEngine;
 
 [Serializable]
 public struct TestComponent
@@ -8,4 +9,7 @@ public struct TestComponent
 }
 
 
-public class TestComponentProvider : ProviderEcs<TestComponent> { }
+public class TestComponentProvider : ProviderEcs<TestComponent>
+{
+
+}

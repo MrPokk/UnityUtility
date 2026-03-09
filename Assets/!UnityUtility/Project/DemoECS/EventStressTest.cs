@@ -5,15 +5,20 @@ using Debug = UnityEngine.Debug;
 
 public struct TriggerComponent { }
 
-public class EventStressTest : IEcsRunSystem
+public class EventStressTest : IEcsInitSystem, IEcsRunSystem
 {
     private const int BATCH_SIZE = 5000;
-    private int _addedCount = 0;
     public Priority Priority => Priority.Medium;
 
-    // Подписываемся на добавление компонента
-    private EcsEvent _event = new EcsEvent<TestPresenter>()
-        .Subscribe<TriggerComponent>(added: OnTriggered);
+    // Предполагается, что Root/фреймворк прокидывает сюда ссылку на EcsWorld перед Init()
+
+    private EcsEvent _event = new();
+
+    public void Init()
+    {
+        // Теперь EcsEvent инициализируется от World
+        _event = new EcsEvent().Subscribe<TriggerComponent>(added: OnTriggered);
+    }
 
     private static void OnTriggered(EcsEntity entity)
     {
@@ -25,12 +30,11 @@ public class EventStressTest : IEcsRunSystem
     {
         if (!Input.GetKeyDown(KeyCode.E)) return;
 
-        var presenter = EcsWorld.Get<TestPresenter>();
         var sw = Stopwatch.StartNew();
 
         for (int i = 0; i < BATCH_SIZE; i++)
         {
-            var e = presenter.CreateEntity();
+            var e = EcsWorldStatic.Instance.CreateEntity();
             e.Add(new TriggerComponent()); // Это триггерит OnEvent
         }
 

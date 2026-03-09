@@ -5,7 +5,9 @@ namespace BitterECS.Core
 {
     public struct EcsBuilder
     {
-        private readonly EcsPresenter _presenter;
+        private readonly EcsWorld _world;
+        public readonly EcsWorld World => _world ?? EcsWorldStatic.Instance;
+
         private Action<EcsEntity> _postInitCallback;
         private Action<EcsEntity> _preInitCallback;
         private ComponentAddOperations _componentAddOps;
@@ -13,9 +15,9 @@ namespace BitterECS.Core
         private ILinkableProvider _linkableProvider;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EcsBuilder(EcsPresenter presenter)
+        public EcsBuilder(EcsWorld world = default)
         {
-            _presenter = presenter ?? throw new ArgumentNullException(nameof(presenter));
+            _world = world;
             _postInitCallback = null;
             _preInitCallback = null;
             _componentAddOps = default;
@@ -60,19 +62,27 @@ namespace BitterECS.Core
 
         public EcsEntity Create()
         {
-            var entity = _presenter.CreateEntity();
+            var entity = World.CreateEntity();
 
             _preInitCallback?.Invoke(entity);
-            _componentAddOps.Execute(entity, _presenter, ref _componentAddedCallbacks);
+            _componentAddOps.Execute(entity, World, ref _componentAddedCallbacks);
 
             if (_linkableProvider != null)
             {
-                _presenter.Link(entity, _linkableProvider);
+                World.Link(entity, _linkableProvider);
             }
 
             _postInitCallback?.Invoke(entity);
 
             return entity;
+        }
+
+        public void Create(int count)
+        {
+            for (var i = 0; i < count; i++)
+            {
+                Create();
+            }
         }
 
         private struct ComponentAddOperations
@@ -82,13 +92,13 @@ namespace BitterECS.Core
 
             private interface IComponentOperation
             {
-                void Execute(EcsEntity entity, EcsPresenter presenter, ref ComponentAddedCallbacks callbacks);
+                void Execute(EcsEntity entity, EcsWorld world, ref ComponentAddedCallbacks callbacks);
             }
 
             private struct ComponentOperation<C> : IComponentOperation where C : new()
             {
                 public C component;
-                public void Execute(EcsEntity entity, EcsPresenter presenter, ref ComponentAddedCallbacks callbacks)
+                public void Execute(EcsEntity entity, EcsWorld world, ref ComponentAddedCallbacks callbacks)
                 {
                     entity.Add(component);
                     callbacks.Invoke(entity, component);
@@ -102,9 +112,9 @@ namespace BitterECS.Core
                 _operations[_count++] = new ComponentOperation<C> { component = component };
             }
 
-            public readonly void Execute(EcsEntity entity, EcsPresenter presenter, ref ComponentAddedCallbacks callbacks)
+            public readonly void Execute(EcsEntity entity, EcsWorld world, ref ComponentAddedCallbacks callbacks)
             {
-                for (var i = 0; i < _count; i++) _operations[i].Execute(entity, presenter, ref callbacks);
+                for (var i = 0; i < _count; i++) _operations[i].Execute(entity, world, ref callbacks);
             }
         }
 
@@ -136,77 +146,6 @@ namespace BitterECS.Core
                 if (_callbacks == null) return;
                 for (var i = 0; i < _count; i++) _callbacks[i].Invoke(entity, component);
             }
-        }
-    }
-
-    public struct EcsBuilder<TPresenter> where TPresenter : EcsPresenter, new()
-    {
-        private EcsBuilder? _builder;
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void EnsureInitialized()
-        {
-            if (!_builder.HasValue) _builder = new EcsBuilder(EcsWorld.Get<TPresenter>());
-        }
-
-        public EcsBuilder<TPresenter> WithLink(ILinkableProvider provider)
-        {
-            EnsureInitialized();
-            _builder = _builder.Value.WithLink(provider);
-            return this;
-        }
-
-        public EcsBuilder<TPresenter> WithPost(Action<EcsEntity> callback)
-        {
-            EnsureInitialized();
-            _builder = _builder.Value.WithPost(callback);
-            return this;
-        }
-
-        public EcsBuilder<TPresenter> WithPre(Action<EcsEntity> initAction)
-        {
-            EnsureInitialized();
-            _builder = _builder.Value.WithPre(initAction);
-            return this;
-        }
-
-        public EcsBuilder<TPresenter> With<C>(C component = default) where C : new()
-        {
-            EnsureInitialized();
-            _builder = _builder.Value.With(component);
-            return this;
-        }
-
-        public EcsBuilder<TPresenter> WithAdded<C>(Action<EcsEntity, C> callback) where C : new()
-        {
-            EnsureInitialized();
-            _builder = _builder.Value.WithAdded(callback);
-            return this;
-        }
-
-        public EcsEntity Create()
-        {
-            EnsureInitialized();
-            return _builder.Value.Create();
-        }
-    }
-
-    public struct EntityBuilderGeneric<TEntity> where TEntity : struct
-    {
-        private EcsBuilder _builder;
-
-        internal EntityBuilderGeneric(EcsPresenter presenter) => _builder = new EcsBuilder(presenter);
-
-        public EntityBuilderGeneric<TEntity> WithLink(ILinkableProvider provider) { _builder.WithLink(provider); return this; }
-        public EntityBuilderGeneric<TEntity> WithPost(Action<EcsEntity> callback) { _builder.WithPost(callback); return this; }
-        public EntityBuilderGeneric<TEntity> WithPre(Action<EcsEntity> initAction) { _builder.WithPre(initAction); return this; }
-        public EntityBuilderGeneric<TEntity> With<C>(C component) where C : new() { _builder.With(component); return this; }
-        public EntityBuilderGeneric<TEntity> WithAdded<C>(Action<EcsEntity, C> callback) where C : new() { _builder.WithAdded(callback); return this; }
-
-        public TEntity Create()
-        {
-            var entity = _builder.Create();
-            return (TEntity)(object)entity;
         }
     }
 }

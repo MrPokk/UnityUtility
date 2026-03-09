@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
 using BitterECS.Core;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
@@ -9,18 +10,26 @@ public struct TagC { }
 
 public class FilterFragmentationTest : IEcsInitSystem, IEcsRunSystem
 {
-    private const int V = 20000 * 100;
-    private EcsFilter _complexFilter;
+    private const int V = 2_000_000; // Немного понизил для адекватных тестов в Unity (2 млн)
     public Priority Priority => Priority.Medium;
+
+    public EcsWorld World => EcsWorldStatic.Instance;
+
+    private EcsEvent _event = new EcsEvent().Subscribe<TagA>(added: Test);
+
+    private static void Test(EcsEntity entity)
+    {
+        var id = entity.Id;
+    }
+
+    private EcsFilter<TagA, TagB, TagC> _complexFilter;
 
     public void Init()
     {
-        var presenter = EcsWorld.Get<TestPresenter>();
-
-        // Создаем 20 000 "мусорных" сущностей
+        // Создаем 2 000 000 "мусорных" сущностей, чтобы разбросать память и увеличить пулы
         for (int i = 0; i < V; i++)
         {
-            var e = presenter.CreateEntity();
+            var e = World.CreateEntity();
             if (i % 2 == 0) e.Add(new TagA());
             if (i % 3 == 0) e.Add(new TagB());
         }
@@ -28,16 +37,14 @@ public class FilterFragmentationTest : IEcsInitSystem, IEcsRunSystem
         // Создаем всего 100 сущностей, подходящих под сложный фильтр
         for (int i = 0; i < 101; i++)
         {
-            var e = presenter.CreateEntity();
+            var e = World.CreateEntity();
             e.Add(new TagA());
             e.Add(new TagB());
             e.Add(new TagC());
         }
 
-        _complexFilter = new EcsFilter(presenter)
-            .Include<TagA>()
-            .Include<TagB>()
-            .Include<TagC>();
+        // Инициализируем фильтр 
+        _complexFilter = new EcsFilter<TagA, TagB, TagC>(World);
     }
 
     public void Run()
@@ -47,9 +54,10 @@ public class FilterFragmentationTest : IEcsInitSystem, IEcsRunSystem
         var sw = Stopwatch.StartNew();
         int count = 0;
 
+
         foreach (var entity in _complexFilter)
         {
-
+            count++;
         }
 
         sw.Stop();

@@ -5,16 +5,18 @@ namespace BitterECS.Core
 {
     public struct EcsDestroyer
     {
-        private readonly EcsPresenter _presenter;
+        private readonly EcsWorld _world;
+        public readonly EcsWorld World => _world ?? EcsWorldStatic.Instance;
+
         private readonly EcsEntity _entity;
         private Action<EcsEntity> _preDestroyCallback;
         private Action<EcsEntity> _postDestroyCallback;
         private ComponentRemoveOperations _componentRemoveOps;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal EcsDestroyer(EcsPresenter presenter, EcsEntity entity)
+        public EcsDestroyer(EcsEntity entity, EcsWorld world = default)
         {
-            _presenter = presenter;
+            _world = world;
             _entity = entity;
             _preDestroyCallback = null;
             _postDestroyCallback = null;
@@ -38,7 +40,7 @@ namespace BitterECS.Core
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public EcsDestroyer RemoveComponent<C>() where C : new()
         {
-            _componentRemoveOps.Add(_presenter.GetPool<C>());
+            _componentRemoveOps.Add(World.GetPool<C>());
             return this;
         }
 
@@ -48,19 +50,17 @@ namespace BitterECS.Core
 
             _preDestroyCallback?.Invoke(_entity);
             _componentRemoveOps.Execute(_entity.Id);
-            _presenter.Remove(_entity);
+            World.Remove(_entity);
             _postDestroyCallback?.Invoke(_entity);
         }
 
         private struct ComponentRemoveOperations
         {
             private IPool[] _pools;
-            private int _count;
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private int _count; [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Add(IPool pool)
             {
-                if (_pools == null) _pools = new IPool[EcsDefinitions.EntityCallbackFactor];
+                _pools ??= new IPool[EcsDefinitions.EntityCallbackFactor];
                 if (_count == _pools.Length) Array.Resize(ref _pools, _count * 2);
                 _pools[_count++] = pool;
             }
@@ -74,39 +74,5 @@ namespace BitterECS.Core
                 }
             }
         }
-    }
-
-    public struct EcsDestroyer<TPresenter> where TPresenter : EcsPresenter, new()
-    {
-        private EcsDestroyer _builder;
-
-        public EcsDestroyer(EcsEntity entity)
-        {
-            _builder = new EcsDestroyer(EcsWorld.Get<TPresenter>(), entity);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EcsDestroyer<TPresenter> WithPreDestroyCallback(Action<EcsEntity> callback)
-        {
-            _builder = _builder.WithPreDestroyCallback(callback);
-            return this;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EcsDestroyer<TPresenter> WithPostDestroyCallback(Action<EcsEntity> callback)
-        {
-            _builder = _builder.WithPostDestroyCallback(callback);
-            return this;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EcsDestroyer<TPresenter> RemoveComponent<C>() where C : new()
-        {
-            _builder = _builder.RemoveComponent<C>();
-            return this;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Destroy() => _builder.Destroy();
     }
 }

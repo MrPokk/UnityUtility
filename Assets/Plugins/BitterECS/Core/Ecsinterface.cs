@@ -24,7 +24,7 @@ namespace BitterECS.Core
 
     public interface IEcsEvent : IEcsPriority, IDisposable
     {
-        EcsPresenter Presenter { get; }
+        EcsWorld World { get; }
         Action<EcsEntity> Added { get; }
         Action<EcsEntity> Removed { get; }
     }
@@ -54,12 +54,12 @@ namespace BitterECS.Core
 
     public record EcsProperty : IInitializeProperty
     {
-        public EcsPresenter Presenter { get; }
+        public EcsWorld World { get; }
         public int Id { get; }
 
-        public EcsProperty(EcsPresenter presenter, int id)
+        public EcsProperty(EcsWorld presenter, int id)
         {
-            Presenter = presenter;
+            World = presenter;
             Id = id;
         }
     }
