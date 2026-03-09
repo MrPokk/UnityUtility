@@ -160,7 +160,6 @@ namespace BitterECS.Core
             if (_subCount > 0 && Has(entityId))
             {
                 EnsureSorted();
-                var e = new EcsEntity(Presenter, entityId);
                 for (var i = 0; i < _subCount; i++) _subscriptions[i].Removed?.Invoke(new(Presenter, entityId));
             }
             base.Remove(entityId);

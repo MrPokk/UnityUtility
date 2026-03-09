@@ -49,7 +49,7 @@ public class FilterFragmentationTest : IEcsInitSystem, IEcsRunSystem
 
         foreach (var entity in _complexFilter)
         {
-            count++;
+
         }
 
         sw.Stop();

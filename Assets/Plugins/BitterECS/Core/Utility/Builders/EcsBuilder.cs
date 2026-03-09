@@ -75,6 +75,14 @@ namespace BitterECS.Core
             return entity;
         }
 
+        public void Create(int count)
+        {
+            for (var i = 0; i < count; i++)
+            {
+                Create();
+            }
+        }
+
         private struct ComponentAddOperations
         {
             private IComponentOperation[] _operations;
@@ -189,24 +197,11 @@ namespace BitterECS.Core
             EnsureInitialized();
             return _builder.Value.Create();
         }
-    }
 
-    public struct EntityBuilderGeneric<TEntity> where TEntity : struct
-    {
-        private EcsBuilder _builder;
-
-        internal EntityBuilderGeneric(EcsPresenter presenter) => _builder = new EcsBuilder(presenter);
-
-        public EntityBuilderGeneric<TEntity> WithLink(ILinkableProvider provider) { _builder.WithLink(provider); return this; }
-        public EntityBuilderGeneric<TEntity> WithPost(Action<EcsEntity> callback) { _builder.WithPost(callback); return this; }
-        public EntityBuilderGeneric<TEntity> WithPre(Action<EcsEntity> initAction) { _builder.WithPre(initAction); return this; }
-        public EntityBuilderGeneric<TEntity> With<C>(C component) where C : new() { _builder.With(component); return this; }
-        public EntityBuilderGeneric<TEntity> WithAdded<C>(Action<EcsEntity, C> callback) where C : new() { _builder.WithAdded(callback); return this; }
-
-        public TEntity Create()
+        public void Create(int count)
         {
-            var entity = _builder.Create();
-            return (TEntity)(object)entity;
+            EnsureInitialized();
+            _builder.Value.Create(count);
         }
     }
 }
