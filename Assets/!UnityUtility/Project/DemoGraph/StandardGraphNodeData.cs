@@ -1,6 +1,7 @@
 ﻿
 using System;
 using System.Collections.Generic;
+using GraphTree;
 
 [Serializable]
 public class StandardGraphNodeData : GraphNodeData

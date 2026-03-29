@@ -13,35 +13,201 @@ MonoBehaviour:
   m_Name: NewGraphTree
   m_EditorClassIdentifier: 
   gridSize: 20
-  worldScale: 100
+  worldScale: 150
   nodes:
-  - rid: 4048788032561610823
-  connections: []
+  - rid: 4048788032561610827
+  - rid: 4048788032561610831
+  - rid: 4048788032561610832
+  - rid: 4048788032561610833
+  - rid: 4048788032561610834
+  - rid: 4048788032561610835
+  connections:
+  - connection:
+      id: 1260073991
+      fromGraphId: 1558777137
+      toGraphId: 1824061616
+      fromAnchor: 1
+      toAnchor: 0
+  - connection:
+      id: 297541889
+      fromGraphId: 1558777137
+      toGraphId: 902861511
+      fromAnchor: 5
+      toAnchor: 6
+  - connection:
+      id: 1431164928
+      fromGraphId: 1558777137
+      toGraphId: 1852262580
+      fromAnchor: 7
+      toAnchor: 4
+  - connection:
+      id: 1519510405
+      fromGraphId: 2062768323
+      toGraphId: 1558777137
+      fromAnchor: 1
+      toAnchor: 0
+  - connection:
+      id: 1220036563
+      fromGraphId: 1852262580
+      toGraphId: 1369811622
+      fromAnchor: 1
+      toAnchor: 0
   references:
     version: 2
     RefIds:
-    - rid: 4048788032561610823
+    - rid: 4048788032561610827
       type: {class: StandardGraphNodeData, ns: , asm: Assembly-CSharp}
       data:
         idComponent:
-          id: 2144986912
-          key: Test
+          id: 1558777137
+          key: StandardGraphNodeData
         position:
-          position: {x: 5.2, y: 2.17}
+          position: {x: 2, y: 5}
+          size: {x: 290, y: 388}
         components:
-        - rid: 4048788032561610824
-        - rid: 4048788032561610825
-        - rid: 4048788032561610826
-    - rid: 4048788032561610824
+        - rid: 4048788032561610828
+        - rid: 4048788032561610829
+        - rid: 4048788032561610830
+    - rid: 4048788032561610828
       type: {class: GraphProgressionComponent, ns: , asm: Assembly-CSharp}
       data:
         currentAmount: 0
         maxAmount: 0
-    - rid: 4048788032561610825
+    - rid: 4048788032561610829
       type: {class: GraphUnlockRulesComponent, ns: , asm: Assembly-CSharp}
       data:
         resourceAmount: 0
-    - rid: 4048788032561610826
+    - rid: 4048788032561610830
+      type: {class: GraphSpriteComponent, ns: , asm: Assembly-CSharp}
+      data:
+        sprite: {fileID: 0}
+    - rid: 4048788032561610831
+      type: {class: StandardGraphNodeData, ns: , asm: Assembly-CSharp}
+      data:
+        idComponent:
+          id: 1824061616
+          key: StandardGraphNodeData
+        position:
+          position: {x: 6.9999995, y: 5}
+          size: {x: 278, y: 388}
+        components:
+        - rid: 4048788032561610836
+        - rid: 4048788032561610837
+        - rid: 4048788032561610838
+    - rid: 4048788032561610832
+      type: {class: StandardGraphNodeData, ns: , asm: Assembly-CSharp}
+      data:
+        idComponent:
+          id: 902861511
+          key: StandardGraphNodeData
+        position:
+          position: {x: 6.9999995, y: 1.1199996}
+          size: {x: 278, y: 388}
+        components:
+        - rid: 4048788032561610839
+        - rid: 4048788032561610840
+        - rid: 4048788032561610841
+    - rid: 4048788032561610833
+      type: {class: StandardGraphNodeData, ns: , asm: Assembly-CSharp}
+      data:
+        idComponent:
+          id: 2062768323
+          key: StandardGraphNodeData
+        position:
+          position: {x: -1.9426719, y: 5.0000005}
+          size: {x: 278, y: 388}
+        components:
+        - rid: 4048788032561610842
+        - rid: 4048788032561610843
+        - rid: 4048788032561610844
+    - rid: 4048788032561610834
+      type: {class: StandardGraphNodeData, ns: , asm: Assembly-CSharp}
+      data:
+        idComponent:
+          id: 1852262580
+          key: StandardGraphNodeData
+        position:
+          position: {x: 7.000001, y: 8.88}
+          size: {x: 278, y: 388}
+        components:
+        - rid: 4048788032561610845
+        - rid: 4048788032561610846
+        - rid: 4048788032561610847
+    - rid: 4048788032561610835
+      type: {class: StandardGraphNodeData, ns: , asm: Assembly-CSharp}
+      data:
+        idComponent:
+          id: 1369811622
+          key: StandardGraphNodeData
+        position:
+          position: {x: 10.861967, y: 8.879999}
+          size: {x: 291, y: 388}
+        components:
+        - rid: 4048788032561610848
+        - rid: 4048788032561610849
+        - rid: 4048788032561610850
+    - rid: 4048788032561610836
+      type: {class: GraphProgressionComponent, ns: , asm: Assembly-CSharp}
+      data:
+        currentAmount: 0
+        maxAmount: 0
+    - rid: 4048788032561610837
+      type: {class: GraphUnlockRulesComponent, ns: , asm: Assembly-CSharp}
+      data:
+        resourceAmount: 0
+    - rid: 4048788032561610838
+      type: {class: GraphSpriteComponent, ns: , asm: Assembly-CSharp}
+      data:
+        sprite: {fileID: 0}
+    - rid: 4048788032561610839
+      type: {class: GraphProgressionComponent, ns: , asm: Assembly-CSharp}
+      data:
+        currentAmount: 0
+        maxAmount: 0
+    - rid: 4048788032561610840
+      type: {class: GraphUnlockRulesComponent, ns: , asm: Assembly-CSharp}
+      data:
+        resourceAmount: 0
+    - rid: 4048788032561610841
+      type: {class: GraphSpriteComponent, ns: , asm: Assembly-CSharp}
+      data:
+        sprite: {fileID: 0}
+    - rid: 4048788032561610842
+      type: {class: GraphProgressionComponent, ns: , asm: Assembly-CSharp}
+      data:
+        currentAmount: 0
+        maxAmount: 0
+    - rid: 4048788032561610843
+      type: {class: GraphUnlockRulesComponent, ns: , asm: Assembly-CSharp}
+      data:
+        resourceAmount: 0
+    - rid: 4048788032561610844
+      type: {class: GraphSpriteComponent, ns: , asm: Assembly-CSharp}
+      data:
+        sprite: {fileID: 0}
+    - rid: 4048788032561610845
+      type: {class: GraphProgressionComponent, ns: , asm: Assembly-CSharp}
+      data:
+        currentAmount: 0
+        maxAmount: 0
+    - rid: 4048788032561610846
+      type: {class: GraphUnlockRulesComponent, ns: , asm: Assembly-CSharp}
+      data:
+        resourceAmount: 0
+    - rid: 4048788032561610847
+      type: {class: GraphSpriteComponent, ns: , asm: Assembly-CSharp}
+      data:
+        sprite: {fileID: 0}
+    - rid: 4048788032561610848
+      type: {class: GraphProgressionComponent, ns: , asm: Assembly-CSharp}
+      data:
+        currentAmount: 0
+        maxAmount: 0
+    - rid: 4048788032561610849
+      type: {class: GraphUnlockRulesComponent, ns: , asm: Assembly-CSharp}
+      data:
+        resourceAmount: 0
+    - rid: 4048788032561610850
       type: {class: GraphSpriteComponent, ns: , asm: Assembly-CSharp}
       data:
         sprite: {fileID: 0}

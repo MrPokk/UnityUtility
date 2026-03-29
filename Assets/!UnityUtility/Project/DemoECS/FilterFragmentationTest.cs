@@ -44,7 +44,7 @@ public class FilterFragmentationTest : IEcsInitSystem, IEcsRunSystem
         }
 
         // Инициализируем фильтр 
-        _complexFilter = new EcsFilter<TagA, TagB, TagC>(World);
+        //  _complexFilter = new EcsFilter<TagA, TagB, TagC>(World);
     }
 
     public void Run()
